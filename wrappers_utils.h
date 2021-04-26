@@ -8,31 +8,34 @@ typedef unsigned int sandboxptr;
 unsigned long long membase = 0x40000000;
 unsigned long long memlen =  0x10000000;
 
+bool empty_predicate(){
+    return true;
+}
 
-inline sandboxptr ptr_to_sandbox(hostptr buf)
+sandboxptr ptr_to_sandbox(hostptr buf)
 {
     return buf - membase;
 }
 
 
-inline hostptr ptr_from_sandbox(sandboxptr buf)
+hostptr ptr_from_sandbox(sandboxptr buf)
 {
     return buf + membase;
 }
 
 
 // sandboxptrs 
-inline bool inBounds(sandboxptr ptr){
+bool inBounds(sandboxptr ptr){
     return (ptr >= membase) && (ptr <= (membase + memlen));  
 }
 
-inline sandboxptr sized_buf_to_sandbox(hostptr buf, size_t size)
+sandboxptr sized_buf_to_sandbox(hostptr buf, size_t size)
 {
     return ptr_to_sandbox(buf);
 }
 
 // returns pointer if success, or null if memory violation
-inline hostptr sized_buf_from_sandbox(sandboxptr buf, size_t size)
+hostptr sized_buf_from_sandbox(sandboxptr buf, size_t size)
 {
     if (inBounds(membase + buf) && inBounds(membase + buf + size)){
         return ptr_from_sandbox(buf);
@@ -43,13 +46,13 @@ inline hostptr sized_buf_from_sandbox(sandboxptr buf, size_t size)
 }
 
 
-inline sandboxptr path_to_sandbox(hostptr buf)
+sandboxptr path_to_sandbox(hostptr buf)
 {
     return sized_buf_to_sandbox(buf, PATH_MAX);
 }
 
 
-inline hostptr path_from_sandbox(sandboxptr buf)
+hostptr path_from_sandbox(sandboxptr buf)
 {
     return sized_buf_from_sandbox(buf, PATH_MAX);
 }
