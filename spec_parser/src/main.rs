@@ -1,3 +1,4 @@
+pub mod parser;
 use nom::{
   IResult,
   bytes::complete::{tag, take_while_m_n},
@@ -5,6 +6,7 @@ use nom::{
   sequence::tuple
 };
 use clap::{App, Arg};
+use parser::parse_spec_from_file;
 
 #[derive(PartialEq, Debug)]
 pub enum Language {
@@ -31,6 +33,8 @@ pub struct Config {
 
 fn run(config: Config) {
     println!("config = {:?}", config);
+    let spec = parse_spec_from_file(config.spec_path);
+
 }
 
 fn main() {
