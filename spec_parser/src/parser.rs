@@ -13,11 +13,17 @@ use nom::multi::{many0, separated_list0};
 use nom::combinator::recognize;
 use nom::sequence::pair;
 use nom::bytes::complete::tag;
-
+use nom::combinator::opt;
+use nom::multi::many0_count;
+use std::str::FromStr;
 
 
 #[derive(Debug)]
-pub struct WrapperSignature {}
+pub struct WrapperSignature {
+    function_name: String,
+    ret_ty: Ctype,
+    args: Vec<(Ctype, String)>,
+}
 
 #[derive(Debug)]
 pub struct WrapperPolicy {
@@ -30,6 +36,30 @@ pub struct Spec {
     sigs: Vec<WrapperSignature>,
     policies: Vec<WrapperPolicy>
 }
+
+#[derive(Debug)]
+pub enum Ctype {
+    Char,
+    Int,
+    Void,
+    SizeT,
+    Pointer(Box<Ctype>, bool), //bool = mutable
+}
+
+
+impl FromStr for Ctype {
+    type Err = ();
+    fn from_str(input: &str) -> Result<Ctype, Self::Err> {
+        match input {
+            "char"      => Ok(Ctype::Char),
+            "int"       => Ok(Ctype::Int),
+            "void"      => Ok(Ctype::Void),
+            "size_t"    => Ok(Ctype::SizeT),
+            _           => Err(()),
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub enum TypeQualifier {
@@ -93,16 +123,46 @@ fn parse_wrapper_policy(input: &str) -> IResult<&str, WrapperPolicy>{
     let (input, function_name) = parens(input)?;
     let (input, _) = ws(tag("="))(input)?;
     let (input, _) = ws(curly_brackets)(input)?;
-    let (input, annotations) = separated_list0(tag(","), annotation)(input)?;
-    return Ok( ("",WrapperPolicy{function_name: function_name.into(), annotations})) ;
+    let (_, annotations) = separated_list0(tag(","), annotation)(input)?;
+    return Ok( ("",WrapperPolicy{
+        function_name: function_name.into(), 
+        annotations})) ;
 }
 
-fn parse_wrapper_sig(line: &str) -> WrapperSignature{
-    return WrapperSignature {};
+
+fn ctype(input: &str) -> IResult<&str, Ctype> {
+    let (input, maybe_const) = opt(ws(tag("const")))(input)?;
+    let (input, ty) = ws(identifier)(input)?;
+    let (input, ptr_depth) = many0_count(ws(tag("*")))(input)?;
+    let cty = Ctype::from_str(ty).unwrap();
+
+    match ptr_depth{
+        0 => Ok((input, cty)),
+        1 => Ok((input, Ctype::Pointer(Box::new(cty), maybe_const.is_none()))),
+        _ => panic!("Unsupported Ctype"),
+    }
+}
+
+fn arg(input: &str) -> IResult<&str, (Ctype, String)> {
+    let (input, ty) = ws(ctype)(input)?;
+    let (input, arg_name) = ws(identifier)(input)?;
+    Ok((input, (ty, arg_name.into())))
+}
+
+fn parse_wrapper_sig(input: &str) ->  IResult<&str, WrapperSignature>{
+    let (input, ret_ty) = ws(ctype)(input)?;
+    let (input, function_name) = ws(identifier)(input)?;
+    let (_, args) = parens(input)?;
+    let (_, parsed_args) = separated_list0(tag(","), arg)(args)?;
+    return Ok(("", WrapperSignature {
+        function_name: function_name.into(), 
+        ret_ty: ret_ty,
+        args: parsed_args,
+    }));
 }
 
 pub fn parse_spec_from_file(spec_path: String) -> io::Result<Spec>{
-    let spec_str = fs::read_to_string("address.txt")?;
+    let spec_str = fs::read_to_string(spec_path)?;
     return parse_spec_from_string(spec_str);
 }
 
@@ -116,7 +176,7 @@ pub fn parse_spec_from_string(spec_str: String) -> io::Result<Spec>{
             policies.push(policy);
         }
         else{
-            let sig = parse_wrapper_sig(line);
+            let (_,sig) = parse_wrapper_sig(line).unwrap();
             sigs.push(sig);
         }
     }

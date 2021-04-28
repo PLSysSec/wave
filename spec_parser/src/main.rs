@@ -34,6 +34,7 @@ pub struct Config {
 fn run(config: Config) {
     println!("config = {:?}", config);
     let spec = parse_spec_from_file(config.spec_path);
+    println!("{:?}", spec);
 
 }
 
