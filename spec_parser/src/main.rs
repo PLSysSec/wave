@@ -1,10 +1,4 @@
 pub mod parser;
-use nom::{
-  IResult,
-  bytes::complete::{tag, take_while_m_n},
-  combinator::map_res,
-  sequence::tuple
-};
 use clap::{App, Arg};
 use parser::parse_spec_from_file;
 
@@ -17,10 +11,10 @@ pub enum Language {
 
 fn lang_from_string(input: String) -> Result<Language, ()> {
     match &*input.to_lowercase() {
-        "c"     =>  Ok(Language::C),
-        "cpp"   =>  Ok(Language::Cpp),
-        "rust"  =>  Ok(Language::Rust),
-        _       =>  Err(()),
+        "c" => Ok(Language::C),
+        "cpp" => Ok(Language::Cpp),
+        "rust" => Ok(Language::Rust),
+        _ => Err(()),
     }
 }
 
@@ -35,7 +29,6 @@ fn run(config: Config) {
     println!("config = {:?}", config);
     let spec = parse_spec_from_file(config.spec_path);
     println!("{:?}", spec);
-
 }
 
 fn main() {
