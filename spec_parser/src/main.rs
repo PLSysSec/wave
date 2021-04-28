@@ -1,7 +1,7 @@
 pub mod parser;
 pub mod types;
 use crate::parser::parse_spec_from_file;
-use crate::types::Language;
+use crate::types::{Language, Spec};
 use clap::{App, Arg};
 
 fn lang_from_string(input: String) -> Result<Language, ()> {
@@ -22,8 +22,15 @@ pub struct Config {
 
 fn run(config: Config) {
     println!("config = {:?}", config);
-    let spec = parse_spec_from_file(config.spec_path);
-    println!("{:?}", spec);
+    let spec = parse_spec_from_file(config.spec_path).unwrap();
+    println!("===== Signatures =====");
+    for sig in spec.sigs {
+        println!("{:?}", sig);
+    }
+    println!("===== Policies =====");
+    for policy in spec.policies {
+        println!("{:?}", policy);
+    }
 }
 
 fn main() {

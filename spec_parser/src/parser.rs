@@ -43,7 +43,7 @@ where
 
 fn qualifier_1arg(input: &str) -> IResult<&str, TypeQualifier> {
     let (input, name) = ws(identifier)(input)?;
-    let (input, _) = parens(input)?;
+    let (_, input) = parens(input)?;
     let (input, arg) = identifier(input)?;
     Ok((input, TypeQualifier::Qualifier1Arg(name.into(), arg.into())))
 }
@@ -68,7 +68,7 @@ fn parse_wrapper_policy(input: &str) -> IResult<&str, WrapperPolicy> {
     let (input, _) = tag("Policy")(input)?;
     let (input, function_name) = parens(input)?;
     let (input, _) = ws(tag("="))(input)?;
-    let (input, _) = ws(curly_brackets)(input)?;
+    let (_, input) = ws(curly_brackets)(input)?;
     let (_, annotations) = separated_list0(tag(","), annotation)(input)?;
     return Ok((
         "",
