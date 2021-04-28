@@ -3,7 +3,6 @@ use std::io;
 use nom::{
     IResult,
     sequence::delimited,
-    // see the "streaming/complete" paragraph lower for an explanation of these submodules
     character::complete::{char, multispace0, alphanumeric1, alpha1},
     bytes::complete::is_not
 };
@@ -43,6 +42,7 @@ pub enum Ctype {
     Int,
     Void,
     SizeT,
+    SsizeT,
     Pointer(Box<Ctype>, bool), //bool = mutable
 }
 
@@ -55,6 +55,7 @@ impl FromStr for Ctype {
             "int"       => Ok(Ctype::Int),
             "void"      => Ok(Ctype::Void),
             "size_t"    => Ok(Ctype::SizeT),
+            "ssize_t"    => Ok(Ctype::SsizeT),
             _           => Err(()),
         }
     }
@@ -171,6 +172,7 @@ pub fn parse_spec_from_string(spec_str: String) -> io::Result<Spec>{
     let mut policies: Vec<WrapperPolicy> = Vec::new();
 
     for line in spec_str.split("\n"){
+        if line == ""{ continue }
         if line.starts_with("Policy"){
             let (_,policy) = parse_wrapper_policy(line).unwrap();
             policies.push(policy);
