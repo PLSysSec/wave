@@ -1,11 +1,29 @@
 use std::fs;
 use std::io;
+use nom::{
+    IResult,
+    sequence::delimited,
+    // see the "streaming/complete" paragraph lower for an explanation of these submodules
+    character::complete::{char, multispace0, alphanumeric1, alpha1},
+    bytes::complete::is_not
+};
+use nom::error::ParseError;
+use nom::branch::alt;
+use nom::multi::{many0, separated_list0};
+use nom::combinator::recognize;
+use nom::sequence::pair;
+use nom::bytes::complete::tag;
+
+
 
 #[derive(Debug)]
 pub struct WrapperSignature {}
 
 #[derive(Debug)]
-pub struct WrapperPolicy {}
+pub struct WrapperPolicy {
+    function_name: String,
+    annotations: Vec<(String, TypeQualifier)>,
+}
 
 #[derive(Debug)]
 pub struct Spec {
@@ -13,9 +31,70 @@ pub struct Spec {
     policies: Vec<WrapperPolicy>
 }
 
+#[derive(Debug)]
+pub enum TypeQualifier {
+    Qualifier0Arg(String),
+    Qualifier1Arg(String, String),
+}
 
-fn parse_wrapper_policy(line: &str) -> WrapperPolicy{
-    return WrapperPolicy {};
+fn identifier(input: &str) -> IResult<&str, &str> {
+    recognize(
+      pair(
+        alt((alpha1, tag("_"))),
+        many0(alt((alphanumeric1, tag("_"))))
+      )
+    )(input)
+}
+
+fn parens(input: &str) -> IResult<&str, &str> {
+    delimited(char('('), is_not(")"), char(')'))(input)
+}
+
+fn curly_brackets(input: &str) -> IResult<&str, &str> {
+    delimited(char('{'), is_not("}"), char('}'))(input)
+}
+
+fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+  where
+  F: Fn(&'a str) -> IResult<&'a str, O, E>,
+{
+  delimited(
+    multispace0,
+    inner,
+    multispace0
+  )
+}
+
+fn qualifier_1arg(input: &str) -> IResult<&str, TypeQualifier> {
+    let (input, name) = ws(identifier)(input)?;
+    let (input, _) = parens(input)?;
+    let (input, arg) = identifier(input)?;
+    Ok((input, TypeQualifier::Qualifier1Arg(name.into(), arg.into())))
+}
+
+fn qualifier_0arg(input: &str) -> IResult<&str, TypeQualifier> {
+    let (input, name) = ws(identifier)(input)?;
+    Ok((input, TypeQualifier::Qualifier0Arg(name.into())))
+}
+
+fn qualifier(input: &str) -> IResult<&str, TypeQualifier> {
+    alt((qualifier_1arg, qualifier_0arg))(input)
+}
+
+fn annotation(input: &str) -> IResult<&str, (String, TypeQualifier)> {
+    let (input, ty) = ws(identifier)(input)?;
+    let (input, _) = ws(tag("="))(input)?;
+    let (input, arg_qualifier) = ws(qualifier)(input)?;
+    Ok((input, (ty.into(), arg_qualifier)))
+}
+
+fn parse_wrapper_policy(input: &str) -> IResult<&str, WrapperPolicy>{
+    let (input, _) = tag("Policy")(input)?;
+    let (input, function_name) = parens(input)?;
+    let (input, _) = ws(tag("="))(input)?;
+    let (input, _) = ws(curly_brackets)(input)?;
+    let (input, annotations) = separated_list0(tag(","), annotation)(input)?;
+    return Ok( ("",WrapperPolicy{function_name: function_name.into(), annotations})) ;
 }
 
 fn parse_wrapper_sig(line: &str) -> WrapperSignature{
@@ -33,7 +112,7 @@ pub fn parse_spec_from_string(spec_str: String) -> io::Result<Spec>{
 
     for line in spec_str.split("\n"){
         if line.starts_with("Policy"){
-            let policy = parse_wrapper_policy(line);
+            let (_,policy) = parse_wrapper_policy(line).unwrap();
             policies.push(policy);
         }
         else{
