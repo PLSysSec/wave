@@ -1,3 +1,4 @@
+use crate::types::*;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::combinator::opt;
@@ -15,55 +16,6 @@ use nom::{
 use std::fs;
 use std::io;
 use std::str::FromStr;
-
-#[derive(Debug)]
-pub struct WrapperSignature {
-    function_name: String,
-    ret_ty: Ctype,
-    args: Vec<(Ctype, String)>,
-}
-
-#[derive(Debug)]
-pub struct WrapperPolicy {
-    function_name: String,
-    annotations: Vec<(String, TypeQualifier)>,
-}
-
-#[derive(Debug)]
-pub struct Spec {
-    sigs: Vec<WrapperSignature>,
-    policies: Vec<WrapperPolicy>,
-}
-
-#[derive(Debug)]
-pub enum Ctype {
-    Char,
-    Int,
-    Void,
-    SizeT,
-    SsizeT,
-    Pointer(Box<Ctype>, bool), //bool = mutable
-}
-
-impl FromStr for Ctype {
-    type Err = ();
-    fn from_str(input: &str) -> Result<Ctype, Self::Err> {
-        match input {
-            "char" => Ok(Ctype::Char),
-            "int" => Ok(Ctype::Int),
-            "void" => Ok(Ctype::Void),
-            "size_t" => Ok(Ctype::SizeT),
-            "ssize_t" => Ok(Ctype::SsizeT),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum TypeQualifier {
-    Qualifier0Arg(String),
-    Qualifier1Arg(String, String),
-}
 
 fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(pair(

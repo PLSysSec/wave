@@ -1,13 +1,8 @@
 pub mod parser;
+pub mod types;
+use crate::parser::parse_spec_from_file;
+use crate::types::Language;
 use clap::{App, Arg};
-use parser::parse_spec_from_file;
-
-#[derive(PartialEq, Debug)]
-pub enum Language {
-    C,
-    Cpp,
-    Rust,
-}
 
 fn lang_from_string(input: String) -> Result<Language, ()> {
     match &*input.to_lowercase() {
