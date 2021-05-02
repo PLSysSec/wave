@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <sys/syscall.h>
-#include "wrappers_utils.h"
+#include "wrappers_utils.hpp"
 #include "smack.h"
 
 //All arguments are the Wasm arguments
@@ -10,7 +10,7 @@ int safe_open(const sandboxptr pathname, int flags){
     if (host_pathname == NULL)
         return -1;
    
-    assert( (host_pathname >= (void*)membase) && (host_pathname + PATH_MAX <= (void*)(membase + memlen)) );
+    // assert( (host_pathname >= (char*)membase) && (host_pathname + PATH_MAX <= (char*)(membase + memlen)) );
     return syscall(SYS_open, 
         host_pathname, 
         flags, 
@@ -28,7 +28,7 @@ ssize_t safe_read(int fd, sandboxptr buf, size_t count){
     if (host_buf == NULL)
         return -1;
     
-    assert( (host_buf >= (void*)membase) && (host_buf + count <= (void*)(membase + memlen)) );
+    // assert( (host_buf >= (hostptr)membase) && (host_buf + count <= (hostptr)(membase + memlen)) );
     return syscall(SYS_read, 
         fd, 
         host_buf, 
@@ -41,7 +41,7 @@ ssize_t safe_write(int fd, const sandboxptr buf, size_t count){
     if (host_buf == NULL)
         return -1;
 
-    assert( (host_buf >= (void*)membase) && (host_buf + count <= (void*)(membase + memlen)) );
+    // assert( (host_buf >= (hostptr)membase) && (host_buf + count <= (hostptr)(membase + memlen)) );
     return syscall(SYS_write, 
         fd, 
         host_buf, 

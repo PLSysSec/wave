@@ -1,7 +1,7 @@
 #include <linux/limits.h>
 #include <stdbool.h>
 
-typedef void* hostptr;
+typedef char* hostptr;
 typedef unsigned int sandboxptr;
 
 
@@ -14,13 +14,13 @@ bool empty_predicate(){
 
 sandboxptr ptr_to_sandbox(hostptr buf)
 {
-    return buf - membase;
+    return buf - (hostptr)membase;
 }
 
 
 hostptr ptr_from_sandbox(sandboxptr buf)
 {
-    return buf + membase;
+    return buf + (hostptr)membase;
 }
 
 
