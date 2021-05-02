@@ -1,5 +1,0 @@
-digraph unnamed {
-	graph [center=true, ratio=true, bgcolor=lightgray, fontname=Helvetica];
-	node  [fontname=Helvetica, fontsize=11];
-
-}
