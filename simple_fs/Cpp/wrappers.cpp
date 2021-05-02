@@ -2,9 +2,9 @@
 #include <sys/syscall.h>
 #include "wrappers_utils.hpp"
 #include "smack.h"
-
+// #include "assert.h"
 //All arguments are the Wasm arguments
-int safe_open(const sandboxptr pathname, int flags){
+extern "C" int safe_open(const sandboxptr pathname, int flags){
 
     hostptr host_pathname = path_from_sandbox(pathname);
     if (host_pathname == NULL)
@@ -17,13 +17,13 @@ int safe_open(const sandboxptr pathname, int flags){
         NULL);
 }
 
-int safe_close(int fd){
+extern "C" int safe_close(int fd){
     return syscall(SYS_close, 
         fd, 
         NULL);
 }
 
-ssize_t safe_read(int fd, sandboxptr buf, size_t count){
+extern "C" ssize_t safe_read(int fd, sandboxptr buf, size_t count){
     hostptr host_buf = sized_buf_from_sandbox(buf, count);
     if (host_buf == NULL)
         return -1;
@@ -36,7 +36,7 @@ ssize_t safe_read(int fd, sandboxptr buf, size_t count){
         NULL);
 }
 
-ssize_t safe_write(int fd, const sandboxptr buf, size_t count){
+extern "C" ssize_t safe_write(int fd, const sandboxptr buf, size_t count){
     hostptr host_buf = sized_buf_from_sandbox(buf, count);
     if (host_buf == NULL)
         return -1;

@@ -5,7 +5,7 @@ BOOGIE := /root/smack-deps/boogie
 CORRAL := /root/smack-deps/corral
 SIMPLE_FS_ENTRIES := safe_open safe_close safe_read safe_write
 CPP_FLAGS := --integer-encoding=bit-vector --pointer-encoding=bit-vector
-VERIFIER := corral
+VERIFIER := boogie
 
 
 export PATH := $(Z3):$(PATH)
