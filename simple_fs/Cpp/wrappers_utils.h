@@ -37,7 +37,7 @@ sandboxptr sized_buf_to_sandbox(hostptr buf, size_t size)
 // returns pointer if success, or null if memory violation
 hostptr sized_buf_from_sandbox(sandboxptr buf, size_t size)
 {
-    if (inBounds(membase + buf) && inBounds(membase + buf + size)){
+    if ((size < memlen) && inBounds(membase + buf) && inBounds(membase + buf + size)){
         return ptr_from_sandbox(buf);
     }
     else{
