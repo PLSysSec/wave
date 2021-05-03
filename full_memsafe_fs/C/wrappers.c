@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 #include "wrappers_utils.h"
 #include "smack.h"
-
 //All arguments are the Wasm arguments
 int safe_open(const sandboxptr pathname, int flags){
     hostptr host_pathname = path_from_sandbox(pathname);
