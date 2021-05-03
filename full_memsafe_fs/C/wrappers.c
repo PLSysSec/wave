@@ -179,7 +179,6 @@ int safe_mkdir(const sandboxptr pathname, mode_t mode){
 
 // Policy(rmdir) = { pathname = PathType }
 int safe_rmdir(const sandboxptr pathname){
-    assert(false);
     hostptr host_pathname = path_from_sandbox(pathname);
     if (host_pathname == NULL)
         return -1;
