@@ -33,7 +33,10 @@ pub enum Ctype {
     Void,
     SizeT,
     SsizeT,
+    OffT,
+    ModeT,
     Pointer(Box<Ctype>, bool), //bool = mutable
+    CStruct(String), // string name
 }
 
 impl FromStr for Ctype {
@@ -45,6 +48,8 @@ impl FromStr for Ctype {
             "void" => Ok(Ctype::Void),
             "size_t" => Ok(Ctype::SizeT),
             "ssize_t" => Ok(Ctype::SsizeT),
+            "off_t" => Ok(Ctype::OffT),
+            "mode_t" => Ok(Ctype::ModeT),
             _ => Err(()),
         }
     }

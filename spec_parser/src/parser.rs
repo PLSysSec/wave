@@ -81,9 +81,15 @@ fn parse_wrapper_policy(input: &str) -> IResult<&str, WrapperPolicy> {
 
 fn ctype(input: &str) -> IResult<&str, Ctype> {
     let (input, maybe_const) = opt(ws(tag("const")))(input)?;
+    let (input, maybe_struct) = opt(ws(tag("struct")))(input)?;
     let (input, ty) = ws(identifier)(input)?;
     let (input, ptr_depth) = many0_count(ws(tag("*")))(input)?;
-    let cty = Ctype::from_str(ty).unwrap();
+    let cty = if maybe_struct.is_some(){
+        Ctype::CStruct(ty.to_string())
+    }
+    else{
+        Ctype::from_str(ty).unwrap()
+    };
 
     match ptr_depth {
         0 => Ok((input, cty)),
@@ -123,6 +129,7 @@ pub fn parse_spec_from_string(spec_str: String) -> io::Result<Spec> {
     let mut policies: Vec<WrapperPolicy> = Vec::new();
 
     for line in spec_str.split("\n") {
+        println!("{:?}", line);
         if line == "" {
             continue;
         }
