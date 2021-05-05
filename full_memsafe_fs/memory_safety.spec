@@ -29,7 +29,7 @@ Policy(readlink) = { pathname = Pathtype, buf = SizedBuf(bufsiz) }
 ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 
 Policy(getcwd) = { buf = SizedBuf(size) }
-char *getcwd(char *buf, size_t size);
+long getcwd(char *buf, unsigned long size); 
 
 Policy(chdir) = { path = PathType }
 int chdir(const char *path);

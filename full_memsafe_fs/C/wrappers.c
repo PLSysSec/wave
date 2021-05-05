@@ -135,20 +135,16 @@ ssize_t safe_readlink(const sandboxptr pathname, sandboxptr buf, size_t bufsiz){
 }
 
 // Policy(getcwd) = { buf = SizedBuf(size) }
-sandboxptr safe_getcwd(sandboxptr buf, size_t size){
+long safe_getcwd(sandboxptr buf, unsigned long size){
     hostptr host_buf = sized_buf_from_sandbox(buf, size);
     if (host_buf == NULL)
         return -1;
     
     assert( (host_buf >= (hostptr)membase) && (host_buf + size <= (hostptr)(membase + memlen)) );
-    sandboxptr __ret = ptr_to_sandbox(
-        syscall(SYS_getcwd, 
+    return syscall(SYS_getcwd, 
             host_buf,
             size,
-            NULL)
-        );
-    
-    return __ret;
+            NULL);
 }
 
 // Policy(chdir) = { path = PathType }
