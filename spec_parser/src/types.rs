@@ -18,10 +18,10 @@ pub struct WrapperSignature {
 impl ToString for WrapperSignature {
     fn to_string(&self) -> String {
         let args_str = self.args.iter()
-            .map(|(ty,name)| ty.to_string() + name)
+            .map(|(ty,name)| ty.to_string() + " " + name)
             .collect::<Vec<String>>()
             .join(", ");
-        return format!("{:} {:} {:}", self.ret_ty.to_string(), self.function_name, args_str);  
+        return format!("{:} {:} ({:})", self.ret_ty.to_string(), self.function_name, args_str);  
     }
 }
 
@@ -78,10 +78,10 @@ impl ToString for Ctype {
             Ctype::ModeT => "mode_t".to_string(),
             Ctype::Pointer(ptr, is_mut) => {
                 if *is_mut {
-                    format!("* {:?}", (*ptr).to_string())
+                    format!("* {:}", (*ptr).to_string())
                 }
                 else {
-                    format!("const * {:?}", (*ptr).to_string())
+                    format!("const * {:}", (*ptr).to_string())
                 }
             },
             Ctype::CStruct(name) => name.to_string(),
