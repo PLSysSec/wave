@@ -3,6 +3,7 @@ pub mod types;
 pub mod wrapper_codegen;
 use crate::parser::parse_spec_from_file;
 use crate::types::{Language, Spec};
+use crate::wrapper_codegen::gen_c_wrappers;
 use clap::{App, Arg};
 
 fn lang_from_string(input: String) -> Result<Language, ()> {
@@ -25,13 +26,15 @@ fn run(config: Config) {
     println!("config = {:?}", config);
     let spec = parse_spec_from_file(config.spec_path).unwrap();
     println!("===== Signatures =====");
-    for sig in spec.sigs {
+    for sig in &spec.sigs {
         println!("{:?}", sig);
     }
     println!("===== Policies =====");
-    for policy in spec.policies {
+    for policy in &spec.policies {
         println!("{:?}", policy);
     }
+    let wrappers = gen_c_wrappers(&spec);
+    println!("{}", wrappers);
 }
 
 fn main() {
