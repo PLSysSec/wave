@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::collections::HashMap;
 
 #[derive(PartialEq, Debug)]
 pub enum Language {
@@ -32,8 +33,8 @@ pub struct WrapperPolicy {
 
 #[derive(Debug)]
 pub struct Spec {
-    pub sigs: Vec<WrapperSignature>,
-    pub policies: Vec<WrapperPolicy>,
+    pub sigs: HashMap<String, WrapperSignature>,
+    pub policies: HashMap<String, WrapperPolicy>,
 }
 
 #[derive(Debug)]

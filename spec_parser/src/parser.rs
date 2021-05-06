@@ -16,6 +16,7 @@ use nom::{
 use std::fs;
 use std::io;
 use std::str::FromStr;
+use std::collections::HashMap;
 
 fn identifier(input: &str) -> IResult<&str, &str> {
     recognize(pair(
@@ -125,8 +126,8 @@ pub fn parse_spec_from_file(spec_path: String) -> io::Result<Spec> {
 }
 
 pub fn parse_spec_from_string(spec_str: String) -> io::Result<Spec> {
-    let mut sigs: Vec<WrapperSignature> = Vec::new();
-    let mut policies: Vec<WrapperPolicy> = Vec::new();
+    let mut sigs: HashMap<String, WrapperSignature> = HashMap::new();
+    let mut policies: HashMap<String, WrapperPolicy> = HashMap::new();
 
     for line in spec_str.split("\n") {
         println!("{:?}", line);
@@ -135,10 +136,12 @@ pub fn parse_spec_from_string(spec_str: String) -> io::Result<Spec> {
         }
         if line.starts_with("Policy") {
             let (_, policy) = parse_wrapper_policy(line).unwrap();
-            policies.push(policy);
+            let fname = policy.function_name.clone();
+            policies.insert(fname, policy);
         } else {
             let (_, sig) = parse_wrapper_sig(line).unwrap();
-            sigs.push(sig);
+            let fname = sig.function_name.clone();
+            sigs.insert(fname, sig);
         }
     }
 
