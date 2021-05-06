@@ -1,5 +1,6 @@
 pub mod parser;
 pub mod types;
+pub mod wrapper_codegen;
 use crate::parser::parse_spec_from_file;
 use crate::types::{Language, Spec};
 use clap::{App, Arg};
