@@ -1,22 +1,5 @@
 use crate::types::*;
 
-// fn gen_syscall_arg_str(sig: WrapperSignature){
-//     match sig.args.len(){
-//         0 => "",
-//         1 => {
-
-//         }
-//         2 => {
-
-//         }
-//         3 => {
-
-//         }
-//         4 =>
-//         _ => panic!("syscall has too many args?")
-//     }
-// }
-
 fn gen_syscall(sig: &WrapperSignature, args: Vec<String>) -> String{
     let syscall_str = format!("
     return syscall(SYS_{:}, 
@@ -83,8 +66,14 @@ fn gen_c_wrapper(sig: &WrapperSignature, policy: &WrapperPolicy) -> String{
     sig_str, sanitizers_str, syscall_str)
 }
 
+fn gen_c_wrappers_header() -> String{
+    return
+    "#include <unistd.h>\n#include <sys/syscall.h>\n#include \"wrappers_utils.h\"\n#include \"smack.h\"\n\n
+    ".to_string();
+}
+
 pub fn gen_c_wrappers(spec: &Spec) -> String {
-    let mut wrappers_str = "".to_string();
+    let mut wrappers_str = gen_c_wrappers_header();
     for (fname,sig) in &spec.sigs{
         let policy = spec.policies.get(fname).unwrap();
         let wrapper = gen_c_wrapper(sig, policy);
