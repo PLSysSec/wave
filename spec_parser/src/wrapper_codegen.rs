@@ -1,11 +1,15 @@
 use crate::types::*;
 
 fn gen_syscall(sig: &WrapperSignature, args: Vec<String>) -> String{
+    let mut args_str = args.join(",\n\t");
+    if args.len() != 0{
+        args_str.push(',')
+    }
     let syscall_str = format!("
     return syscall(SYS_{:}, 
         {} 
         NULL);
-    ", sig.function_name, args.join(",\n\t"));
+    ", sig.function_name, args_str);
     return syscall_str;
 }
 
