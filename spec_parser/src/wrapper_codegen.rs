@@ -55,9 +55,7 @@ fn gen_sanitizers(policy: &WrapperPolicy) -> (String,Vec<String>){
 
 fn gen_c_wrapper(sig: &WrapperSignature, policy: &WrapperPolicy) -> String{
     let sig_str = sig.to_string();
-    // let sanitized_args: Vec<String> = Vec::new();
     let (sanitizers_str,sanitized_args) = gen_sanitizers(&policy);
-
     let syscall_str = gen_syscall(sig, sanitized_args);
     format!("{} {{
                 {}
@@ -77,6 +75,43 @@ pub fn gen_c_wrappers(spec: &Spec) -> String {
     for (fname,sig) in &spec.sigs{
         let policy = spec.policies.get(fname).unwrap();
         let wrapper = gen_c_wrapper(sig, policy);
+        wrappers_str.push_str(&wrapper); 
+    }
+    return wrappers_str;
+}
+
+fn gen_c_model_header() -> String{
+    return
+    "#include <unistd.h>\n#include <sys/syscall.h>\n#include \"wrappers_utils.h\"#include \"smack.h\"\n\n
+    ".to_string();
+}
+
+fn gen_model_syscall(sig: &WrapperSignature, args: Vec<String>) -> String{
+    let syscall_str = format!("
+    return model_syscall(SYS_{:}, 
+        {} 
+        NULL);
+    ", sig.function_name, args.join(",\n\t"));
+    return syscall_str;
+}
+
+fn gen_c_model_wrapper(sig: &WrapperSignature, policy: &WrapperPolicy) -> String{
+    let sig_str = sig.to_string();
+    let (sanitizers_str,sanitized_args) = gen_sanitizers(&policy);
+    //TODO: insert assertions
+    let syscall_str = gen_model_syscall(sig, sanitized_args);
+    format!("{} {{
+                {}
+                {}
+    }}\n", 
+    sig_str, sanitizers_str, syscall_str)
+}
+
+pub fn gen_c_model_wrappers(spec: &Spec) -> String {
+    let mut wrappers_str = gen_c_model_header();
+    for (fname,sig) in &spec.sigs{
+        let policy = spec.policies.get(fname).unwrap();
+        let wrapper = gen_c_model_wrapper(sig, policy);
         wrappers_str.push_str(&wrapper); 
     }
     return wrappers_str;

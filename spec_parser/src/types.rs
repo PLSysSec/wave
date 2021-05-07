@@ -81,7 +81,7 @@ impl ToString for Ctype {
                     format!("* {:}", (*ptr).to_string())
                 }
                 else {
-                    format!("const * {:}", (*ptr).to_string())
+                    format!("const {:}*", (*ptr).to_string())
                 }
             },
             Ctype::CStruct(name) => name.to_string(),
