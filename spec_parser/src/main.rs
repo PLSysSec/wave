@@ -5,6 +5,7 @@ use crate::parser::parse_spec_from_file;
 use crate::types::{Language, Spec};
 use crate::wrapper_codegen::gen_c_wrappers;
 use clap::{App, Arg};
+use std::fs;
 
 fn lang_from_string(input: String) -> Result<Language, ()> {
     match &*input.to_lowercase() {
@@ -20,6 +21,7 @@ pub struct Config {
     language: Language,
     spec_path: String,
     impl_path: String,
+    out_check_path: String,
 }
 
 fn run(config: Config) {
@@ -33,8 +35,8 @@ fn run(config: Config) {
     for policy in &spec.policies {
         println!("{:?}", policy);
     }
-    let wrappers = gen_c_wrappers(&spec);
-    println!("{}", wrappers);
+    let wrappers = gen_c_wrappers(&spec);  
+    fs::write(config.impl_path, wrappers);
 }
 
 fn main() {
@@ -55,22 +57,31 @@ fn main() {
                 .required(true),
         )
         .arg(
-            Arg::with_name("impl_path")
-                .long("impl")
+            Arg::with_name("out_impl_path")
+                .long("out_impl")
                 .takes_value(true)
-                .help("path to wrapper implementation to validate")
+                .help("path to outfile for wrappers")
+                .required(true),
+        )
+        .arg(
+            Arg::with_name("out_check_path")
+                .long("out_check")
+                .takes_value(true)
+                .help("path to outfile to be checked by smack")
                 .required(true),
         )
         .get_matches();
 
     let language = matches.value_of("language").unwrap();
     let spec_path = matches.value_of("spec_path").unwrap();
-    let impl_path = matches.value_of("impl_path").unwrap();
+    let out_impl_path = matches.value_of("out_impl_path").unwrap();
+    let out_check_path = matches.value_of("out_check_path").unwrap();
 
     let config = Config {
         language: lang_from_string(language.to_string()).unwrap(),
         spec_path: spec_path.to_string(),
-        impl_path: impl_path.to_string(),
+        impl_path: out_impl_path.to_string(),
+        out_check_path: out_check_path.to_string(),
     };
 
     run(config);

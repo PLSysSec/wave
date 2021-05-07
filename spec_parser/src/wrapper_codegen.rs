@@ -68,7 +68,7 @@ fn gen_c_wrapper(sig: &WrapperSignature, policy: &WrapperPolicy) -> String{
 
 fn gen_c_wrappers_header() -> String{
     return
-    "#include <unistd.h>\n#include <sys/syscall.h>\n#include \"wrappers_utils.h\"\n#include \"smack.h\"\n\n
+    "#include <unistd.h>\n#include <sys/syscall.h>\n#include \"wrappers_utils.h\"\n\n
     ".to_string();
 }
 
