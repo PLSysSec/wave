@@ -16,5 +16,9 @@ export PATH := $(CORRAL):$(PATH)
 check_C:
 	smack C/wrappers.c --verifier $(VERIFIER) $(CPP_FLAGS) --entry-points $(SIMPLE_FS_ENTRIES) 
 
+check_C_model:
+	smack C/wrappers_for_model.c --verifier $(VERIFIER) $(CPP_FLAGS) --entry-points $(SIMPLE_FS_ENTRIES) 
+	smack C/wrappers_for_model.c --verifier $(VERIFIER) $(CPP_FLAGS) --entry-points $(SIMPLE_FS_ENTRIES) --check memory-safety
+
 check_Cpp:
 	smack Cpp/wrappers.cpp --verifier $(VERIFIER) $(CPP_FLAGS) --entry-points $(SIMPLE_FS_ENTRIES) 
