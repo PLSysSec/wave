@@ -21,58 +21,54 @@ typedef struct inode{
 
 bool* inode_exists;
 inode* inodes;
-bool* fd_open; 
-fd_entry* fdtable;
-
-// char* mem;
-// char* mem = malloc(4096*1024*1024);
+fd_entry** fdtable;
 
 void init_model(){
     inode_exists = calloc(1024, sizeof(bool));
     inodes = calloc(1024, sizeof(inode));
-    fd_open = calloc(1024, sizeof(bool));
-    fdtable = calloc(1024, sizeof(fd_entry));
+    // fd_open = calloc(1024, sizeof(bool));
+    fdtable = calloc(1024, sizeof(fd_entry*));
     // mem = malloc(4096*1024*1024);
 }
 
 ssize_t model_read(int fd, void *buf, size_t count){
-     if (!fd_open[fd]){
+     if (fdtable[fd] == NULL){
         errno = EBADF;
         return -1; // EBADF
     }
-    fd_entry fdentry = fdtable[fd];
-    unsigned cur = fdentry.cursor;
-    inode inode_entry = inodes[fdentry.inum];
+    fd_entry* fdentry = fdtable[fd];
+    unsigned cur = fdentry->cursor;
+    inode inode_entry = inodes[fdentry->inum];
     int filesize = inode_entry.filesize;
     if (cur + count >= filesize){
         memcpy(buf, inode_entry.file + cur, filesize - cur - 1);
-        fdtable[fd].cursor = filesize - 1;
+        fdtable[fd]->cursor = filesize - 1;
         return filesize - cur - 1;
     }
     else{
         memcpy(inode_entry.file + cur, buf, count);
-        fdtable[fd].cursor += count;
+        fdtable[fd]->cursor += count;
         return count;
     }
 }
 
 ssize_t model_write(int fd, const void *buf, size_t count){
-    if (!fd_open[fd]){
+    if (fdtable[fd] == NULL){
         errno = EBADF;
         return -1; // EBADF
     }
-    fd_entry fdentry = fdtable[fd];
-    unsigned cur = fdentry.cursor;
-    inode inode_entry = inodes[fdentry.inum];
+    fd_entry* fdentry = fdtable[fd];
+    unsigned cur = fdentry->cursor;
+    inode inode_entry = inodes[fdentry->inum];
     int filesize = inode_entry.filesize;
     if (cur + count >= filesize){
         memcpy(inode_entry.file + cur, buf, filesize - cur - 1);
-        fdtable[fd].cursor = filesize - 1;
+        fdtable[fd]->cursor = filesize - 1;
         return filesize - cur - 1;
     }
     else{
         memcpy(buf, inode_entry.file + cur, count);
-        fdtable[fd].cursor += count;
+        fdtable[fd]->cursor += count;
         return count;
     }
 }
@@ -115,22 +111,21 @@ int model_open(const char *pathname, int flags){
     // no assumption about getting the lowest fd
     unsigned fd = __VERIFIER_nondet_unsigned();
     assume(fd < 1024);
-    assume(fd_open[fd] == false);
+    assume(fdtable[fd] == NULL);
 
-    fd_open[fd] = true;
-    fd_entry fdentry = {allocated_inum, 0, O_RDONLY | O_WRONLY | O_RDWR};
-    fdtable[fd] = fdentry;
+    fdtable[fd] = malloc(sizeof(fd_entry));//true;
+    fdtable[fd]->inum = allocated_inum;
+    fdtable[fd]->cursor = 0;
+    fdtable[fd]->permissions = O_RDONLY | O_WRONLY | O_RDWR;
     return fd;
 
 }
 
 int model_close(int fd){
-    if (!fd_open[fd]){
+    if (fdtable == NULL){
         errno = EBADF;
         return -1; // EBADF
     }
-    else{
-        fd_open[fd] = false;
-        return 0;
-    }
+    fdtable[fd] = NULL;
+    return 0;
 } 
