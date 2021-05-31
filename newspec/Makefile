@@ -15,13 +15,13 @@ export PATH := $(CORRAL):$(PATH)
 
 
 check_C:
-	smack C/harness.c --verifier $(VERIFIER) --modular
+	smack C/harness.c --verifier $(VERIFIER) $(CPP_FLAGS) --verbose
 
 check_mem_safety:
-		smack C/harness.c --verifier $(VERIFIER) --check memory-safety
+	smack C/harness.c --verifier $(VERIFIER) --check memory-safety --verbose
 
 check_C_dump_file:
-	smack C/wrappers.c --verifier $(VERIFIER) --modular -t -bc out.bc -ll out.ll -bpl out.bpl
+	smack C/harness.c --verifier $(VERIFIER) --modular -t -bc out.bc -ll out.ll -bpl out.bpl
 
 check_mem_safety_dump_file:
 	smack C/wrappers.c --verifier $(VERIFIER) $(CPP_FLAGS) --check memory-safety -t -bc out.bc -ll out.ll -bpl out.bpl
