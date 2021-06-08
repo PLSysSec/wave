@@ -25,3 +25,7 @@ check_C_dump_file:
 
 check_mem_safety_dump_file:
 	smack C/wrappers.c --verifier $(VERIFIER) $(CPP_FLAGS) --check memory-safety -t -bc out.bc -ll out.ll -bpl out.bpl
+
+
+check_rust:
+	smack Rust/wrappers/Cargo.toml --verifier $(VERIFIER) $(CPP_FLAGS) --verbose
