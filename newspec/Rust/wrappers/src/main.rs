@@ -32,12 +32,12 @@ fn make_one_syscall(ctx: &mut VmCtx){
         //     let size = __VERIFIER_nondet_unsigned_int();
         //     wasi_read(ctx, fd, buf, size);
         // },
-        // 3 => {
-        //     let fd = __VERIFIER_nondet_int();
-        //     let buf = __VERIFIER_nondet_unsigned_int();
-        //     let size = __VERIFIER_nondet_unsigned_int();
-        //     wasi_write(ctx, fd, buf, size);
-        // },
+        3 => {
+            let fd = unsafe{__VERIFIER_nondet_i32()};
+            let buf = unsafe{__VERIFIER_nondet_u32()};
+            let size = unsafe{__VERIFIER_nondet_u32()};
+            wasi_write(ctx, fd, buf, size as usize);
+        },
         _ => (),
     }
 }

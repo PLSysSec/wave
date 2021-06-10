@@ -6,7 +6,7 @@ use crate::runtime::*;
 // #define ACCESS_PATH(path) (assert(true)) 
 
 //TODO: { Path Sandboxing }
-// fn os_open(pathname: &[u8], flags: i64) -> int {
+// pub fn os_open(pathname: &[u8], flags: i64) -> int {
 
 //     ACCESS_PATH(pathname);
 //     unsafe {
@@ -27,7 +27,7 @@ pub fn os_close(fd: HostFd) -> i32 {
 
 
 
-// fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize { 
+// pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize { 
 
 //     ACCESS_MEM(buf, cnt); 
 //     ACCESS_FD(fd); 
@@ -39,15 +39,15 @@ pub fn os_close(fd: HostFd) -> i32 {
 //     }
 // }
 
-
-// fn write(fd: usize, buf: &[u8], cnt: usize) {
-//     ACCESS_MEM(buf, cnt);
-//     ACCESS_FD(fd);
-//     unsafe {
-//         syscall!(WRITE, 
-//             fd, 
-//             buf.as_ptr(), 
-//             cnt);
-//     }
-// }
+//&[u8]
+pub fn os_write(fd: HostFd, buf: *mut u8, cnt: usize) -> isize{
+    // ACCESS_MEM(buf, cnt);
+    // ACCESS_FD(fd);
+    return unsafe {
+        syscall!(WRITE, 
+            fd, 
+            buf, 
+            cnt) as isize
+    }
+}
 

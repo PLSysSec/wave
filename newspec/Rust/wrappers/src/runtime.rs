@@ -27,11 +27,11 @@ pub type SboxFd = i32;
 
 
 pub struct VmCtx {
-    mem: *mut u8,
-    memlen: usize,
-    fd_sbox_to_host: [HostFd; MAX_HOST_FDS as usize], 
-    fd_host_to_sbox: [SboxFd; MAX_SANDBOX_FDS as usize],
-    counter: i32,
+    pub membase: usize,
+    pub memlen: usize,
+    pub fd_sbox_to_host: [HostFd; MAX_HOST_FDS as usize], 
+    pub fd_host_to_sbox: [SboxFd; MAX_SANDBOX_FDS as usize],
+    pub counter: i32,
 }
 
 // pre: { }
@@ -40,13 +40,13 @@ pub struct VmCtx {
 pub fn fresh_ctx() -> VmCtx{
     let memlen = unsafe{__VERIFIER_nondet_u64() as usize};
     //let mem = smack::vec![0; memlen];
-    let mem = unsafe{malloc(memlen)};
+    let membase = unsafe{malloc(memlen) as usize};
     let fd_sbox_to_host = [-1; MAX_HOST_FDS as usize];
     let fd_host_to_sbox = [-1; MAX_SANDBOX_FDS as usize];
     let counter = 0;
 
     let ctx = VmCtx {
-        mem: mem,
+        membase: membase,
         memlen: memlen,
         fd_sbox_to_host: fd_sbox_to_host, 
         fd_host_to_sbox: fd_host_to_sbox,
@@ -58,18 +58,18 @@ pub fn fresh_ctx() -> VmCtx{
 
 // pre: { valid_ctx(ctx) }
 // post: { buf >= ctx->membase }
-// bool inMemRegion(vmctx* ctx, void* ptr) { 
-//     requires(SAFE(ctx));
-//     ensures(SAFE(ctx));
-//     return (ptr >= (void*)ctx->membase) && (ptr <= (void*)(ctx->membase + ctx->memlen)); 
-// }
+pub fn in_mem_region(ctx: &VmCtx, ptr: usize) -> bool { 
+    // return true;
+    return (ptr >= ctx.membase) && (ptr <= (ctx.membase + ctx.memlen)); 
+}
 
 
 // // pre: { valid_ctx(ctx), inMemRegion(buf), cnt < ctx->memlen }
 // // post: { buf + cnt < ctx->membase + ctx->memlen }
-// bool fitsInMemRegion(ctx: &VmCtx, void* buf, size_t cnt) { 
-//     return (char*)(buf + cnt) < (ctx->membase + ctx->memlen);
-// }
+pub fn fits_in_mem_region(ctx: &VmCtx, buf: usize, cnt: usize) -> bool { 
+    // return true;
+    return (buf + cnt) < (ctx.membase + ctx.memlen);
+}
 
 // // ptr_to_sandbox
 // // pre: { !inMemRegion(buf) }
@@ -82,11 +82,11 @@ pub fn fresh_ctx() -> VmCtx{
 // //ptr_from_sandbox
 // // pre:  { inMemRegion(ctx, ptr)  }
 // // post: { !inMemRegion(ctx, ptr) }
-// pub fn swizzle(ctx: &VmCtx, ptr: SboxPtr) -> HostPtr
-// {
-//     hostptr hptr = (hostptr)(ptr + ctx->membase);
-//     return hptr;
-// }
+pub fn swizzle(ctx: &VmCtx, ptr: SboxPtr) -> HostPtr
+{
+    let hptr: HostPtr = ctx.membase + (ptr as usize);
+    return hptr;
+}
 
 // // pre: { ... }
 // // post: { ... }

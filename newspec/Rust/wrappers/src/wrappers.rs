@@ -51,7 +51,7 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: SboxFd) -> i32 {
 
 // // pre: { validCtx(ctx)}
 // // post: { validCtx(ctx), SFISafe(ctx), FdSafe(ctx), WASIRead(ctx) }
-// pub fn wasi_read(ctx &VmCtx, int v_fd, sandboxptr v_buf, size_t v_cnt) -> size {
+// pub fn wasi_read(ctx &VmCtx, int v_fd, sandboxptr v_buf, v_cnt: usize) -> size {
 //   let buf = swizzle(ctx, v_buf);
 
 //   if (!inMemRegion(ctx, buf) || (v_cnt >= ctx->memlen) || !fitsInMemRegion(ctx, buf, v_cnt)){
@@ -65,16 +65,17 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: SboxFd) -> i32 {
 // }
 
 
-// pub fn wasi_write(ctx: &VmCtx, v_fd: i32, v_buf: sandboxptr, size_t v_cnt) -> size {
-//   void *buf = swizzle(ctx, v_buf);
+pub fn wasi_write(ctx: &VmCtx, v_fd: SboxFd, v_buf: SboxPtr, v_cnt: usize) -> isize {
+  //void *buf = swizzle(ctx, v_buf);
+  let buf = swizzle(ctx, v_buf);
 
-//   if (!inMemRegion(ctx, buf) || (v_cnt >= ctx->memlen) || !fitsInMemRegion(ctx, buf, v_cnt)){
-//       return -1;
-//   }
-//   if (v_fd < 0 || v_fd >= MAX_SANDBOX_FDS || !in_fd_map(ctx, v_fd)){
-//         return -1;
-//   }
-//   let fd = translate_fd(ctx, v_fd);
-//   return os_write(fd, buf, v_cnt);
-// }
+  if !in_mem_region(ctx, buf) || ((v_cnt as usize) >= ctx.memlen) || !fits_in_mem_region(ctx, buf, v_cnt){
+      return -1;
+  }
+  if v_fd < 0 || v_fd >= MAX_SANDBOX_FDS || !in_fd_map(ctx, v_fd){
+        return -1;
+  }
+  let fd = translate_fd(ctx, v_fd);
+  return os_write(fd, buf as *mut u8, v_cnt);
+}
 
