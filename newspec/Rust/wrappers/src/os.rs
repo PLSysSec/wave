@@ -27,17 +27,17 @@ pub fn os_close(fd: HostFd) -> i32 {
 
 
 
-// pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize { 
+pub fn os_read(fd: HostFd, buf: *mut u8, cnt: usize) -> isize { 
 
-//     ACCESS_MEM(buf, cnt); 
-//     ACCESS_FD(fd); 
-//     return unsafe {
-//         syscall!(READ, 
-//             fd, 
-//             buf.as_ptr(), 
-//             cnt)
-//     }
-// }
+    // ACCESS_MEM(buf, cnt); 
+    // ACCESS_FD(fd); 
+    return unsafe {
+        syscall!(READ, 
+            fd, 
+            buf, 
+            cnt) as isize
+    }
+}
 
 //&[u8]
 pub fn os_write(fd: HostFd, buf: *mut u8, cnt: usize) -> isize{
