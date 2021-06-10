@@ -17,11 +17,11 @@ fn make_one_syscall(ctx: &mut VmCtx){
     // ensures(SAFE(ctx));
     let choice = unsafe{__VERIFIER_nondet_u32()};
     match choice {
-        // 0 => {
-        //     let pathname = __VERIFIER_nondet_unsigned_int();
-        //     let fd = __VERIFIER_nondet_int();
-        //     wasi_open(ctx, fd, pathname);
-        // },
+        0 => {
+            let pathname = unsafe{__VERIFIER_nondet_u32()};
+            let flags = unsafe{__VERIFIER_nondet_i32()};
+            wasi_open(ctx, pathname, flags);
+        },
         1 => {
             let fd = unsafe{__VERIFIER_nondet_i32()};
             wasi_close(ctx, fd); 

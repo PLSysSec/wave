@@ -6,15 +6,15 @@ use crate::runtime::*;
 // #define ACCESS_PATH(path) (assert(true)) 
 
 //TODO: { Path Sandboxing }
-// pub fn os_open(pathname: &[u8], flags: i64) -> int {
+pub fn os_open(pathname: *mut u8, flags: i32) -> isize {
 
-//     ACCESS_PATH(pathname);
-//     unsafe {
-//         syscall!(OPEN, 
-//             pathname, 
-//             flags);
-//     }
-// }
+    // ACCESS_PATH(pathname);
+    unsafe {
+        syscall!(OPEN, 
+            pathname, 
+            flags) as isize
+    }
+}
 
 
 pub fn os_close(fd: HostFd) -> i32 {

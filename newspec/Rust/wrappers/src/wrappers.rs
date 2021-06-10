@@ -22,25 +22,26 @@ use std::convert::TryInto;
 
 //pre: {..., }
 //post: {..., inFDMap(ctx, fd), inRevFDMap(ctx, translate_fd(fd) )}
-// pub fn wasi_open(ctx: &VmCtx, const sandboxptr pathname, int flags) -> i32 {
-//     let host_buffer = copy_buf_from_sandbox(ctx, pathname, PATH_MAX);
-//     if (host_buffer == NULL){
-//         return -1;
-//     }
-//     let host_pathname = malloc(PATH_MAX);
-//     resolve_path(ctx, host_buffer, host_pathname);
-//     let fd = os_open(host_pathname, flags);
-    
-//     let sbox_fd = create_seal(ctx, fd, ctx->counter++);
-//     // free(host_buffer);
-//     // free(host_pathname);
-//     return sbox_fd;
-// }
+pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> isize {
+  
+    let host_buffer_opt = copy_buf_from_sandbox(ctx, pathname, PATH_MAX);
+    if host_buffer_opt.is_none(){
+      return -1;
+    }
+    let host_buffer = host_buffer_opt.unwrap();
+
+    let host_pathname = resolve_path(ctx, host_buffer);
+    let fd = os_open(host_pathname as *mut u8, flags);
+    ctx.counter += 1;    
+    let sbox_fd = create_seal(ctx, fd, ctx.counter);
+
+    return sbox_fd as isize;
+}
 
 //pre: {...}
 //post: {..., !inFDMap(ctx, fd), !inRevFDMap(ctx, translate_fd(fd) )}
 pub fn wasi_close(ctx: &mut VmCtx, v_fd: SboxFd) -> i32 {
-    if (v_fd < 0) || (v_fd >= MAX_SANDBOX_FDS) || !in_fd_map(ctx, v_fd){
+    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) || !in_fd_map(ctx, v_fd){
         return -1;
     }
     let fd = translate_fd(ctx, v_fd);
@@ -57,7 +58,7 @@ pub fn wasi_read(ctx: &VmCtx, v_fd: SboxFd, v_buf: SboxPtr, v_cnt: usize) -> isi
   if !in_mem_region(ctx, buf) || ((v_cnt as usize) >= ctx.memlen) || !fits_in_mem_region(ctx, buf, v_cnt){
     return -1;
   }
-  if v_fd < 0 || v_fd >= MAX_SANDBOX_FDS || !in_fd_map(ctx, v_fd){
+  if v_fd < 0 || v_fd >= MAX_SBOX_FDS || !in_fd_map(ctx, v_fd){
     return -1;
   }
   let fd = translate_fd(ctx, v_fd);
@@ -72,7 +73,7 @@ pub fn wasi_write(ctx: &VmCtx, v_fd: SboxFd, v_buf: SboxPtr, v_cnt: usize) -> is
   if !in_mem_region(ctx, buf) || ((v_cnt as usize) >= ctx.memlen) || !fits_in_mem_region(ctx, buf, v_cnt){
       return -1;
   }
-  if v_fd < 0 || v_fd >= MAX_SANDBOX_FDS || !in_fd_map(ctx, v_fd){
+  if v_fd < 0 || v_fd >= MAX_SBOX_FDS || !in_fd_map(ctx, v_fd){
         return -1;
   }
   let fd = translate_fd(ctx, v_fd);

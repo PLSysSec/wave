@@ -2,10 +2,12 @@
 // #include <stdbool.h>
 // #include <string.h>
 use smack::*;
+use std::ptr::copy_nonoverlapping;
 
+pub const MAX_SBOX_FDS: i32 = 8;
+pub const MAX_HOST_FDS: isize = 1024;
+pub const PATH_MAX: usize = 1024;
 
-pub const MAX_SANDBOX_FDS: i32 = 8;
-pub const MAX_HOST_FDS: i32 = 1024;
 
 // #define VALID_CTX(ctx) (ctx->membase < ctx->membase + ctx->memlen)
 
@@ -21,7 +23,7 @@ pub const MAX_HOST_FDS: i32 = 1024;
 pub type HostPtr = usize;
 pub type SboxPtr = u32;
 
-pub type HostFd = i32;
+pub type HostFd = isize;
 pub type SboxFd = i32;
 
 
@@ -30,7 +32,7 @@ pub struct VmCtx {
     pub membase: usize,
     pub memlen: usize,
     pub fd_sbox_to_host: [HostFd; MAX_HOST_FDS as usize], 
-    pub fd_host_to_sbox: [SboxFd; MAX_SANDBOX_FDS as usize],
+    pub fd_host_to_sbox: [SboxFd; MAX_SBOX_FDS as usize],
     pub counter: i32,
 }
 
@@ -42,7 +44,7 @@ pub fn fresh_ctx() -> VmCtx{
     //let mem = smack::vec![0; memlen];
     let membase = unsafe{malloc(memlen) as usize};
     let fd_sbox_to_host = [-1; MAX_HOST_FDS as usize];
-    let fd_host_to_sbox = [-1; MAX_SANDBOX_FDS as usize];
+    let fd_host_to_sbox = [-1; MAX_SBOX_FDS as usize];
     let counter = 0;
 
     let ctx = VmCtx {
@@ -90,18 +92,23 @@ pub fn swizzle(ctx: &VmCtx, ptr: SboxPtr) -> HostPtr
 
 // // pre: { ... }
 // // post: { ... }
-// pub fn copy_buf_from_sandbox(ctx: &VmCtx, src: SboxPtr, n: size) -> HostPtr{
-//     hostptr swizzled_src = swizzle(ctx, src);
-//     if (!inMemRegion(ctx, swizzled_src) || !fitsInMemRegion(ctx, swizzled_src, n)){
-//         return NULL;
-//     }
-//     char* host_buffer = malloc(n);
-//     if (host_buffer == NULL){
-//         return NULL;
-//     }
-//     memcpy(host_buffer, swizzled_src, n);
-//     return host_buffer;
-// }
+pub fn copy_buf_from_sandbox(ctx: &VmCtx, src: SboxPtr, n: usize) -> Option<HostPtr>{
+    let swizzled_src = swizzle(ctx, src);
+    if !in_mem_region(ctx, swizzled_src) || !fits_in_mem_region(ctx, swizzled_src, n){
+        return None;
+    }
+
+    let mut host_buffer: [u8; PATH_MAX] = [0; PATH_MAX];
+    unsafe{copy_nonoverlapping(swizzled_src as *mut u8, host_buffer.as_mut_ptr(), PATH_MAX)};
+    return Some(host_buffer.as_ptr() as usize);
+
+    // char* host_buffer = malloc(n);
+    // if (host_buffer == NULL){
+    //     return NULL;
+    // }
+    // memcpy(host_buffer, swizzled_src, n);
+    // return host_buffer;
+}
 
 // // pre: { ... }
 // // post: { ... }
@@ -112,16 +119,16 @@ pub fn swizzle(ctx: &VmCtx, ptr: SboxPtr) -> HostPtr
 
 // // pre: {}
 // // post:  { PathSandboxed(out_path) }
-// pub fn resolve_path(ctx: &VmCtx, in_path: String, out_path: String){ 
-//     //TODO: finish
-//     memcpy(out_path, in_path, PATH_MAX);
-// }
+pub fn resolve_path(ctx: &VmCtx, in_path: HostPtr) -> HostPtr{ 
+    //TODO: finish
+    //memcpy(out_path, in_path, PATH_MAX);
+    return in_path;
+}
 
 
 // pre: { v_fd < MAX_SANDBOX_FDS }
 // post { }
 pub fn in_fd_map(ctx: &VmCtx, v_fd: SboxFd) -> bool {
-    // requires( v_fd >= 0 && v_fd < MAX_SANDBOX_FDS );
     return ctx.fd_sbox_to_host[v_fd as usize] != -1;
 }
 
@@ -139,7 +146,7 @@ pub fn create_seal(ctx: &mut VmCtx, h_fd: HostFd, v_fd: SboxFd) -> SboxFd{
     if h_fd < 0 || h_fd >= MAX_HOST_FDS{
         return -1;
     }
-    if v_fd < 0 || v_fd >= MAX_HOST_FDS{
+    if v_fd < 0 || v_fd >= MAX_SBOX_FDS{
         return -1;
     }
 
@@ -182,8 +189,8 @@ pub fn translate_fd(ctx: &VmCtx, sbox_fd: SboxFd) -> HostFd
 
 pub fn assert_safe(ctx: &VmCtx){
     let sbox_fd = unsafe{__VERIFIER_nondet_i32()};
-    smack::assume!(sbox_fd >= 0 && sbox_fd < MAX_SANDBOX_FDS);
-    let h_fd = unsafe{__VERIFIER_nondet_i32()};
+    smack::assume!(sbox_fd >= 0 && sbox_fd < MAX_SBOX_FDS);
+    let h_fd = unsafe{__VERIFIER_nondet_i32()} as HostFd;
     smack::assume!(h_fd >= 0 && h_fd < MAX_HOST_FDS);
 
     //check range of host_fds
@@ -195,7 +202,7 @@ pub fn assert_safe(ctx: &VmCtx){
 
     if in_rev_fd_map(ctx, h_fd){
         let dummy_sbox_fd = reverse_translate(ctx, h_fd);
-        smack::assert!(dummy_sbox_fd >= 0 && dummy_sbox_fd < MAX_SANDBOX_FDS);
+        smack::assert!(dummy_sbox_fd >= 0 && dummy_sbox_fd < MAX_SBOX_FDS);
     }
 
     // assert(VALID_CTX(ctx));
