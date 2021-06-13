@@ -17,9 +17,6 @@
 
 #define SAFE(ctx) VALID_CTX(ctx) && SFI_SAFE(ctx) && RESOURCE_SAFE(ctx) 
 
-
-
-
 typedef char* hostptr;
 typedef unsigned int sandboxptr;
 
@@ -57,9 +54,40 @@ vmctx fresh_ctx(){
     }
 
     // assume(membase > (char*)memlen);
-    vmctx ctx =  {membase, memlen, *fd_sbx_to_host, *fd_host_to_sbx, 0};
+    int counter = 0;
+    vmctx ctx =  {membase, memlen, *fd_sbx_to_host, *fd_host_to_sbx, counter};
     return ctx;
 }
+
+
+
+// pre: { }
+// post: { validCtx() }
+vmctx symbolic_ctx(){
+
+    host_fd fd_sbx_to_host[MAX_SANDBOX_FDS];
+    sandbox_fd fd_host_to_sbx[MAX_HOST_FDS];
+    unsigned long long memlen = __VERIFIER_nondet_unsigned_long_long();
+    // 1MB < memlen < 4GB
+    if ((memlen < 1024 * 1024) || (memlen > 4*1024*1024)){
+        exit(-1);
+    }
+    char* membase = malloc(memlen);
+    if (membase == NULL || (membase <= (char*)memlen) || (membase + memlen <= membase) ){
+        free(membase);
+        exit(-1);
+    }
+    int counter = __VERIFIER_nondet_int();
+    // assume(membase > (char*)memlen);
+
+    vmctx ctx =  {membase, memlen, *fd_sbx_to_host, *fd_host_to_sbx, counter};
+    return ctx;
+}
+
+
+
+
+
 
 // bool safe(vmctx* ctx){
 //     return (ctx->membase < ctx->membase + ctx->memlen);
@@ -97,8 +125,6 @@ sandboxptr reverse_swizzle(vmctx* ctx, hostptr buf)
 // post: { !inMemRegion(ctx, ptr) }
 hostptr swizzle(vmctx* ctx, sandboxptr ptr)
 {
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     hostptr hptr = (hostptr)(ptr + ctx->membase);
     return hptr;
 }
@@ -106,8 +132,6 @@ hostptr swizzle(vmctx* ctx, sandboxptr ptr)
 // pre: { ... }
 // post: { ... }
 hostptr copy_buf_from_sandbox(vmctx *ctx, const sandboxptr src, size_t n){
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     hostptr swizzled_src = swizzle(ctx, src);
     if (!inMemRegion(ctx, swizzled_src) || !fitsInMemRegion(ctx, swizzled_src, n)){
         return NULL;
@@ -123,8 +147,6 @@ hostptr copy_buf_from_sandbox(vmctx *ctx, const sandboxptr src, size_t n){
 // pre: { ... }
 // post: { ... }
 void copy_buf_to_sandbox(vmctx *ctx, sandboxptr dst, const hostptr src, size_t n){
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     memcpy(swizzle(ctx, dst), src, n);
 }
 
@@ -159,8 +181,6 @@ bool in_rev_fd_map(vmctx* ctx, host_fd fd){
 // pre: { !inFdMap(ctx, v_fd), !inRevFdMap(ctx, fd) }
 // post {  inFdMap(ctx, v_fd), translateFd(ctx, v_fd) == fd }
 sandbox_fd create_seal(vmctx* ctx, host_fd h_fd, sandbox_fd v_fd){
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     // requires( h_fd >= 0 && h_fd < MAX_HOST_FDS);
     // requires( v_fd >= 0 && v_fd < MAX_SANDBOX_FDS);
     if  (h_fd < 0 || h_fd >= MAX_HOST_FDS){
@@ -180,12 +200,6 @@ sandbox_fd create_seal(vmctx* ctx, host_fd h_fd, sandbox_fd v_fd){
 // pre: { inFdMap(ctx, v_fd), inRevFdMap(ctx, translate_fd(fd)) }
 // post { !inFdMap(ctx, v_fd), !inRevFdMap(ctx, translateFd(v_fd)) }
 void delete_seal(vmctx* ctx, sandbox_fd v_fd){
-    //requires(SAFE(ctx));
-    //requires( v_fd >= 0 && v_fd < MAX_SANDBOX_FDS);
-    //ensures(SAFE(ctx));
-    // if  (v_fd < 0 || v_fd >= MAX_HOST_FDS){
-    //     return;
-    // }
     host_fd h_fd = ctx->fd_sbx_to_host[v_fd];
     if (h_fd >= 0 && h_fd < MAX_HOST_FDS){
         ctx->fd_sbx_to_host[v_fd] = -1;
@@ -202,10 +216,6 @@ sandbox_fd reverse_translate(vmctx* ctx, host_fd h_fd)
 // post: { isOpenFd(result) }
 host_fd translate_fd(vmctx* ctx, sandbox_fd sbx_fd)
 {
-    // requires( sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
-    //requires( sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     host_fd fd = ctx->fd_sbx_to_host[sbx_fd];
     return fd;
 }
@@ -218,12 +228,11 @@ host_fd translate_fd(vmctx* ctx, sandbox_fd sbx_fd)
 // forall fd. inRevFdMap(ctx fd) => inFdMap(ctx, translateFd(ctx, fd))
 // forall vfd. inFdMap(ctx vfd) => inRevFdMap(ctx, translateFd(ctx, vfd))
 
-void assert_safe(vmctx* ctx){
-    sandbox_fd sbx_fd = __VERIFIER_nondet_int();
-    assume(sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
-    host_fd h_fd = __VERIFIER_nondet_int();
-    assume(h_fd >= 0 && h_fd < MAX_HOST_FDS);
-    // unsigned short sbx_fd = __VERIFIER_nondet_char();
+void assert_safe(vmctx* ctx, sandbox_fd sbx_fd, host_fd h_fd){
+    // sandbox_fd sbx_fd = __VERIFIER_nondet_int();
+    // assume(sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
+    // host_fd h_fd = __VERIFIER_nondet_int();
+    // assume(h_fd >= 0 && h_fd < MAX_HOST_FDS);
 
     //check range of host_fds
     //check for bijection
@@ -238,6 +247,30 @@ void assert_safe(vmctx* ctx){
     }
 
     assert(VALID_CTX(ctx));
+    return;
+}
+
+void assume_safe(vmctx* ctx, sandbox_fd sbx_fd, host_fd h_fd){
+    // sandbox_fd sbx_fd = __VERIFIER_nondet_int();
+    // assume(sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
+    // host_fd h_fd = __VERIFIER_nondet_int();
+    // assume(h_fd >= 0 && h_fd < MAX_HOST_FDS);
+
+    //check range of host_fds
+    //check for bijection
+    if (in_fd_map(ctx, sbx_fd)){
+        assume(ctx->fd_sbx_to_host[sbx_fd] >= 0 && ctx->fd_sbx_to_host[sbx_fd] < MAX_HOST_FDS);
+        // host_fd dummy_h_fd = translate_fd(ctx, sbx_fd);
+        //assume(dummy_h_fd >= 0 && dummy_h_fd < MAX_HOST_FDS);
+    }
+
+    if (in_rev_fd_map(ctx, h_fd)){
+        // sandbox_fd dummy_sbx_fd = reverse_translate(ctx, h_fd);
+        assume(ctx->fd_host_to_sbx[h_fd] >= 0 && ctx->fd_host_to_sbx[h_fd] < MAX_SANDBOX_FDS);
+        // assume(dummy_sbx_fd >= 0 && dummy_sbx_fd < MAX_SANDBOX_FDS);
+    }
+
+    assume(VALID_CTX(ctx));
     return;
 }
 

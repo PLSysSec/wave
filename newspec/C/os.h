@@ -9,8 +9,6 @@
 
 //TODO: { Path Sandboxing }
 int os_open(const char *pathname, int flags){
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     ACCESS_PATH(pathname);
     return syscall(SYS_open, 
         pathname, 
@@ -20,8 +18,6 @@ int os_open(const char *pathname, int flags){
 
 
 int os_close(int fd){
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     ACCESS_FD(fd);
     return syscall(SYS_close, 
         fd, 
@@ -29,8 +25,6 @@ int os_close(int fd){
 }
 
 ssize_t os_read(int fd, void *buf, size_t cnt) { 
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     ACCESS_MEM(buf, cnt); 
     ACCESS_FD(fd); 
     return syscall(SYS_read, 
@@ -41,8 +35,6 @@ ssize_t os_read(int fd, void *buf, size_t cnt) {
 }
 
 ssize_t os_write(int fd, void *buf, size_t cnt) { 
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     ACCESS_MEM(buf, cnt);
     ACCESS_FD(fd);
     return syscall(SYS_write, 

@@ -6,9 +6,6 @@
 
 //Non-deterministically select one system call and invoke it with symbolic args
 void make_one_syscall(vmctx* ctx){
-    // __SMACK_code("requires (@ == -$1);", ctx->fd_sbx_to_host[0]);
-    //requires(SAFE(ctx));
-    //ensures(SAFE(ctx));
     int choice = __VERIFIER_nondet_int();
     switch(choice){
         case 0:
@@ -48,54 +45,60 @@ void make_one_syscall(vmctx* ctx){
 
 }
 
+
+// void assert_simple(vmctx* ctx, sandbox_fd sbx_fd, host_fd h_fd){
+//     // sandbox_fd sbx_fd = __VERIFIER_nondet_int();
+//     // assume(sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
+//     // assume(sbx_fd == 0 || sbx_fd == 1);
+//     // assert(ctx->fd_sbx_to_host[sbx_fd] >= 0);
+
+//     if (in_fd_map(ctx, sbx_fd)){
+//     //     // host_fd dummy_h_fd = translate_fd(ctx, sbx_fd);
+//         assert(ctx->fd_sbx_to_host[sbx_fd] >= 0 && ctx->fd_sbx_to_host[sbx_fd] < MAX_HOST_FDS);
+//     //     // assert(dummy_h_fd >= 0 && dummy_h_fd < MAX_HOST_FDS);
+//     }
+//     return;
+// }
+
+// void assume_simple(vmctx* ctx, sandbox_fd sbx_fd, host_fd h_fd){
+//     // sandbox_fd sbx_fd = __VERIFIER_nondet_int();
+//     // assume(sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
+//     // assume(sbx_fd == 0 || sbx_fd == 1);
+//     // assume(ctx->fd_sbx_to_host[sbx_fd] >= 0);
+//     if (in_fd_map(ctx, sbx_fd)){
+//         assume(ctx->fd_sbx_to_host[sbx_fd] >= 0 && ctx->fd_sbx_to_host[sbx_fd] < MAX_HOST_FDS);
+//     }
+//     return;
+// }
+
+
 // Harness for verifier
 //1. Create a fresh sandbox context
 //2. Invoke system calls
 int main(){
-    // assert(false);
-    vmctx ctx = fresh_ctx();
-    // assert(false);
-    // assume(ctx.membase < ctx.membase + ctx.memlen);
-    assert_safe(&ctx);
-    // assert(safe(&ctx));
-    // assert(SAFE(ctx));
-    // assume(ctx.fd_sbx_to_host[0] == -1);
-    //forall x:ref :: $processStatus[x] == $process_uninitialized);
-    //valid sandbox fd have valid host fd
-    // __SMACK_code("assume (forall sfd: ref :: @.fd_sbx_to_host[sfd] == -$1);", ctx);
-    // __SMACK_code("assume (-$1 == -$1);");
-    // sandbox_fd i = ctx.fd_sbx_to_host[0];
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[0]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[1]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[2]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[3]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[4]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[5]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[6]);
-    // __SMACK_code("assert (@ == -$1);", ctx.fd_sbx_to_host[7]);
+    // 1. Check that our initial state is safe;
+    // vmctx ctx = fresh_ctx();
+    // assert_safe(&ctx);
+    // free((void*)ctx.membase);
+   
+    // 2. check that an arbitrary context that satisfies our safety invariant
+    // is safe afterwards.
+    vmctx sym_ctx = symbolic_ctx();
+    
+    sandbox_fd sbx_fd = __VERIFIER_nondet_int();
+    assume(sbx_fd >= 0 && sbx_fd < MAX_SANDBOX_FDS);
+    host_fd h_fd = __VERIFIER_nondet_int();
+    assume(h_fd >= 0 && h_fd < MAX_HOST_FDS);
 
-    // __SMACK_code("assert (@.fd_sbx_to_host[0] == -$1);", ctx);
-    // __SMACK_CODE("assume (forall x: ref :: $sle.ref.bool(dst,x) && $slt.ref.bool(x,$add.ref(dst,len)) ==> M.ret[x] == M.src[$add.ref($sub.ref(src,dst),x)]);");
-    // __SMACK_code("assume (forall x: ref :: $sle.ref.bool(0,x) && $slt.ref.bool(x,8) ==> true);");
-
-    // assert(forall)
-
-    //__SMACK_code("forall fd:ref :: (fd == -1) || (fd < 8 && fd > 0  inRevFdMap(@ , fd) => inFdMap(ctx, translateFd(@ , fd));", ctx, ctx);
-    // forall fd. inRevFdMap(ctx fd) => inFdMap(ctx, translateFd(ctx, fd))
-    make_one_syscall(&ctx);
-    assert_safe(&ctx);
+    assume_safe(&sym_ctx, sbx_fd, h_fd);
+    assert_safe(&sym_ctx, sbx_fd, h_fd);
+    // assume_safe(&sym_ctx);
+    // // make_one_syscall(&sym_ctx);
+    // assert_safe(&sym_ctx);
     // make_one_syscall(&ctx);
     // assert_safe(&ctx);
     // make_one_syscall(&ctx);
     // assert(safe(&ctx));
-    
-    // assert(false);
-    //make_one_syscall(&ctx);
-
-    // for(int i = 0; i < 32; i++){
-    //     invariant(i <= 32);
-    //     make_one_syscall(&ctx);
-    // }
-    free((void*)ctx.membase);
+    free((void*)sym_ctx.membase);
 }
 
