@@ -1,59 +1,67 @@
-use prusti_contracts::*;
-use std::ptr::copy_nonoverlapping;
+use crate::external_specs::option::*;
 use crate::types::*;
-// use crate::spec::*;
-use crate::spec::safe;
+use prusti_contracts::*;
+
+// predicate! {
+//     fn fd_safe(ctx: &VmCtx) -> bool {
+//         forall(|s_fd: SboxFd|
+//             (0 <= s_fd && s_fd < MAX_SBOX_FDS && ctx.in_fd_map(s_fd) ==> ctx.translate_fd(s_fd) >= 0))
+//     }
+// }
+
+// //Do we need this?
+// // predicate! {
+// //     fn valid(ctx: &VmCtx) -> bool {
+// //         (ctx.membase < ctx.membase + ctx.memlen)
+// //     }
+// // }
+
+// predicate! {
+//     fn safe(ctx: &VmCtx) -> bool {
+//         fd_safe(ctx)
+//     }
+// }
 
 // pre: { }
 // post: { validCtx() }
 //TODO: instantiate stdin,stdout,stderr
-#[ensures(safe(ctx))]
-pub fn fresh_ctx() -> VmCtx{
-    let memlen = unsafe{__VERIFIER_nondet_u64() as usize};
-    //let mem = smack::vec![0; memlen];
-    let membase = unsafe{malloc(memlen) as usize};
-    let fd_sbox_to_host = [-1; MAX_HOST_FDS as usize];
-    let counter = 0;
-
-    let ctx = VmCtx {
-        membase: membase,
-        memlen: memlen,
-        fd_sbox_to_host: fd_sbox_to_host, 
-        counter: counter,
-    };
-    // smack::assume!(memlen >= 1024 * 1024 && memlen <= 4*1024*1024*1024);
+// #[ensures(safe(&result))]
+pub fn fresh_ctx() -> VmCtx {
+    let memlen = LINEAR_MEM_SIZE;
+    let mem = vec![0; memlen];
+    let fdmap = FdMap::new();
+    let ctx = VmCtx { mem, memlen, fdmap };
     return ctx;
 }
 
 impl VmCtx {
     // pre: { valid_ctx(ctx) }
     // post: { buf >= ctx->membase }
-    #[pure]
-    pub fn in_mem_region(&self, ptr: usize) -> bool { 
-        // return true;
-        return (ptr >= self..membase) && (ptr <= (self.membase + self.memlen)); 
-    }
+    // #[pure]
+    // pub fn in_mem_region(&self, ptr: usize) -> bool {
+    //     // return true;
+    //     return (ptr >= self.membase) && (ptr <= (self.membase + self.memlen));
+    // }
 
-
-    // // pre: { valid_ctx(ctx), inMemRegion(buf), cnt < ctx->memlen }
-    // // post: { buf + cnt < ctx->membase + ctx->memlen }
-    #[pure]
-    pub fn fits_in_mem_region(&self, buf: usize, cnt: usize) -> bool { 
-        // return true;
-        return (buf + cnt) < (self.membase + self.memlen);
-    }
+    // // // pre: { valid_ctx(ctx), inMemRegion(buf), cnt < ctx->memlen }
+    // // // post: { buf + cnt < ctx->membase + ctx->memlen }
+    // #[pure]
+    // pub fn fits_in_mem_region(&self, buf: usize, cnt: usize) -> bool {
+    //     // return true;
+    //     return (buf + cnt) < (self.membase + self.memlen);
+    // }
 
     // //ptr_from_sandbox
     // // pre:  { inMemRegion(ctx, ptr)  }
     // // post: { !inMemRegion(ctx, ptr) }
-    #[pure]
-    #[requires(in_mem_region(ptr))]
-    #[ensures(!in_mem_region(result))]
-    pub fn swizzle(ctx: &self, ptr: SboxPtr) -> HostPtr
-    {
-        let hptr: HostPtr = self.membase + (ptr as usize);
-        return hptr;
-    }
+    // #[pure]
+    // #[requires(self.in_mem_region(ptr))]
+    // #[ensures(!self.in_mem_region(result))]
+    // pub fn swizzle(&self, ptr: SboxPtr) -> HostPtr
+    // {
+    //     let hptr: HostPtr = self.membase + (ptr as usize);
+    //     return hptr;
+    // }
 
     // // // pre: { ... }
     // // // post: { ... }
@@ -81,54 +89,11 @@ impl VmCtx {
     //     memcpy(swizzle(ctx, dst), src, n);
     // }
 
-
     // // pre: {}
     // // post:  { PathSandboxed(out_path) }
-    // pub fn resolve_path(ctx: &VmCtx, in_path: HostPtr) -> HostPtr{ 
+    // pub fn resolve_path(ctx: &VmCtx, in_path: HostPtr) -> HostPtr{
     //     //TODO: finish
     //     //memcpy(out_path, in_path, PATH_MAX);
     //     return in_path;
     // }
-
-
-    // pre: { v_fd < MAX_SANDBOX_FDS }
-    // post { }
-    #[pure]
-    #[requires()]
-    pub fn in_fd_map(ctx: &VmCtx, v_fd: SboxFd) -> bool {
-        return ctx.fd_sbox_to_host[v_fd as usize] != -1;
-    }
-
-
-    #[requires(h_fd >= 0 && h_fd < MAX_HOST_FDS)]
-    #[requires(v_fd >= 0 && v_fd < MAX_SBOX_FDS)]
-    #[requires(!in_fd_map(ctx, v_fd))]
-    // #[requires(!in_fd_map(ctx, translate_fd(ctx, v_fd))) ]
-    #[ensures(in_fd_map(ctx, v_fd))]
-    // #[ensures(in_fd_map(ctx, translate_fd(ctx, v_fd)))]
-    pub fn create_seal(ctx: &mut VmCtx, h_fd: HostFd, v_fd: SboxFd){
-        ctx.fd_sbox_to_host[v_fd as usize] = h_fd;
-    }
-
-    #[requires(v_fd >= 0 && v_fd < MAX_SBOX_FDS)]
-    #[ensures(in_fd_map(ctx, v_fd))]
-    // #[ensures(in_fd_map(ctx, translate_fd(ctx, v_fd)))]
-    #[ensures(!in_fd_map(ctx, v_fd))]
-    // #[ensures(!in_fd_map(ctx, translate_fd(ctx, v_fd))) ]
-    pub fn delete_seal(ctx: &mut VmCtx, v_fd: SboxFd){
-        let h_fd = ctx.fd_sbox_to_host[v_fd as usize];
-        if (h_fd >= 0) && (h_fd < MAX_HOST_FDS){
-            ctx.fd_sbox_to_host[v_fd as usize] = -1;
-            ctx.fd_host_to_sbox[h_fd as usize] = -1;
-        }
-    }
-
-    #[pure]
-    #[requires(in_fd_map(sbox_fd))]
-    pub fn translate_fd(ctx: &VmCtx, sbox_fd: SboxFd) -> HostFd
-    {
-        let fd = ctx.fd_sbox_to_host[sbox_fd as usize];
-        return fd;
-    }
-
 }
