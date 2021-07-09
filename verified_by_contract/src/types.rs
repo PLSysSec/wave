@@ -1,6 +1,7 @@
 use prusti_contracts::*;
 
 pub const MAX_SBOX_FDS: usize = 8;
+pub const MAX_SBOX_FDS_I32: i32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
 pub const PATH_MAX: usize = 1024;
 
@@ -16,15 +17,17 @@ pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
 
 //typedef char* hostptr;
 pub type HostPtr = usize;
-pub type SboxPtr = u32;
+pub type SboxPtr = usize;
 
 pub type HostFd = usize;
 pub type SboxFd = usize;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum RuntimeError {
+    Success,
     Ebadf,
     Emfile, // process ran out of file descriptors
+    Efault,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -39,4 +42,5 @@ pub struct VmCtx {
     pub mem: Vec<u8>,
     pub memlen: usize,
     pub fdmap: FdMap,
+    pub errno: RuntimeError,
 }
