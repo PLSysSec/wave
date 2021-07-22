@@ -24,23 +24,27 @@ predicate! {
 
 //pre: {..., }
 //post: {..., inFDMap(ctx, fd), inRevFDMap(ctx, translate_fd(fd) )}
-// #[trusted]
-// #[requires(safe(ctx))]
-// #[ensures(safe(ctx))]
-// pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> isize {
-//     let host_buffer_opt = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-//     if host_buffer_opt.is_none(){
-//       return -1;
-//     }
-//     let host_buffer = host_buffer_opt.unwrap();
-
-//     let host_pathname = ctx.resolve_path(host_buffer);
-//     let fd = os_open(host_pathname as *mut u8, flags);
-//     let sbox_fd = ctx.fdmap.create(fd, ctx);
-//     return sbox_fd as isize;
-// }
-
 #[trusted]
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> isize {
+    let host_buffer_opt = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
+    if host_buffer_opt.is_none(){
+      return -1;
+    }
+    let host_buffer = host_buffer_opt.unwrap();
+    let mut host_pathname = ctx.resolve_path(host_buffer);
+    let fd = os_open(host_pathname.as_mut_ptr(), flags);
+    let sbox_fd = ctx.fdmap.create(fd as usize);
+    if let Ok(s_fd) = sbox_fd{
+        return s_fd as isize;
+    }
+    else{
+        return -1;
+    }
+}
+
+// #[trusted]
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_close(ctx: &mut VmCtx, v_fd: i32) -> i32 {

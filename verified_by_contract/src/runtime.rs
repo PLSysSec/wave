@@ -2,6 +2,7 @@ use crate::external_specs::option::*;
 use crate::types::*;
 use prusti_contracts::*;
 use RuntimeError::*;
+use std::ptr::copy_nonoverlapping;
 
 // predicate! {
 //     fn fd_safe(ctx: &FdMap) -> bool {
@@ -55,37 +56,18 @@ impl VmCtx {
         return self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt);
     }
 
-    // //ptr_from_sandbox
-    // // pre:  { inMemRegion(ctx, ptr)  }
-    // // post: { !inMemRegion(ctx, ptr) }
-    // #[pure]
-    // #[requires(self.in_mem_region(ptr))]
-    // #[ensures(!self.in_mem_region(result))]
-    // pub fn swizzle(&self, ptr: SboxPtr) -> HostPtr
-    // {
-    //     let hptr: HostPtr = self.membase + (ptr as usize);
-    //     return hptr;
-    // }
-
-    // // // pre: { ... }
-    // // // post: { ... }
-    // pub fn copy_buf_from_sandbox(ctx: &VmCtx, src: SboxPtr, n: usize) -> Option<HostPtr>{
-    //     let swizzled_src = swizzle(ctx, src);
-    //     if !in_mem_region(ctx, swizzled_src) || !fits_in_mem_region(ctx, swizzled_src, n){
-    //         return None;
-    //     }
-
-    //     let mut host_buffer: [u8; PATH_MAX] = [0; PATH_MAX];
-    //     unsafe{copy_nonoverlapping(swizzled_src as *mut u8, host_buffer.as_mut_ptr(), PATH_MAX)};
-    //     return Some(host_buffer.as_ptr() as usize);
-
-    //     // char* host_buffer = malloc(n);
-    //     // if (host_buffer == NULL){
-    //     //     return NULL;
-    //     // }
-    //     // memcpy(host_buffer, swizzled_src, n);
-    //     // return host_buffer;
-    // }
+    #[trusted]
+    #[requires(safe(self))]
+    #[ensures(safe(self))]
+    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: usize) -> Option<Vec<u8>> {
+        if !self.fits_in_lin_mem(src, n){
+            return None;
+        }
+        let mut host_buffer: Vec<u8> = Vec::new();
+        host_buffer.reserve_exact(n);
+        unsafe{copy_nonoverlapping(self.mem.as_ptr().offset(src as isize), host_buffer.as_mut_ptr(), n)};
+        return Some(host_buffer);
+    }
 
     // // pre: { ... }
     // // post: { ... }
@@ -95,9 +77,9 @@ impl VmCtx {
 
     // // pre: {}
     // // post:  { PathSandboxed(out_path) }
-    // pub fn resolve_path(ctx: &VmCtx, in_path: HostPtr) -> HostPtr{
-    //     //TODO: finish
-    //     //memcpy(out_path, in_path, PATH_MAX);
-    //     return in_path;
-    // }
+    pub fn resolve_path(&self, in_path: Vec<u8>) -> Vec<u8>{
+        //TODO: finish
+        //memcpy(out_path, in_path, PATH_MAX);
+        return in_path;
+    }
 }

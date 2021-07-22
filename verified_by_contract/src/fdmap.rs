@@ -12,9 +12,9 @@ remove
 */
 
 impl FdMap {
-    #[trusted]
-    #[ensures (result.m.len() == MAX_SBOX_FDS)]
-    #[ensures (result.reserve.len() == 0)]
+    // #[trusted]
+    // #[ensures (result.m.len() == MAX_SBOX_FDS)]
+    // #[ensures (result.reserve.len() == 0)]
     pub fn new() -> Self {
         FdMap {
             m: vec![Err(Ebadf); MAX_SBOX_FDS],
@@ -23,6 +23,8 @@ impl FdMap {
         }
     }
 
+    // Trusted because I can't get the verifier to understand that 
+    // this can't ever err 
     #[trusted]
     #[pure]
     #[requires (index < MAX_SBOX_FDS )]
@@ -30,7 +32,7 @@ impl FdMap {
         self.m[index]
     }
 
-    #[trusted]
+    // #[trusted]
     fn pop_fd(&mut self) -> RuntimeResult<HostFd> {
         match self.reserve.pop() {
             Some(fd) => Ok(fd),
