@@ -1,3 +1,0 @@
-smack integer_underflow_overflow.c --verifier boogie --entry-points overflow_u32 overflow_s32 overflow_u64 overflow_s64 overflow_ptr u64_underflow --check integer-overflow --integer-encoding=bit-vector --pointer-encoding=bit-vector
-
-smack memory_safety.c --verifier boogie --entry-points memory_leak overflow_ptr u64_underflow --check memory-safety --integer-encoding=bit-vector --pointer-encoding=bit-vector
