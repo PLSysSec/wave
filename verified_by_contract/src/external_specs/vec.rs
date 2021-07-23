@@ -1,9 +1,12 @@
 use prusti_contracts::*;
+use std::vec::Vec;
+// use std::slice::SliceIndex;
+
 
 #[extern_spec]
-impl<T> std::vec::Vec<T> {
+impl<T> Vec<T> {
     #[ensures(result.len() == 0)]
-    fn new() -> std::vec::Vec<T>;
+    fn new() -> Vec<T>;
 
     #[pure]
     fn len(&self) -> usize;

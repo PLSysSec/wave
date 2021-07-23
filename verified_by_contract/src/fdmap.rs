@@ -25,6 +25,7 @@ impl FdMap {
 
     // Trusted because I can't get the verifier to understand that 
     // this can't ever err 
+    // I'm fine keeping this trusted
     #[trusted]
     #[pure]
     #[requires (index < MAX_SBOX_FDS )]
@@ -33,7 +34,7 @@ impl FdMap {
     }
 
     // #[trusted]
-    fn pop_fd(&mut self) -> RuntimeResult<HostFd> {
+    fn pop_fd(&mut self) -> RuntimeResult<SboxFd> {
         match self.reserve.pop() {
             Some(fd) => Ok(fd),
             None => {
@@ -46,22 +47,22 @@ impl FdMap {
         }
     }
 
-    #[trusted]
-    #[requires(k < MAX_SBOX_FDS)]
-    #[ensures (self.lookup(k) == result)]
-    #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
-                    self.lookup(i) == old(self.lookup(i))))]
-    pub fn create(&mut self, k: SboxFd) -> RuntimeResult<HostFd> {
-        let h_fd = self.pop_fd()?;
-        self.m[k] = Ok(h_fd);
-        Ok(h_fd)
+    // #[trusted]
+    // #[requires(k < MAX_HOST_FDS)]
+    // #[ensures (self.lookup(k) == result)]
+    // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
+    //                 self.lookup(i) == old(self.lookup(i))))]
+    pub fn create(&mut self, k: HostFd) -> RuntimeResult<HostFd> {
+        let s_fd = self.pop_fd()?;
+        self.m[s_fd] = Ok(k);
+        Ok(s_fd)
     }
 
-    #[trusted]
+    // #[trusted]
     #[requires(k < MAX_SBOX_FDS)]
-    #[ensures (self.lookup(k).is_err())]
-    #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
-                    self.lookup(i) == old(self.lookup(i))))]
+    // #[ensures (self.lookup(k).is_err())]
+    // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
+    //                 self.lookup(i) == old(self).lookup(i)))]
     pub fn delete(&mut self, k: SboxFd) {
         if let Ok(oldfd) = self.m[k] {
             self.reserve.push(oldfd);
