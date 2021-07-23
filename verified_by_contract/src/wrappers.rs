@@ -1,3 +1,4 @@
+#[cfg(feature = "verify")]
 use crate::external_specs::result::*;
 use crate::os::*;
 use crate::runtime::*;
@@ -6,6 +7,7 @@ use prusti_contracts::*;
 use std::convert::TryInto;
 use RuntimeError::*;
 
+#[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
         true
@@ -20,19 +22,6 @@ macro_rules! exit_with_errno {
     };
 }
 
-// predicate SFISafe(ctx) =
-// not exists. a. a < ctx.membase | a >= ctx.membase + ctx.memlength. access(a)
-
-// predicate FdSafe(ctx) =
-// not exists. fd. inRevFdMap(ctx, fd) & os_read_fd(fd)
-
-// WASIRead(ctx): ... write at most v_cnt bytes etc.
-
-// validCtx(ctx), SFISafe(ctx), FdSafe(ctx) = ...
-
-//pre: {..., }
-//post: {..., inFDMap(ctx, fd), inRevFDMap(ctx, translate_fd(fd) )}
-// #[trusted]
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> isize {
@@ -42,7 +31,7 @@ pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> isize {
     }
     let host_buffer = host_buffer_opt.unwrap();
     let mut host_pathname = ctx.resolve_path(host_buffer);
-    let fd = os_open(&mut host_pathname, flags); 
+    let fd = os_open(ctx, &mut host_pathname, flags); 
     let sbox_fd = ctx.fdmap.create(fd as usize);
     if let Ok(s_fd) = sbox_fd{
         return s_fd as isize;
@@ -50,7 +39,6 @@ pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> isize {
     exit_with_errno!(ctx, Ebadf);
 }
 
-// #[trusted]
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_close(ctx: &mut VmCtx, v_fd: i32) -> i32 {
@@ -60,12 +48,11 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: i32) -> i32 {
     let sbox_fd = v_fd as SboxFd;
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] { 
         ctx.fdmap.delete(sbox_fd);
-        return os_close(fd);
+        return os_close(ctx, fd);
     }
     exit_with_errno!(ctx, Ebadf);
 }
 
-// #[trusted]
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_read(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> isize {
@@ -79,7 +66,7 @@ pub fn wasi_read(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> is
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] { 
         let mut buf: Vec<u8> = Vec::new();
         buf.reserve_exact(v_cnt);
-        let result = os_read(fd, &mut buf, v_cnt);
+        let result = os_read(ctx, fd, &mut buf, v_cnt);
         let copy_ok = ctx.copy_buf_to_sandbox(v_buf, &buf, v_cnt);
         if copy_ok.is_none(){
             exit_with_errno!(ctx, Efault);
@@ -89,7 +76,6 @@ pub fn wasi_read(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> is
     exit_with_errno!(ctx, Ebadf);
 }
 
-// #[trusted]
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_write(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> isize {
@@ -108,7 +94,7 @@ pub fn wasi_write(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> i
 
     let sbox_fd: SboxFd = v_fd as SboxFd;
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
-        return os_write(fd, &host_buffer, v_cnt);
+        return os_write(ctx, fd, &host_buffer, v_cnt);
     }
     exit_with_errno!(ctx, Ebadf);
 }

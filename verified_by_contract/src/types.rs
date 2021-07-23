@@ -15,6 +15,22 @@ pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
 
 // #define SAFE(ctx) VALID_CTX(ctx) && SFI_SAFE(ctx) && RESOURCE_SAFE(ctx)
 
+// predicate SFISafe(ctx) =
+// not exists. a. a < ctx.membase | a >= ctx.membase + ctx.memlength. access(a)
+
+// predicate FdSafe(ctx) =
+// not exists. fd. inRevFdMap(ctx, fd) & os_read_fd(fd)
+
+// WASIRead(ctx): ... write at most v_cnt bytes etc.
+
+// validCtx(ctx), SFISafe(ctx), FdSafe(ctx) = ...
+#[cfg(feature = "verify")]
+predicate! {
+    fn safe(ctx: &VmCtx) -> bool {
+        true
+    }
+}
+
 //typedef char* hostptr;
 pub type HostPtr = usize;
 pub type SboxPtr = usize;

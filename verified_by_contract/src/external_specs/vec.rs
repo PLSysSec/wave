@@ -1,11 +1,10 @@
 use prusti_contracts::*;
 use std::vec::Vec;
-// use std::slice::SliceIndex;
-
 
 #[extern_spec]
 impl<T> Vec<T> {
     #[ensures(result.len() == 0)]
+    #[ensures(result.capacity() == 0)]
     fn new() -> Vec<T>;
 
     #[pure]
@@ -16,4 +15,10 @@ impl<T> Vec<T> {
 
     #[ensures(self.len() == 0)]
     fn clear(&mut self);
+
+    #[pure]
+    fn capacity(&self) -> usize;
+
+    #[ensures(self.capacity() >= old(self.len() + additional))]
+    fn reserve_exact(&mut self, additional: usize);
 }

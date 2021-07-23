@@ -1,3 +1,4 @@
+#[cfg(feature = "verify")]
 use crate::external_specs::option::*;
 use crate::types::*;
 use prusti_contracts::*;
@@ -17,7 +18,7 @@ use std::ptr::copy_nonoverlapping;
 //         (ctx.membase < ctx.membase + ctx.memlen)
 //     }
 // }
-
+#[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
         true
@@ -68,10 +69,10 @@ impl VmCtx {
         let mut host_buffer: Vec<u8> = Vec::new();
         host_buffer.reserve_exact(n);
         self.memcpy_from_sandbox(&mut host_buffer, src, n);
-        // unsafe{copy_nonoverlapping(self.mem.as_ptr().offset(src as isize), host_buffer.as_mut_ptr(), n)};
         return Some(host_buffer);
     }
 
+    #[requires(src.len() == n)]
     #[requires(safe(self))]
     #[ensures(safe(self))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize) -> Option<()> {
@@ -84,25 +85,28 @@ impl VmCtx {
 
     // TODO: make sure vecs have reserved enough space
     // TODO: make sure lengths of vecs are correct after copy
+    // Overwrites contents of vec
     #[trusted]
+    #[requires(dst.capacity() >= n)]
     #[requires(src < self.memlen)]
     #[requires(src + n < self.memlen)]
+    #[ensures(dst.len() == n)]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: usize){
-        unsafe{copy_nonoverlapping(self.mem.as_ptr().offset(src as isize), dst.as_mut_ptr(), n)};
+        unsafe{
+            copy_nonoverlapping(self.mem.as_ptr().offset(src as isize), dst.as_mut_ptr(), n);
+            dst.set_len(n);
+        };
     }
 
     #[trusted]
+    #[requires(src.len() == n)]
     #[requires(dst < self.memlen)]
     #[requires(dst + n < self.memlen)]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize){
-        unsafe{copy_nonoverlapping(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n)};
+        unsafe{
+            copy_nonoverlapping(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n)
+        };
     }
-
-    // // pre: { ... }
-    // // post: { ... }
-    // void copy_buf_to_sandbox(ctx: &VmCtx, dst: SboxPtr, src: HostPtr, n: size){
-    //     memcpy(swizzle(ctx, dst), src, n);
-    // }
 
     // // pre: {}
     // // post:  { PathSandboxed(out_path) }

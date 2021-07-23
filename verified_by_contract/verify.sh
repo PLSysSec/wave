@@ -1,1 +1,1 @@
-time ../../prusti-dev/target/release/cargo-prusti
+time ../../prusti-dev/target/release/cargo-prusti --features verify

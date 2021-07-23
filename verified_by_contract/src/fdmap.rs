@@ -1,3 +1,4 @@
+#[cfg(feature = "verify")]
 use crate::external_specs::vec::*;
 use crate::types::*;
 use prusti_contracts::*;
