@@ -1,0 +1,3 @@
+[submodule "prusti-dev"]
+	path = prusti-dev
+	url = https://github.com/PLSysSec/prusti-dev.git
