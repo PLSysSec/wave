@@ -5,11 +5,8 @@ use prusti_contracts::*;
 use RuntimeError::*;
 
 /*
-new
-translate
-fresh_fd
-create
-remove
+Data structure to map sandbox file descriptors to host file descriptors.
+We will prove things about it's API as necessary.
 */
 
 impl FdMap {
@@ -25,8 +22,8 @@ impl FdMap {
     }
 
     // Trusted because I can't get the verifier to understand that 
-    // this can't ever err 
-    // I'm fine keeping this trusted
+    // this can't ever err and it is pretty clear it is correct.
+    // Can be fixed with https://viperproject.github.io/prusti-dev/user-guide/verify/pledge.html
     #[trusted]
     #[pure]
     #[requires (index < MAX_SBOX_FDS )]

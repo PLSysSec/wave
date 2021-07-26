@@ -5,6 +5,7 @@ use prusti_contracts::*;
 use RuntimeError::*;
 use std::ptr::copy_nonoverlapping;
 
+// TODO: any other ctx well-formedness checks?
 // predicate! {
 //     fn fd_safe(ctx: &FdMap) -> bool {
 //         forall(|s_fd: SboxFd|
@@ -12,12 +13,8 @@ use std::ptr::copy_nonoverlapping;
 //     }
 // }
 
-//Do we need this?
-// predicate! {
-//     fn valid(ctx: &VmCtx) -> bool {
-//         (ctx.membase < ctx.membase + ctx.memlen)
-//     }
-// }
+// TODO: exportable predicates
+/// Placeholder for ctx well-formedness checks
 #[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
@@ -25,9 +22,7 @@ predicate! {
     }
 }
 
-// pre: { }
-// post: { validCtx() }
-//TODO: instantiate stdin,stdout,stderr
+//TODO: instantiate stdin,stdout,stderr?
 #[ensures(safe(&result))]
 pub fn fresh_ctx() -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
@@ -43,23 +38,21 @@ pub fn fresh_ctx() -> VmCtx {
 }
 
 impl VmCtx {
-    // pre: { valid_ctx(ctx) }
-    // post: { buf >= ctx->membase }
+    /// Check whether sandbox pointer is actually inside the sandbox
     #[pure]
     #[ensures((result == true) ==> ptr < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
         return ptr < self.memlen;
     }
 
-    // // // pre: { valid_ctx(ctx), inMemRegion(buf), cnt < ctx->memlen }
-    // // // post: { buf + cnt < ctx->membase + ctx->memlen }
+    /// Check whether buffer is entirely within sandbox
     #[pure]
     #[ensures(result == true ==> buf < self.memlen && buf + cnt < self.memlen)]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: usize) -> bool {
         return self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt);
     }
 
-    // #[trusted]
+    /// Copy buffer from sandbox to host
     #[requires(safe(self))]
     #[ensures(safe(self))]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: usize) -> Option<Vec<u8>> {
@@ -72,6 +65,7 @@ impl VmCtx {
         return Some(host_buffer);
     }
 
+    /// Copy buffer from from host to sandbox
     #[requires(src.len() == n)]
     #[requires(safe(self))]
     #[ensures(safe(self))]
@@ -85,7 +79,9 @@ impl VmCtx {
 
     // TODO: make sure vecs have reserved enough space
     // TODO: make sure lengths of vecs are correct after copy
-    // Overwrites contents of vec
+    /// Function for memcpy from sandbox to host
+    /// Overwrites contents of vec
+    /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     #[trusted]
     #[requires(dst.capacity() >= n)]
     #[requires(src < self.memlen)]
@@ -98,6 +94,8 @@ impl VmCtx {
         };
     }
 
+    /// Function for memcpy from sandbox to host
+    /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     #[trusted]
     #[requires(src.len() == n)]
     #[requires(dst < self.memlen)]

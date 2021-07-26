@@ -15,7 +15,6 @@ predicate! {
 }
 
 macro_rules! exit_with_errno {
-    // Exits with errno
     ($ctx:ident, $errno:ident) => {
         $ctx.errno = $errno;
         return -1
