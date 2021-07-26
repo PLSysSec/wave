@@ -21,7 +21,7 @@ impl FdMap {
         }
     }
 
-    // Trusted because I can't get the verifier to understand that 
+    // Trusted because I can't get the verifier to understand that
     // this can't ever err and it is pretty clear it is correct.
     // Can be fixed with https://viperproject.github.io/prusti-dev/user-guide/verify/pledge.html
     #[trusted]

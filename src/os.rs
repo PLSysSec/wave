@@ -9,7 +9,7 @@ use syscall::syscall;
 /// functions must be trusted because we don't know what the os actually does
 /// on a syscall
 /// VmCtx is included as an argument only to be used for preconditions
- 
+
 //TODO: pathname needs to be sandboxed
 #[trusted]
 pub fn os_open(ctx: &VmCtx, pathname: &mut Vec<u8>, flags: i32) -> isize {
@@ -32,11 +32,11 @@ pub fn os_close(ctx: &VmCtx, fd: HostFd) -> i32 {
 #[trusted]
 pub fn os_read(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> isize {
     // ACCESS_FD(fd);
-    unsafe { 
+    unsafe {
         let result = syscall!(READ, fd, buf.as_mut_ptr(), cnt) as isize;
         buf.set_len(cnt);
         return result;
-     };
+    };
 }
 
 //TODO: fd safety

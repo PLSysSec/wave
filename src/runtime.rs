@@ -2,8 +2,8 @@
 use crate::external_specs::option::*;
 use crate::types::*;
 use prusti_contracts::*;
-use RuntimeError::*;
 use std::ptr::copy_nonoverlapping;
+use RuntimeError::*;
 
 // TODO: any other ctx well-formedness checks?
 // predicate! {
@@ -56,7 +56,7 @@ impl VmCtx {
     #[requires(safe(self))]
     #[ensures(safe(self))]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: usize) -> Option<Vec<u8>> {
-        if !self.fits_in_lin_mem(src, n){
+        if !self.fits_in_lin_mem(src, n) {
             return None;
         }
         let mut host_buffer: Vec<u8> = Vec::new();
@@ -70,7 +70,7 @@ impl VmCtx {
     #[requires(safe(self))]
     #[ensures(safe(self))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize) -> Option<()> {
-        if !self.fits_in_lin_mem(dst, n){
+        if !self.fits_in_lin_mem(dst, n) {
             return None;
         }
         self.memcpy_to_sandbox(dst, &src, n);
@@ -87,8 +87,8 @@ impl VmCtx {
     #[requires(src < self.memlen)]
     #[requires(src + n < self.memlen)]
     #[ensures(dst.len() == n)]
-    pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: usize){
-        unsafe{
+    pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: usize) {
+        unsafe {
             copy_nonoverlapping(self.mem.as_ptr().offset(src as isize), dst.as_mut_ptr(), n);
             dst.set_len(n);
         };
@@ -100,15 +100,13 @@ impl VmCtx {
     #[requires(src.len() == n)]
     #[requires(dst < self.memlen)]
     #[requires(dst + n < self.memlen)]
-    pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize){
-        unsafe{
-            copy_nonoverlapping(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n)
-        };
+    pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize) {
+        unsafe { copy_nonoverlapping(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n) };
     }
 
     // // pre: {}
     // // post:  { PathSandboxed(out_path) }
-    pub fn resolve_path(&self, in_path: Vec<u8>) -> Vec<u8>{
+    pub fn resolve_path(&self, in_path: Vec<u8>) -> Vec<u8> {
         //TODO: finish
         //memcpy(out_path, in_path, PATH_MAX);
         return in_path;

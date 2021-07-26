@@ -7,7 +7,7 @@ pub const PATH_MAX: usize = 1024;
 
 pub const PAGE_SIZE: usize = 4096;
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
-// #define SFI_SAFE(ctx) (true) //This is handled by the builtin memory safety checker
+                                               // #define SFI_SAFE(ctx) (true) //This is handled by the builtin memory safety checker
 
 // #define FD_SAFE(ctx) (true) // Unimplemented - I think I want to move to rust for better types to implement this
 // #define PATH_SAFE(ctx) (true) // Unimplemented - I think I want to move to rust for better types to implement this
