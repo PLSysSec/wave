@@ -50,7 +50,7 @@ impl FdMap {
     // #[ensures (self.lookup(k) == result)]
     // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
     //                 self.lookup(i) == old(self.lookup(i))))]
-    pub fn create(&mut self, k: HostFd) -> RuntimeResult<HostFd> {
+    pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {
         let s_fd = self.pop_fd()?;
         self.m[s_fd] = Ok(k);
         Ok(s_fd)
@@ -63,7 +63,7 @@ impl FdMap {
     //                 self.lookup(i) == old(self).lookup(i)))]
     pub fn delete(&mut self, k: SboxFd) {
         if let Ok(oldfd) = self.m[k] {
-            self.reserve.push(oldfd);
+            self.reserve.push(k);
         }
         self.m[k] = Err(Ebadf);
     }

@@ -35,7 +35,28 @@ predicate! {
 pub type HostPtr = usize;
 pub type SboxPtr = usize;
 
-pub type HostFd = usize;
+// pub type HostFd = usize;
+#[derive(Clone, Copy)]
+pub struct HostFd(usize);
+impl From<HostFd> for usize {
+    fn from(w: HostFd) -> usize {
+        w.0
+    }
+}
+
+impl From<usize> for HostFd {
+    fn from(w: usize) -> HostFd {
+        HostFd(w)
+    }
+}
+
+// //TODO: is this right?
+// impl From<HostFd> for i32 {
+//     fn from(w: HostFd) -> i32 {
+//         w.0 as i32
+//     }
+// }
+
 pub type SboxFd = usize;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
