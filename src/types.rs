@@ -81,3 +81,16 @@ pub struct VmCtx {
     pub fdmap: FdMap,
     pub errno: RuntimeError,
 }
+
+pub struct SandboxedPath(Vec<u8>);
+impl From<SandboxedPath> for Vec<u8> {
+    fn from(w: SandboxedPath) -> Vec<u8> {
+        w.0
+    }
+}
+
+impl From<Vec<u8>> for SandboxedPath {
+    fn from(w: Vec<u8>) -> SandboxedPath {
+        SandboxedPath(w)
+    }
+}

@@ -11,9 +11,10 @@ use syscall::syscall;
 
 //TODO: pathname needs to be sandboxed
 #[trusted]
-pub fn os_open(ctx: &VmCtx, pathname: &mut Vec<u8>, flags: i32) -> usize {
+pub fn os_open(ctx: &VmCtx, pathname: SandboxedPath, flags: i32) -> usize {
     // ACCESS_PATH(pathname);
-    unsafe { syscall!(OPEN, pathname.as_mut_ptr(), flags) }
+    let os_path: Vec<u8> = pathname.into();
+    unsafe { syscall!(OPEN, os_path.as_ptr(), flags) }
 }
 
 #[trusted]

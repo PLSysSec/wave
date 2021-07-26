@@ -29,8 +29,8 @@ pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> usize {
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let mut host_pathname = ctx.resolve_path(host_buffer);
-    let fd = os_open(ctx, &mut host_pathname, flags);
+    let host_pathname = ctx.resolve_path(host_buffer);
+    let fd = os_open(ctx, host_pathname, flags);
     let sbox_fd = ctx.fdmap.create(fd.into());
     if let Ok(s_fd) = sbox_fd {
         return s_fd;
