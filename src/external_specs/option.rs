@@ -9,9 +9,4 @@ impl<T> std::option::Option<T> {
     #[pure]
     #[ensures(self.is_some() == !result)]
     fn is_none(&self) -> bool;
-
-    #[requires(self.is_some())]
-    fn unwrap(self) -> T;
-
-    // ...
 }

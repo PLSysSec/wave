@@ -20,5 +20,6 @@ impl<T> Vec<T> {
     fn capacity(&self) -> usize;
 
     #[ensures(self.capacity() >= old(self.len() + additional))]
+    #[ensures(self.len() == old(self.len()))]
     fn reserve_exact(&mut self, additional: usize);
 }

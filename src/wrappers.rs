@@ -24,11 +24,11 @@ macro_rules! exit_with_errno {
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> usize {
-    let host_buffer_opt = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    if host_buffer_opt.is_none() {
+    if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
         exit_with_errno!(ctx, Efault);
     }
-    let host_buffer = host_buffer_opt.unwrap();
+
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
     let mut host_pathname = ctx.resolve_path(host_buffer);
     let fd = os_open(ctx, &mut host_pathname, flags);
     let sbox_fd = ctx.fdmap.create(fd.into());
@@ -66,7 +66,11 @@ pub fn wasi_read(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> us
         let mut buf: Vec<u8> = Vec::new();
         buf.reserve_exact(v_cnt);
         let result = os_read(ctx, fd, &mut buf, v_cnt);
-        let copy_ok = ctx.copy_buf_to_sandbox(v_buf, &buf, v_cnt);
+        if result > v_cnt {
+            //TODO: pass through os_read's errno?
+            return usize::MAX;
+        }
+        let copy_ok = ctx.copy_buf_to_sandbox(v_buf, &buf, result);
         if copy_ok.is_none() {
             exit_with_errno!(ctx, Efault);
         }
@@ -85,12 +89,7 @@ pub fn wasi_write(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> u
         exit_with_errno!(ctx, Ebadf);
     }
 
-    let host_buffer_opt = ctx.copy_buf_from_sandbox(v_buf, v_cnt);
-    if host_buffer_opt.is_none() {
-        exit_with_errno!(ctx, Efault);
-    }
-    let host_buffer = host_buffer_opt.unwrap();
-
+    let host_buffer = ctx.copy_buf_from_sandbox(v_buf, v_cnt);
     let sbox_fd: SboxFd = v_fd as SboxFd;
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
         return os_write(ctx, fd, &host_buffer, v_cnt);

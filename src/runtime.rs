@@ -53,16 +53,16 @@ impl VmCtx {
     }
 
     /// Copy buffer from sandbox to host
+    #[requires(src < self.memlen)]
+    #[requires(src + n < self.memlen)]
     #[requires(safe(self))]
     #[ensures(safe(self))]
-    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: usize) -> Option<Vec<u8>> {
-        if !self.fits_in_lin_mem(src, n) {
-            return None;
-        }
+    #[ensures(result.len() == n)]
+    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: usize) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
         host_buffer.reserve_exact(n);
         self.memcpy_from_sandbox(&mut host_buffer, src, n);
-        return Some(host_buffer);
+        return host_buffer;
     }
 
     /// Copy buffer from from host to sandbox
