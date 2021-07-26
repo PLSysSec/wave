@@ -20,4 +20,4 @@ build:
 
 # If this command is giving you trouble, try deleting the ./target directory and retrying
 verify:
-	time prusti-dev/target/release/cargo-prusti --features verify
+	prusti-dev/target/release/cargo-prusti --features verify
