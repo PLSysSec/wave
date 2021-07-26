@@ -107,7 +107,7 @@ impl VmCtx {
     // // pre: {}
     // // post:  { PathSandboxed(out_path) }
     pub fn resolve_path(&self, in_path: Vec<u8>) -> SandboxedPath {
-        //TODO: finish
+        //TODO: Properly sandbox paths
         //memcpy(out_path, in_path, PATH_MAX);
         return in_path.into();
     }

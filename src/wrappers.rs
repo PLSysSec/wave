@@ -30,7 +30,7 @@ pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> usize {
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
     let host_pathname = ctx.resolve_path(host_buffer);
-    let fd = os_open(ctx, host_pathname, flags);
+    let fd = os_open(host_pathname, flags);
     let sbox_fd = ctx.fdmap.create(fd.into());
     if let Ok(s_fd) = sbox_fd {
         return s_fd;
@@ -47,7 +47,7 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: i32) -> usize {
     let sbox_fd = v_fd as SboxFd;
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
         ctx.fdmap.delete(sbox_fd);
-        return os_close(ctx, fd);
+        return os_close(fd);
     }
     exit_with_errno!(ctx, Ebadf);
 }
@@ -65,7 +65,7 @@ pub fn wasi_read(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> us
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
         let mut buf: Vec<u8> = Vec::new();
         buf.reserve_exact(v_cnt);
-        let result = os_read(ctx, fd, &mut buf, v_cnt);
+        let result = os_read(fd, &mut buf, v_cnt);
         if result > v_cnt {
             //TODO: pass through os_read's errno?
             return usize::MAX;
@@ -92,7 +92,7 @@ pub fn wasi_write(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> u
     let host_buffer = ctx.copy_buf_from_sandbox(v_buf, v_cnt);
     let sbox_fd: SboxFd = v_fd as SboxFd;
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
-        return os_write(ctx, fd, &host_buffer, v_cnt);
+        return os_write(fd, &host_buffer, v_cnt);
     }
     exit_with_errno!(ctx, Ebadf);
 }

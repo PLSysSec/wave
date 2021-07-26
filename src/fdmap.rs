@@ -12,7 +12,7 @@ We will prove things about it's API as necessary.
 impl FdMap {
     // #[trusted]
     // #[ensures (result.m.len() == MAX_SBOX_FDS)]
-    // #[ensures (result.reserve.len() == 0)]
+    #[ensures (result.reserve.len() == 0)]
     pub fn new() -> Self {
         FdMap {
             m: vec![Err(Ebadf); MAX_SBOX_FDS],

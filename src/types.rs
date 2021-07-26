@@ -7,23 +7,7 @@ pub const PATH_MAX: usize = 1024;
 
 pub const PAGE_SIZE: usize = 4096;
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
-                                               // #define SFI_SAFE(ctx) (true) //This is handled by the builtin memory safety checker
 
-// #define FD_SAFE(ctx) (true) // Unimplemented - I think I want to move to rust for better types to implement this
-// #define PATH_SAFE(ctx) (true) // Unimplemented - I think I want to move to rust for better types to implement this
-// #define RESOURCE_SAFE(ctx) FD_SAFE(ctx) && PATH_SAFE(ctx)
-
-// #define SAFE(ctx) VALID_CTX(ctx) && SFI_SAFE(ctx) && RESOURCE_SAFE(ctx)
-
-// predicate SFISafe(ctx) =
-// not exists. a. a < ctx.membase | a >= ctx.membase + ctx.memlength. access(a)
-
-// predicate FdSafe(ctx) =
-// not exists. fd. inRevFdMap(ctx, fd) & os_read_fd(fd)
-
-// WASIRead(ctx): ... write at most v_cnt bytes etc.
-
-// validCtx(ctx), SFISafe(ctx), FdSafe(ctx) = ...
 #[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
@@ -49,13 +33,6 @@ impl From<usize> for HostFd {
         HostFd(w)
     }
 }
-
-// //TODO: is this right?
-// impl From<HostFd> for i32 {
-//     fn from(w: HostFd) -> i32 {
-//         w.0 as i32
-//     }
-// }
 
 pub type SboxFd = usize;
 

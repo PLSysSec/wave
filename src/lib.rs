@@ -9,4 +9,4 @@ mod fdmap;
 mod os;
 mod runtime;
 mod types;
-mod wrappers;
+pub mod wrappers;
