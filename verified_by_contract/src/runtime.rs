@@ -14,7 +14,7 @@ use std::ptr::copy_nonoverlapping;
 // }
 
 // TODO: exportable predicates
-/// Placeholder for ctx well-formedness checks
+// Placeholder for ctx well-formedness checks
 #[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
