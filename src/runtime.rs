@@ -77,8 +77,6 @@ impl VmCtx {
         Some(())
     }
 
-    // TODO: make sure vecs have reserved enough space
-    // TODO: make sure lengths of vecs are correct after copy
     /// Function for memcpy from sandbox to host
     /// Overwrites contents of vec
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
