@@ -22,7 +22,6 @@ pub fn os_close(ctx: &VmCtx, fd: HostFd) -> usize {
     return unsafe { syscall!(CLOSE, os_fd) };
 }
 
-//TODO: move set_len outside syscall (should also probably use result)
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]

@@ -2,7 +2,7 @@
 use crate::external_specs::option::*;
 use crate::types::*;
 use prusti_contracts::*;
-use std::ptr::copy_nonoverlapping;
+use std::ptr::{copy, copy_nonoverlapping};
 use RuntimeError::*;
 
 // TODO: any other ctx well-formedness checks?
@@ -80,6 +80,7 @@ impl VmCtx {
     /// Function for memcpy from sandbox to host
     /// Overwrites contents of vec
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
+    //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
     #[trusted]
     #[requires(dst.capacity() >= n)]
     #[requires(src < self.memlen)]
@@ -87,19 +88,20 @@ impl VmCtx {
     #[ensures(dst.len() == n)]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: usize) {
         unsafe {
-            copy_nonoverlapping(self.mem.as_ptr().offset(src as isize), dst.as_mut_ptr(), n);
+            copy(self.mem.as_ptr().offset(src as isize), dst.as_mut_ptr(), n);
             dst.set_len(n);
         };
     }
 
     /// Function for memcpy from sandbox to host
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
+    //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
     #[trusted]
     #[requires(src.len() == n)]
     #[requires(dst < self.memlen)]
     #[requires(dst + n < self.memlen)]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize) {
-        unsafe { copy_nonoverlapping(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n) };
+        unsafe { copy(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n) };
     }
 
     // // pre: {}
