@@ -1,3 +1,6 @@
 [submodule "prusti-dev"]
 	path = prusti-dev
 	url = https://github.com/PLSysSec/prusti-dev.git
+[submodule "rlbox_wasm2c_sandbox"]
+	path = rlbox_wasm2c_sandbox
+	url = https://github.com/PLSysSec/rlbox_wasm2c_sandbox.git
