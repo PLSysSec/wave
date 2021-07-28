@@ -11,12 +11,22 @@ bootstrap:
 	git submodule update --init --recursive
 	cd prusti-dev && ./x.py setup
 	cd prusti-dev && JAVA_HOME=$(JAVA_HOME) ./x.py build --release
+	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
+	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
+
 
 prusti:
 	cd prusti-dev && JAVA_HOME=$(JAVA_HOME) ./x.py build --release
 
 build:
 	cargo build --release
+
+build_hello_example:
+	cd examples/hello && make clean
+	cd examples/hello && make build
+
+run_hello_example:
+	cd examples/hello && make run
 
 # If this command is giving you trouble, try deleting the ./target directory and retrying
 verify:
