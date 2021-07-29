@@ -53,6 +53,7 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> u32 {
     exit_with_errno!(ctx, Ebadf);
 }
 
+//TODO: fix return type
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
@@ -88,6 +89,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
     exit_with_errno!(ctx, Ebadf);
 }
 
+//TODO: fix return type
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
