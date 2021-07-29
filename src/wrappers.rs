@@ -7,6 +7,8 @@ use prusti_contracts::*;
 use std::convert::TryInto;
 use RuntimeError::*;
 
+// Note: Prusti can't really handle iterators, so we need to use while loops
+
 #[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
@@ -17,13 +19,13 @@ predicate! {
 macro_rules! exit_with_errno {
     ($ctx:ident, $errno:ident) => {
         $ctx.errno = $errno;
-        return usize::MAX
+        return u32::MAX
     };
 }
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> usize {
+pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> u32 {
     if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
         exit_with_errno!(ctx, Efault);
     }
@@ -40,59 +42,75 @@ pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> usize {
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_close(ctx: &mut VmCtx, v_fd: i32) -> usize {
-    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS_I32) {
+pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> u32 {
+    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) {
         exit_with_errno!(ctx, Ebadf);
     }
-    let sbox_fd = v_fd as SboxFd;
-    if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
-        ctx.fdmap.delete(sbox_fd);
-        return os_close(fd);
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        ctx.fdmap.delete(v_fd);
+        return os_close(fd) as u32;
     }
     exit_with_errno!(ctx, Ebadf);
 }
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_read(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> usize {
-    if !ctx.fits_in_lin_mem(v_buf, v_cnt) {
-        exit_with_errno!(ctx, Efault);
-    }
-    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS_I32) {
+pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
+    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) {
         exit_with_errno!(ctx, Ebadf);
     }
-    let sbox_fd: SboxFd = v_fd as SboxFd;
-    if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
-        let mut buf: Vec<u8> = Vec::new();
-        buf.reserve_exact(v_cnt);
-        let result = os_read(fd, &mut buf, v_cnt);
-        if result > v_cnt {
-            //TODO: pass through os_read's errno?
-            return usize::MAX;
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let mut num: u32 = 0;
+        let mut i = 0;
+        while i < iovcnt {
+            let start = (iovs + i * 8) as usize;
+            let ptr = ctx.read_u32(start);
+            let len = ctx.read_u32(start + 4);
+            if !ctx.fits_in_lin_mem(ptr, len) {
+                exit_with_errno!(ctx, Efault);
+            }
+            let mut buf: Vec<u8> = Vec::new();
+            buf.reserve_exact(len as usize);
+            let result = os_read(fd, &mut buf, len as usize) as u32;
+            if result > len {
+                //TODO: pass through os_read's errno?
+                return u32::MAX;
+            }
+            let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, result);
+            if copy_ok.is_none() {
+                exit_with_errno!(ctx, Efault);
+            }
+            num += result;
+            i += 1;
         }
-        let copy_ok = ctx.copy_buf_to_sandbox(v_buf, &buf, result);
-        if copy_ok.is_none() {
-            exit_with_errno!(ctx, Efault);
-        }
-        return result;
+        return num;
     }
     exit_with_errno!(ctx, Ebadf);
 }
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_write(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> usize {
-    if !ctx.fits_in_lin_mem(v_buf, v_cnt) {
-        exit_with_errno!(ctx, Efault);
-    }
-    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS_I32) {
+pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
+    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) {
         exit_with_errno!(ctx, Ebadf);
     }
 
-    let host_buffer = ctx.copy_buf_from_sandbox(v_buf, v_cnt);
-    let sbox_fd: SboxFd = v_fd as SboxFd;
-    if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
-        return os_write(fd, &host_buffer, v_cnt);
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let mut num: u32 = 0;
+        let mut i = 0;
+        while i < iovcnt {
+            let start = (iovs + i * 8) as usize;
+            let ptr = ctx.read_u32(start);
+            let len = ctx.read_u32(start + 4);
+            if !ctx.fits_in_lin_mem(ptr, len) {
+                exit_with_errno!(ctx, Efault);
+            }
+            let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
+            let result = os_write(fd, &host_buffer, len as usize) as u32;
+            num += result;
+            i += 1;
+        }
+        return num;
     }
     exit_with_errno!(ctx, Ebadf);
 }

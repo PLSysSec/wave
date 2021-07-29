@@ -1,4 +1,10 @@
-#![allow(dead_code, unused_imports, unused_variables, unused_must_use)]
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_must_use,
+    unused_comparisons
+)]
 
 extern crate prusti_contracts;
 // external specs mod will crash if we are compiling without the verifier
