@@ -1,4 +1,4 @@
-.PHONY: bootstrap build verify prusti
+.PHONY: bootstrap build verify prusti bindings
 
 # Prusti setup and build instructions: 
 # https://viperproject.github.io/prusti-dev/dev-guide/development/setup.html
@@ -31,3 +31,8 @@ run_hello_example:
 # If this command is giving you trouble, try deleting the ./target directory and retrying
 verify:
 	prusti-dev/target/release/cargo-prusti --features verify
+
+# Generate C/Cpp bindings for veriwasi
+bindings:
+	mkdir -p bindings
+	cbindgen --config cbindgen.toml --crate veriwasi --lang c --output bindings/veriwasi.h
