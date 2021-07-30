@@ -15,7 +15,7 @@ impl FdMap {
     #[ensures (result.reserve.len() == 0)]
     pub fn new() -> Self {
         FdMap {
-            m: vec![Err(Ebadf); MAX_SBOX_FDS],
+            m: vec![Err(Ebadf); MAX_SBOX_FDS as usize],
             reserve: Vec::new(),
             counter: 0,
         }
@@ -28,7 +28,7 @@ impl FdMap {
     #[pure]
     #[requires (index < MAX_SBOX_FDS )]
     pub fn lookup(&self, index: SboxFd) -> RuntimeResult<HostFd> {
-        self.m[index]
+        self.m[index as usize]
     }
 
     // #[trusted]
@@ -52,7 +52,7 @@ impl FdMap {
     //                 self.lookup(i) == old(self.lookup(i))))]
     pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {
         let s_fd = self.pop_fd()?;
-        self.m[s_fd] = Ok(k);
+        self.m[s_fd as usize] = Ok(k);
         Ok(s_fd)
     }
 
@@ -62,9 +62,9 @@ impl FdMap {
     // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
     //                 self.lookup(i) == old(self).lookup(i)))]
     pub fn delete(&mut self, k: SboxFd) {
-        if let Ok(oldfd) = self.m[k] {
+        if let Ok(oldfd) = self.m[k as usize] {
             self.reserve.push(k);
         }
-        self.m[k] = Err(Ebadf);
+        self.m[k as usize] = Err(Ebadf);
     }
 }

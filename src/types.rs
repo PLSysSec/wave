@@ -1,9 +1,9 @@
 use prusti_contracts::*;
 
-pub const MAX_SBOX_FDS: usize = 8;
-pub const MAX_SBOX_FDS_I32: i32 = 8;
+pub const MAX_SBOX_FDS: u32 = 8;
+// pub const MAX_SBOX_FDS_I32: i32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
-pub const PATH_MAX: usize = 1024;
+pub const PATH_MAX: u32 = 1024;
 
 pub const PAGE_SIZE: usize = 4096;
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
@@ -16,8 +16,8 @@ predicate! {
 }
 
 //typedef char* hostptr;
-pub type HostPtr = usize;
-pub type SboxPtr = usize;
+// pub type HostPtr = usize;
+pub type SboxPtr = u32;
 
 // pub type HostFd = usize;
 #[derive(Clone, Copy)]
@@ -34,7 +34,7 @@ impl From<usize> for HostFd {
     }
 }
 
-pub type SboxFd = usize;
+pub type SboxFd = u32;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum RuntimeError {

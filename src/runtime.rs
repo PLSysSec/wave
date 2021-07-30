@@ -28,52 +28,50 @@ pub fn fresh_ctx() -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let fdmap = FdMap::new();
-    let ctx = VmCtx {
+    VmCtx {
         mem,
         memlen,
         fdmap,
         errno: Success,
-    };
-    return ctx;
+    }
 }
 
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
     #[pure]
-    #[ensures((result == true) ==> ptr < self.memlen)]
+    #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
-        return ptr < self.memlen;
+        (ptr as usize) < self.memlen
     }
 
     /// Check whether buffer is entirely within sandbox
     #[pure]
-    #[ensures(result == true ==> buf < self.memlen && buf + cnt < self.memlen)]
-    pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: usize) -> bool {
-        return self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt);
+    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen)]
+    pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
+        self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt)
     }
 
     /// Copy buffer from sandbox to host
-    #[requires(src < self.memlen)]
-    #[requires(src + n < self.memlen)]
+    #[requires(self.fits_in_lin_mem(src, n))]
     #[requires(safe(self))]
     #[ensures(safe(self))]
-    #[ensures(result.len() == n)]
-    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: usize) -> Vec<u8> {
+    #[ensures(result.len() == (n as usize) )]
+    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
-        host_buffer.reserve_exact(n);
+        host_buffer.reserve_exact(n as usize);
         self.memcpy_from_sandbox(&mut host_buffer, src, n);
-        return host_buffer;
+        host_buffer
     }
 
     /// Copy buffer from from host to sandbox
-    #[requires(src.len() == n)]
+    #[requires(src.len() == (n as usize) )]
     #[requires(safe(self))]
     #[ensures(safe(self))]
-    pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize) -> Option<()> {
+    pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
         }
-        self.memcpy_to_sandbox(dst, &src, n);
+        self.memcpy_to_sandbox(dst, src, n);
         Some(())
     }
 
@@ -82,14 +80,17 @@ impl VmCtx {
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
     #[trusted]
-    #[requires(dst.capacity() >= n)]
-    #[requires(src < self.memlen)]
-    #[requires(src + n < self.memlen)]
-    #[ensures(dst.len() == n)]
-    pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: usize) {
+    #[requires(dst.capacity() >= (n as usize) )]
+    #[requires(self.fits_in_lin_mem(src, n))]
+    #[ensures(dst.len() == (n as usize) )]
+    pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
         unsafe {
-            copy(self.mem.as_ptr().offset(src as isize), dst.as_mut_ptr(), n);
-            dst.set_len(n);
+            copy(
+                self.mem.as_ptr().offset(src as isize),
+                dst.as_mut_ptr(),
+                n as usize,
+            );
+            dst.set_len(n as usize);
         };
     }
 
@@ -97,18 +98,46 @@ impl VmCtx {
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
     #[trusted]
-    #[requires(src.len() == n)]
-    #[requires(dst < self.memlen)]
-    #[requires(dst + n < self.memlen)]
-    pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: usize) {
-        unsafe { copy(src.as_ptr(), self.mem.as_mut_ptr().offset(dst as isize), n) };
+    #[requires(src.len() == (n as usize) )]
+    #[requires(self.fits_in_lin_mem(dst, n))]
+    // #[requires(dst < (self.memlen as u32) )]
+    // #[requires(dst + n < (self.memlen as u32) )]
+    pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
+        unsafe {
+            copy(
+                src.as_ptr(),
+                self.mem.as_mut_ptr().offset(dst as isize),
+                n as usize,
+            )
+        };
     }
 
     // // pre: {}
     // // post:  { PathSandboxed(out_path) }
     pub fn resolve_path(&self, in_path: Vec<u8>) -> SandboxedPath {
         //TODO: Properly sandbox paths
-        //memcpy(out_path, in_path, PATH_MAX);
-        return in_path.into();
+        in_path.into()
+    }
+
+    /// read u32 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn read_u32(&self, start: usize) -> u32 {
+        let bytes: [u8; 4] = [
+            self.mem[start],
+            self.mem[start + 1],
+            self.mem[start + 2],
+            self.mem[start + 3],
+        ];
+        u32::from_be_bytes(bytes)
+    }
+
+    /// write u32 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn write_u32(&mut self, start: usize, v: u32) {
+        let bytes: [u8; 4] = v.to_be_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+        self.mem[start + 2] = bytes[2];
+        self.mem[start + 3] = bytes[3];
     }
 }
