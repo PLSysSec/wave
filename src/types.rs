@@ -42,7 +42,27 @@ pub enum RuntimeError {
     Ebadf,
     Emfile, // process ran out of file descriptors
     Efault,
+    Einval,
+    Eoverflow,
+    Eio,
+    Enospc,
     Eacces,
+}
+
+impl From<u32> for RuntimeError {
+    fn from(val: u32) -> Self {
+        match val as i32 {
+            libc::EBADF => Self::Ebadf,
+            libc::EMFILE => Self::Emfile,
+            libc::EFAULT => Self::Efault,
+            libc::EINVAL => Self::Einval,
+            libc::EOVERFLOW => Self::Eoverflow,
+            libc::EIO => Self::Eio,
+            libc::ENOSPC => Self::Enospc,
+            libc::EACCES => Self::Eacces,
+            _ => Self::Einval, // TODO: what to put here? can't panic cause validator
+        }
+    }
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -71,5 +91,21 @@ impl From<SandboxedPath> for Vec<u8> {
 impl From<Vec<u8>> for SandboxedPath {
     fn from(w: Vec<u8>) -> SandboxedPath {
         SandboxedPath(w)
+    }
+}
+
+pub enum Whence {
+    Set,
+    Cur,
+    End,
+}
+
+impl From<Whence> for i32 {
+    fn from(whence: Whence) -> Self {
+        match whence {
+            Whence::Set => libc::SEEK_SET,
+            Whence::Cur => libc::SEEK_CUR,
+            Whence::End => libc::SEEK_END,
+        }
     }
 }
