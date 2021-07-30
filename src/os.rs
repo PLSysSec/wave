@@ -41,7 +41,7 @@ pub fn os_write(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
 #[trusted]
 pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
     let os_fd: usize = fd.into();
-    return unsafe { syscall!(LSEEK, os_fd, offset, whence) };
+    unsafe { syscall!(LSEEK, os_fd, offset, whence) }
 }
 
 #[trusted]

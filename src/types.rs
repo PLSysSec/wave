@@ -76,8 +76,8 @@ impl From<Vec<u8>> for SandboxedPath {
     }
 }
 
-pub enum  Whence {
+pub enum Whence {
     Set,
     Cur,
-    End
+    End,
 }
