@@ -42,6 +42,7 @@ pub enum RuntimeError {
     Ebadf,
     Emfile, // process ran out of file descriptors
     Efault,
+    Eacces,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -56,6 +57,7 @@ pub struct VmCtx {
     pub mem: Vec<u8>,
     pub memlen: usize,
     pub fdmap: FdMap,
+    pub homedir: String,
     pub errno: RuntimeError,
 }
 
