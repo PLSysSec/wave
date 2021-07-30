@@ -21,6 +21,12 @@ macro_rules! exit_with_errno {
     };
 }
 
+fn is_syscall_error(val: usize) -> bool {
+    // syscall returns between -1 and -4095 are errors, source:
+    // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
+    val >= (-4095 as isize) as usize
+}
+
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_open(ctx: &mut VmCtx, pathname: SboxPtr, flags: i32) -> usize {
@@ -93,6 +99,68 @@ pub fn wasi_write(ctx: &mut VmCtx, v_fd: i32, v_buf: SboxPtr, v_cnt: usize) -> u
     let sbox_fd: SboxFd = v_fd as SboxFd;
     if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
         return os_write(fd, &host_buffer, v_cnt);
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_seek(ctx: &mut VmCtx, v_fd: i32, v_filedelta: i64, v_whence: Whence) -> usize {
+    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS_I32) {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    let posix_whence = match v_whence {
+        Whence::Set => libc::SEEK_SET,
+        Whence::Cur => libc::SEEK_CUR,
+        Whence::End => libc::SEEK_END,
+    };
+
+    let sbox_fd: SboxFd = v_fd as SboxFd;
+    if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
+        let ret = os_seek(fd, v_filedelta, posix_whence);
+        if is_syscall_error(ret) {
+            let errno = match ret as i32 {
+                libc::EINVAL => Einval,
+                libc::EOVERFLOW => Eoverflow,
+                _ => Einval // TODO: what to put here? can't panic cause validator
+            };
+
+            exit_with_errno!(ctx, errno);
+        } else {
+            return ret;
+        }
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_tell(ctx: &mut VmCtx, v_fd: i32) -> usize {
+    wasi_seek(ctx, v_fd, 0, Whence::Cur)
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_sync(ctx: &mut VmCtx, v_fd: i32) -> usize {
+    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS_I32) {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    let sbox_fd: SboxFd = v_fd as SboxFd;
+    if let Ok(fd) = ctx.fdmap.m[sbox_fd] {
+        let ret = os_sync(fd);
+        if is_syscall_error(ret) {
+            let errno = match ret as i32 {
+                libc::EIO => Eio,
+                libc::ENOSPC => Enospc,
+                _ => Einval
+            };
+
+            exit_with_errno!(ctx, errno);
+        } else {
+            return ret;
+        }
     }
     exit_with_errno!(ctx, Ebadf);
 }

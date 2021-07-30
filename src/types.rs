@@ -42,6 +42,10 @@ pub enum RuntimeError {
     Ebadf,
     Emfile, // process ran out of file descriptors
     Efault,
+    Einval,
+    Eoverflow,
+    Eio,
+    Enospc,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -70,4 +74,10 @@ impl From<Vec<u8>> for SandboxedPath {
     fn from(w: Vec<u8>) -> SandboxedPath {
         SandboxedPath(w)
     }
+}
+
+pub enum  Whence {
+    Set,
+    Cur,
+    End
 }
