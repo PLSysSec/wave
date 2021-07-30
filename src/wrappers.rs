@@ -43,7 +43,7 @@ pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> u32 {
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> u32 {
-    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) {
+    if v_fd >= MAX_SBOX_FDS {
         exit_with_errno!(ctx, Ebadf);
     }
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
@@ -57,7 +57,7 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> u32 {
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
-    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) {
+    if v_fd >= MAX_SBOX_FDS {
         exit_with_errno!(ctx, Ebadf);
     }
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
@@ -93,7 +93,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
-    if (v_fd < 0) || (v_fd >= MAX_SBOX_FDS) {
+    if v_fd >= MAX_SBOX_FDS {
         exit_with_errno!(ctx, Ebadf);
     }
 

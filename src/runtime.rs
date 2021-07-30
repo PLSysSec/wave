@@ -28,13 +28,12 @@ pub fn fresh_ctx() -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let fdmap = FdMap::new();
-    let ctx = VmCtx {
+    VmCtx {
         mem,
         memlen,
         fdmap,
         errno: Success,
-    };
-    return ctx;
+    }
 }
 
 impl VmCtx {
@@ -42,14 +41,14 @@ impl VmCtx {
     #[pure]
     #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
-        return (ptr as usize) < self.memlen;
+        (ptr as usize) < self.memlen
     }
 
     /// Check whether buffer is entirely within sandbox
     #[pure]
     #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen)]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
-        return self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt);
+        self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt)
     }
 
     /// Copy buffer from sandbox to host
@@ -61,7 +60,7 @@ impl VmCtx {
         let mut host_buffer: Vec<u8> = Vec::new();
         host_buffer.reserve_exact(n as usize);
         self.memcpy_from_sandbox(&mut host_buffer, src, n);
-        return host_buffer;
+        host_buffer
     }
 
     /// Copy buffer from from host to sandbox
@@ -72,7 +71,7 @@ impl VmCtx {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
         }
-        self.memcpy_to_sandbox(dst, &src, n);
+        self.memcpy_to_sandbox(dst, src, n);
         Some(())
     }
 
@@ -117,7 +116,7 @@ impl VmCtx {
     // // post:  { PathSandboxed(out_path) }
     pub fn resolve_path(&self, in_path: Vec<u8>) -> SandboxedPath {
         //TODO: Properly sandbox paths
-        return in_path.into();
+        in_path.into()
     }
 
     /// read u32 from wasm linear memory

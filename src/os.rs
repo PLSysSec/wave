@@ -15,7 +15,7 @@ pub fn os_open(pathname: SandboxedPath, flags: i32) -> usize {
 #[trusted]
 pub fn os_close(fd: HostFd) -> usize {
     let os_fd: usize = fd.into();
-    return unsafe { syscall!(CLOSE, os_fd) };
+    unsafe { syscall!(CLOSE, os_fd) }
 }
 
 #[requires(buf.capacity() >= cnt)]
@@ -27,13 +27,13 @@ pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
     unsafe {
         let result = syscall!(READ, os_fd, buf.as_mut_ptr(), cnt);
         buf.set_len(result);
-        return result;
-    };
+        result
+    }
 }
 
 #[requires(buf.len() >= cnt)]
 #[trusted]
 pub fn os_write(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
     let os_fd: usize = fd.into();
-    return unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) };
+    unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
 }
