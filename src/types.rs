@@ -46,6 +46,7 @@ pub enum RuntimeError {
     Eoverflow,
     Eio,
     Enospc,
+    Eacces,
 }
 
 impl From<u32> for RuntimeError {
@@ -58,6 +59,7 @@ impl From<u32> for RuntimeError {
             libc::EOVERFLOW => Self::Eoverflow,
             libc::EIO => Self::Eio,
             libc::ENOSPC => Self::Enospc,
+            libc::EACCES => Self::Eacces,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
         }
     }
@@ -75,6 +77,7 @@ pub struct VmCtx {
     pub mem: Vec<u8>,
     pub memlen: usize,
     pub fdmap: FdMap,
+    pub homedir: String,
     pub errno: RuntimeError,
 }
 

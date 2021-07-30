@@ -2,6 +2,9 @@
 use crate::external_specs::option::*;
 use crate::types::*;
 use prusti_contracts::*;
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
+use std::path::{Component, Path, PathBuf};
 use std::ptr::{copy, copy_nonoverlapping};
 use RuntimeError::*;
 
@@ -24,7 +27,7 @@ predicate! {
 
 //TODO: instantiate stdin,stdout,stderr?
 #[ensures(safe(&result))]
-pub fn fresh_ctx() -> VmCtx {
+pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let fdmap = FdMap::new();
@@ -32,6 +35,7 @@ pub fn fresh_ctx() -> VmCtx {
         mem,
         memlen,
         fdmap,
+        homedir,
         errno: Success,
     }
 }
@@ -112,11 +116,20 @@ impl VmCtx {
         };
     }
 
-    // // pre: {}
-    // // post:  { PathSandboxed(out_path) }
-    pub fn resolve_path(&self, in_path: Vec<u8>) -> SandboxedPath {
-        //TODO: Properly sandbox paths
-        in_path.into()
+    /// Check whether a path is in the home directory.
+    /// If it is, return it as an absolute path, if it isn't, return error
+    // TODO: verify and make untrusted
+    #[trusted]
+    pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
+        let path = PathBuf::from(OsString::from_vec(in_path));
+        let safe_path = normalize_path(&path);
+        let path_str = safe_path.into_os_string();
+        if let Ok(s) = path_str.into_string() {
+            if self.homedir.starts_with(&s) {
+                return Ok(SandboxedPath::from(s.into_bytes()));
+            }
+        }
+        Err(Eacces)
     }
 
     /// read u32 from wasm linear memory
@@ -140,4 +153,36 @@ impl VmCtx {
         self.mem[start + 2] = bytes[2];
         self.mem[start + 3] = bytes[3];
     }
+}
+
+/// Convert relative path to absolute path
+/// Used to check that that paths are sandboxed
+// TODO: verify this
+// Prusti does not like this function at all
+#[trusted]
+pub fn normalize_path(path: &PathBuf) -> PathBuf {
+    let mut components = path.components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
+
+    for component in components {
+        match component {
+            Component::Prefix(..) => unreachable!(),
+            Component::RootDir => {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                ret.pop();
+            }
+            Component::Normal(c) => {
+                ret.push(c);
+            }
+        }
+    }
+    ret
 }

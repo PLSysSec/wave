@@ -37,13 +37,15 @@ pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> u32 {
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.resolve_path(host_buffer);
-    let fd = os_open(host_pathname, flags);
-    let sbox_fd = ctx.fdmap.create(fd.into());
-    if let Ok(s_fd) = sbox_fd {
-        return s_fd;
+    if let Ok(host_pathname) = ctx.resolve_path(host_buffer) {
+        let fd = os_open(host_pathname, flags);
+        let sbox_fd = ctx.fdmap.create(fd.into());
+        if let Ok(s_fd) = sbox_fd {
+            return s_fd;
+        }
+        exit_with_errno!(ctx, Ebadf);
     }
-    exit_with_errno!(ctx, Ebadf);
+    exit_with_errno!(ctx, Eacces);
 }
 
 #[requires(safe(ctx))]
