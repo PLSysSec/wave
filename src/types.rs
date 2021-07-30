@@ -48,6 +48,21 @@ pub enum RuntimeError {
     Enospc,
 }
 
+impl From<u32> for RuntimeError {
+    fn from(val: u32) -> Self {
+        match val as i32 {
+            libc::EBADF => Self::Ebadf,
+            libc::EMFILE => Self::Emfile,
+            libc::EFAULT => Self::Efault,
+            libc::EINVAL => Self::Einval,
+            libc::EOVERFLOW => Self::Eoverflow,
+            libc::EIO => Self::Eio,
+            libc::ENOSPC => Self::Enospc,
+            _ => Self::Einval, // TODO: what to put here? can't panic cause validator
+        }
+    }
+}
+
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
 pub struct FdMap {
@@ -80,4 +95,14 @@ pub enum Whence {
     Set,
     Cur,
     End,
+}
+
+impl From<Whence> for i32 {
+    fn from(whence: Whence) -> Self {
+        match whence {
+            Whence::Set => libc::SEEK_SET,
+            Whence::Cur => libc::SEEK_CUR,
+            Whence::End => libc::SEEK_END,
+        }
+    }
 }

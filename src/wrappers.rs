@@ -130,21 +130,10 @@ pub fn wasi_seek(ctx: &mut VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence)
         exit_with_errno!(ctx, Ebadf);
     }
 
-    let posix_whence = match v_whence {
-        Whence::Set => libc::SEEK_SET,
-        Whence::Cur => libc::SEEK_CUR,
-        Whence::End => libc::SEEK_END,
-    };
-
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
-        let ret = os_seek(fd, v_filedelta, posix_whence) as u32;
+        let ret = os_seek(fd, v_filedelta, v_whence.into()) as u32;
         if is_syscall_error(ret) {
-            let errno = match ret as i32 {
-                libc::EINVAL => Einval,
-                libc::EOVERFLOW => Eoverflow,
-                _ => Einval, // TODO: what to put here? can't panic cause validator
-            };
-
+            let errno = ret.into();
             exit_with_errno!(ctx, errno);
         } else {
             return ret;
@@ -169,12 +158,7 @@ pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
         let ret = os_sync(fd) as u32;
         if is_syscall_error(ret) {
-            let errno = match ret as i32 {
-                libc::EIO => Eio,
-                libc::ENOSPC => Enospc,
-                _ => Einval,
-            };
-
+            let errno = ret.into();
             exit_with_errno!(ctx, errno);
         } else {
             return ret;
