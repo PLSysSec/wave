@@ -23,12 +23,6 @@ macro_rules! exit_with_errno {
     };
 }
 
-fn is_syscall_error(val: usize) -> bool {
-    // syscall returns between -1 and -4095 are errors, source:
-    // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
-    val >= -4095isize as usize
-}
-
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> u32 {
@@ -138,12 +132,11 @@ pub fn wasi_seek(ctx: &mut VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence)
 
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
         let ret = os_seek(fd, v_filedelta, v_whence.into());
-        if is_syscall_error(ret) {
-            let errno = ret.into();
+        if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
             exit_with_errno!(ctx, errno);
-        } else {
-            return ret as u32;
         }
+
+        return ret as u32;
     }
     exit_with_errno!(ctx, Ebadf);
 }
@@ -163,14 +156,33 @@ pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
 
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
         let ret = os_sync(fd);
-        if is_syscall_error(ret) {
-            let errno = ret.into();
+        if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
             exit_with_errno!(ctx, errno);
-        } else {
-            return ret as u32;
         }
+
+        return ret as u32;
     }
     exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> Timestamp {
+    let mut spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+
+    let ret = os_clock_get_res(id.into(), &mut spec);
+
+    if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
+        // TODO: exit with errno for non u32
+        ctx.errno = errno;
+        return Timestamp::MAX;
+    }
+
+    // convert to ns
+    (spec.tv_sec * 1_000_000_000 * spec.tv_nsec) as Timestamp
 }
 
 #[requires(safe(ctx))]
@@ -186,13 +198,11 @@ pub fn wasi_clock_time_get(ctx: &mut VmCtx, id: ClockId, precision: Timestamp) -
 
     let ret = os_clock_get_time(id.into(), &mut spec);
 
-    if is_syscall_error(ret) {
-        let errno = ret.into();
-
-        // TODO: exit_with_errno for non-u32 types
+    if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
+        // TODO: exit with errno for non u32
         ctx.errno = errno;
         return Timestamp::MAX;
     }
 
-    (spec.tv_sec * 1_000_000_000 * spec.tv_nsec) as u64
+    (spec.tv_sec * 1_000_000_000 * spec.tv_nsec) as Timestamp
 }

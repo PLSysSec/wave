@@ -49,11 +49,18 @@ pub enum RuntimeError {
     Eacces,
 }
 
-impl From<usize> for RuntimeError {
-    fn from(val: usize) -> Self {
-        // from: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
-        let val = -(val as i32);
-        match val {
+impl RuntimeError {
+    /// Returns Some(RuntimeError) if the passed in `ret` value from a syscall corresponds to
+    /// some Errno value. None otherwise.
+    pub fn from_syscall_ret(ret: usize) -> Option<RuntimeError> {
+        // syscall returns between -1 and -4095 are errors, source:
+        // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
+        if ret < -4095isize as usize {
+            return None;
+        }
+
+        let ret = -(ret as i32);
+        let errno = match ret {
             libc::EBADF => Self::Ebadf,
             libc::EMFILE => Self::Emfile,
             libc::EFAULT => Self::Efault,
@@ -63,7 +70,9 @@ impl From<usize> for RuntimeError {
             libc::ENOSPC => Self::Enospc,
             libc::EACCES => Self::Eacces,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
-        }
+        };
+
+        Some(errno)
     }
 }
 

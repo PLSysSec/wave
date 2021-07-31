@@ -55,3 +55,8 @@ pub fn os_sync(fd: HostFd) -> usize {
 pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> usize {
     unsafe { syscall!(CLOCK_GETTIME, clock_id, spec as *mut libc::timespec) }
 }
+
+#[trusted]
+pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> usize {
+    unsafe { syscall!(CLOCK_GETRES, clock_id, spec as *mut libc::timespec) }
+}
