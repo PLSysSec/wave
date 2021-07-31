@@ -38,6 +38,7 @@ pub fn os_write(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
     unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
 }
 
+// TODO: could be cleaner to do a typedef SyscallRet = usize or something for From traits
 #[trusted]
 pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
     let os_fd: usize = fd.into();
@@ -48,4 +49,9 @@ pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
 pub fn os_sync(fd: HostFd) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FSYNC, os_fd) }
+}
+
+#[trusted]
+pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> usize {
+    unsafe { syscall!(CLOCK_GETTIME, clock_id, spec as *mut libc::timespec) }
 }

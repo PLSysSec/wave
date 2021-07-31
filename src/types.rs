@@ -49,9 +49,11 @@ pub enum RuntimeError {
     Eacces,
 }
 
-impl From<u32> for RuntimeError {
-    fn from(val: u32) -> Self {
-        match val as i32 {
+impl From<usize> for RuntimeError {
+    fn from(val: usize) -> Self {
+        // from: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
+        let val = -(val as i32);
+        match val {
             libc::EBADF => Self::Ebadf,
             libc::EMFILE => Self::Emfile,
             libc::EFAULT => Self::Efault,
@@ -109,3 +111,24 @@ impl From<Whence> for i32 {
         }
     }
 }
+
+pub enum ClockId {
+    Realtime,
+    Monotonic,
+    ProcessCpuTimeId,
+    ThreadCpuTime,
+}
+
+impl From<ClockId> for i32 {
+    fn from(id: ClockId) -> Self {
+        match id {
+            ClockId::Realtime => libc::CLOCK_REALTIME,
+            ClockId::Monotonic => libc::CLOCK_MONOTONIC,
+            ClockId::ProcessCpuTimeId => libc::CLOCK_PROCESS_CPUTIME_ID,
+            ClockId::ThreadCpuTime => libc::CLOCK_THREAD_CPUTIME_ID,
+        }
+    }
+}
+
+/// Wasi timestamp in nanoseconds
+pub type Timestamp = u64;
