@@ -142,3 +142,26 @@ impl From<ClockId> for i32 {
 
 /// Wasi timestamp in nanoseconds
 pub type Timestamp = u64;
+
+pub enum Advice {
+    Normal,
+    Sequential,
+    Random,
+    WillNeed,
+    DontNeed,
+    NoReuse,
+}
+
+impl From<Advice> for i32 {
+    fn from(advice: Advice) -> Self {
+        match advice {
+            Advice::Normal => libc::POSIX_FADV_NORMAL,
+            Advice::Sequential => libc::POSIX_FADV_SEQUENTIAL,
+            Advice::Random => libc::POSIX_FADV_RANDOM,
+            Advice::WillNeed => libc::POSIX_FADV_WILLNEED,
+            Advice::DontNeed => libc::POSIX_FADV_DONTNEED,
+            Advice::NoReuse => libc::POSIX_FADV_NOREUSE,
+        }
+    }
+}
+

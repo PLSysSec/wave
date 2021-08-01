@@ -149,6 +149,46 @@ pub fn wasi_tell(ctx: &mut VmCtx, v_fd: u32) -> u32 {
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
+pub fn wasi_advise(ctx: &mut VmCtx, v_fd: u32, offset: u64, len: u64, advice: Advice) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        // these casts could cause offset and len to become negative
+        // I don't think this will be an issue as os_advise will throw an EINVAL error
+        let ret = os_advise(fd, offset as i64, len as i64, advice.into());
+        if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
+            exit_with_errno!(ctx, errno);
+        }
+
+        return ret as u32;
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_allocate(ctx: &mut VmCtx, v_fd: u32, offset: u64, len: u64) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        // these casts could cause offset and len to become negative
+        // I don't think this will be an issue as os_advise will throw an EINVAL error
+        let ret = os_allocate(fd, offset as i64, len as i64);
+        if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
+            exit_with_errno!(ctx, errno);
+        }
+
+        return ret as u32;
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
 pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
     if v_fd >= MAX_SBOX_FDS {
         exit_with_errno!(ctx, Ebadf);
@@ -156,6 +196,24 @@ pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
 
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
         let ret = os_sync(fd);
+        if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
+            exit_with_errno!(ctx, errno);
+        }
+
+        return ret as u32;
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_datasync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let ret = os_datasync(fd);
         if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
             exit_with_errno!(ctx, errno);
         }

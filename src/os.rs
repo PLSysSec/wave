@@ -46,9 +46,27 @@ pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
 }
 
 #[trusted]
+pub fn os_advise(fd: HostFd, offset: i64, len: i64, advice: i32) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(FADVISE64, os_fd, offset, len, advice) }
+}
+
+#[trusted]
+pub fn os_allocate(fd: HostFd, offset: i64, len: i64) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(FALLOCATE, os_fd, offset, len) }
+}
+
+#[trusted]
 pub fn os_sync(fd: HostFd) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FSYNC, os_fd) }
+}
+
+#[trusted]
+pub fn os_datasync(fd: HostFd) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(FDATASYNC, os_fd) }
 }
 
 #[trusted]
