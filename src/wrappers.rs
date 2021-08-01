@@ -182,7 +182,7 @@ pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> Timestamp {
     }
 
     // convert to ns
-    (spec.tv_sec * 1_000_000_000 * spec.tv_nsec) as Timestamp
+    (spec.tv_sec * 1_000_000_000 + spec.tv_nsec) as Timestamp
 }
 
 #[requires(safe(ctx))]
@@ -190,7 +190,7 @@ pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> Timestamp {
 pub fn wasi_clock_time_get(ctx: &mut VmCtx, id: ClockId, precision: Timestamp) -> Timestamp {
     // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
     //       and handle here?
-    // TODO: how to handle `precision` arg
+    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -204,5 +204,32 @@ pub fn wasi_clock_time_get(ctx: &mut VmCtx, id: ClockId, precision: Timestamp) -
         return Timestamp::MAX;
     }
 
-    (spec.tv_sec * 1_000_000_000 * spec.tv_nsec) as Timestamp
+    (spec.tv_sec * 1_000_000_000 + spec.tv_nsec) as Timestamp
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::time::Instant;
+
+    // some basic sanity tests
+    #[test]
+    fn test_time_get() {
+        let mut ctx = fresh_ctx(String::from("."));
+        let ret = wasi_clock_time_get(&mut ctx, ClockId::Realtime, 0);
+        let reference = Instant::now();
+
+        assert_ne!(ret, 0);
+        assert_eq!(ctx.errno, RuntimeError::Success);
+    }
+
+    #[test]
+    fn test_res_get() {
+        let mut ctx = fresh_ctx(String::from("."));
+        let ret = wasi_clock_res_get(&mut ctx, ClockId::Realtime);
+        let reference = Instant::now();
+
+        assert_ne!(ret, 0);
+        assert_eq!(ctx.errno, RuntimeError::Success);
+    }
 }

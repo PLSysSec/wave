@@ -37,6 +37,7 @@ impl From<usize> for HostFd {
 pub type SboxFd = u32;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(test, derive(Debug))] // needed for assert_eq!
 pub enum RuntimeError {
     Success,
     Ebadf,
