@@ -31,9 +31,29 @@ pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
     }
 }
 
+#[requires(buf.capacity() >= cnt)]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+#[trusted]
+pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe {
+        let result = syscall!(PREAD64, os_fd, buf.as_mut_ptr(), cnt);
+        buf.set_len(result);
+        result
+    }
+}
+
 #[requires(buf.len() >= cnt)]
 #[trusted]
 pub fn os_write(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
+}
+
+#[requires(buf.len() >= cnt)]
+#[trusted]
+pub fn os_pwrite(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
 }
@@ -67,6 +87,24 @@ pub fn os_sync(fd: HostFd) -> usize {
 pub fn os_datasync(fd: HostFd) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FDATASYNC, os_fd) }
+}
+
+#[trusted]
+pub fn os_fstat(fd: HostFd, stat: &mut libc::stat) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(FSTAT, os_fd, stat as *mut libc::stat) }
+}
+
+#[trusted]
+pub fn os_fgetfl(fd: HostFd) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(FCNTL, os_fd, libc::F_GETFL, 0) }
+}
+
+#[trusted]
+pub fn os_ftruncate(fd: HostFd, length: libc::off_t) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(FTRUNCATE, os_fd, length) }
 }
 
 #[trusted]

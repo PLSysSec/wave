@@ -138,7 +138,7 @@ pub fn wasi_seek(ctx: &mut VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence)
     }
 
     ctx.errno = Ebadf;
-    return u64::MAX;
+    u64::MAX
 }
 
 #[requires(safe(ctx))]
@@ -225,6 +225,172 @@ pub fn wasi_datasync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
+pub fn wasi_fdstat_get(ctx: &mut VmCtx, v_fd: u32) -> FdStat {
+    if v_fd >= MAX_SBOX_FDS {
+        ctx.errno = Ebadf;
+        return FdStat {
+            fs_filetype: Filetype::Unknown,
+            fs_flags: FdFlags::empty(),
+            fs_rights_base: 0,
+            fs_rights_inheriting: 0,
+        };
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        let filetype = os_fstat(fd, &mut stat);
+        if let Some(errno) = RuntimeError::from_syscall_ret(filetype) {
+            ctx.errno = errno;
+            return FdStat {
+                fs_filetype: Filetype::Unknown,
+                fs_flags: FdFlags::empty(),
+                fs_rights_base: 0,
+                fs_rights_inheriting: 0,
+            };
+        }
+
+        let mode_flags = os_fgetfl(fd);
+        if let Some(errno) = RuntimeError::from_syscall_ret(mode_flags) {
+            ctx.errno = errno;
+            return FdStat {
+                fs_filetype: Filetype::Unknown,
+                fs_flags: FdFlags::empty(),
+                fs_rights_base: 0,
+                fs_rights_inheriting: 0,
+            };
+        }
+
+        // TODO: put rights in once those are implemented
+        return FdStat {
+            fs_filetype: (filetype as libc::mode_t).into(),
+            fs_flags: (mode_flags as libc::c_int).into(),
+            fs_rights_base: 0,
+            fs_rights_inheriting: 0,
+        };
+    }
+
+    ctx.errno = Ebadf;
+    FdStat {
+        fs_filetype: Filetype::Unknown,
+        fs_flags: FdFlags::empty(),
+        fs_rights_base: 0,
+        fs_rights_inheriting: 0,
+    }
+}
+
+// TODO: need wasm layout for FdFlags to read from ptr
+// pub fn wasi_fdstat_set(ctx: &mut VmCtx, flags: FdFlags) -> u32
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_filestat_get(ctx: &mut VmCtx, v_fd: u32) -> FileStat {
+    if v_fd >= MAX_SBOX_FDS {
+        ctx.errno = Ebadf;
+        return FileStat::default();
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        let filetype = os_fstat(fd, &mut stat);
+        if let Some(errno) = RuntimeError::from_syscall_ret(filetype) {
+            ctx.errno = errno;
+            return FileStat::default();
+        }
+
+        return stat.into();
+    }
+
+    ctx.errno = Ebadf;
+    FileStat::default()
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_filestat_set_size(ctx: &mut VmCtx, v_fd: u32, size: u64) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let ret = os_ftruncate(fd, size as i64);
+        if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
+            exit_with_errno!(ctx, errno);
+        }
+    }
+
+    exit_with_errno!(ctx, Ebadf);
+}
+
+// TODO: how the heck does this work:
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_filestat_set_timesfd-fd-atim-timestamp-mtim-timestamp-fst_flags-fstflags---result-errno
+
+// TODO: refactor read and pread into common impl
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let mut num: u32 = 0;
+        let mut i = 0;
+        while i < iovcnt {
+            let start = (iovs + i * 8) as usize;
+            let ptr = ctx.read_u32(start);
+            let len = ctx.read_u32(start + 4);
+            if !ctx.fits_in_lin_mem(ptr, len) {
+                exit_with_errno!(ctx, Efault);
+            }
+            let mut buf: Vec<u8> = Vec::new();
+            buf.reserve_exact(len as usize);
+            let result = os_pread(fd, &mut buf, len as usize) as u32;
+            if result > len {
+                //TODO: pass through os_read's errno?
+                return u32::MAX;
+            }
+            let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, result);
+            if copy_ok.is_none() {
+                exit_with_errno!(ctx, Efault);
+            }
+            num += result;
+            i += 1;
+        }
+        return num;
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+// TODO: refactor write and pwrite into common impl
+//TODO: fix return type
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let mut num: u32 = 0;
+        let mut i = 0;
+        while i < iovcnt {
+            let start = (iovs + i * 8) as usize;
+            let ptr = ctx.read_u32(start);
+            let len = ctx.read_u32(start + 4);
+            if !ctx.fits_in_lin_mem(ptr, len) {
+                exit_with_errno!(ctx, Efault);
+            }
+            let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
+            let result = os_pwrite(fd, &host_buffer, len as usize) as u32;
+            num += result;
+            i += 1;
+        }
+        return num;
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
 pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> Timestamp {
     let mut spec = libc::timespec {
         tv_sec: 0,
@@ -236,11 +402,11 @@ pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> Timestamp {
     if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
         // TODO: exit with errno for non u32
         ctx.errno = errno;
-        return Timestamp::MAX;
+        return Timestamp::max();
     }
 
     // convert to ns
-    (spec.tv_sec * 1_000_000_000 + spec.tv_nsec) as Timestamp
+    spec.into()
 }
 
 #[requires(safe(ctx))]
@@ -259,10 +425,10 @@ pub fn wasi_clock_time_get(ctx: &mut VmCtx, id: ClockId, precision: Timestamp) -
     if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
         // TODO: exit with errno for non u32
         ctx.errno = errno;
-        return Timestamp::MAX;
+        return Timestamp::max();
     }
 
-    (spec.tv_sec * 1_000_000_000 + spec.tv_nsec) as Timestamp
+    spec.into()
 }
 
 #[cfg(test)]
