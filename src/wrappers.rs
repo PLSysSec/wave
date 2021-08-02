@@ -119,31 +119,31 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 
     exit_with_errno!(ctx, Ebadf);
 }
 
-// TODO: how are return types handled? Right now exit_with_errno etc return u32.
-//       wasi_seek, and wasi_tell should return FileSize (u64). Just change type?
-//       What about types that return (), etc.
-
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_seek(ctx: &mut VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> u32 {
+pub fn wasi_seek(ctx: &mut VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> u64 {
     if v_fd >= MAX_SBOX_FDS {
-        exit_with_errno!(ctx, Ebadf);
+        ctx.errno = Ebadf;
+        return u64::MAX;
     }
 
     if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
         let ret = os_seek(fd, v_filedelta, v_whence.into());
         if let Some(errno) = RuntimeError::from_syscall_ret(ret) {
-            exit_with_errno!(ctx, errno);
+            ctx.errno = errno;
+            return u64::MAX;
         }
 
-        return ret as u32;
+        return ret as u64;
     }
-    exit_with_errno!(ctx, Ebadf);
+
+    ctx.errno = Ebadf;
+    return u64::MAX;
 }
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_tell(ctx: &mut VmCtx, v_fd: u32) -> u32 {
+pub fn wasi_tell(ctx: &mut VmCtx, v_fd: u32) -> u64 {
     wasi_seek(ctx, v_fd, 0, Whence::Cur)
 }
 
