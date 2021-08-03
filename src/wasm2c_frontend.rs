@@ -1,5 +1,5 @@
-use crate::wrappers::*;
 use crate::types::*;
+use crate::wrappers::*;
 
 //#[no_mangle]
 // pub extern "C" fn _Z_wasi_snapshot_preview1Z_args_getZ_iii(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> u32 {
@@ -26,12 +26,24 @@ use crate::types::*;
 //     unimplemented!()
 // }
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii(ctx: &mut VmCtx, fd: u32, iov: u32, iovcnt: u32, pnum: u32) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii(
+    ctx: &mut VmCtx,
+    fd: u32,
+    iov: u32,
+    iovcnt: u32,
+    pnum: u32,
+) -> u32 {
     // TODO: write back to pnum
     wasi_fd_write(ctx, fd, iov, iovcnt)
 }
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readZ_iiiii(ctx: &mut VmCtx, fd: u32, iov: u32, iovcnt: u32, pnum: u32) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readZ_iiiii(
+    ctx: &mut VmCtx,
+    fd: u32,
+    iov: u32,
+    iovcnt: u32,
+    pnum: u32,
+) -> u32 {
     // TODO: writeback to pnum
     wasi_fd_read(ctx, fd, iov, iovcnt)
 }
@@ -56,14 +68,11 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_closeZ_ii(ctx: &mut VmCtx, fd: u
 //     unimplemented!()
 // }
 
-
-
 // void wasm_rt_sys_init() {
 // void wasm_rt_init_wasi(wasm_sandbox_wasi_data* wasi_data) {
 // void wasm_rt_cleanup_wasi(wasm_sandbox_wasi_data* wasi_data) {
 
-
-/* 
+/*
 Wasi API that is not currently supported by wasm2c
 */
 
@@ -167,7 +176,7 @@ Wasi API that is not currently supported by wasm2c
 //     unimplemented!()
 // }
 
-/* 
+/*
 fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rights, fs_rights_inheriting: rights, fdflags: fdflags
 */
 
@@ -235,4 +244,3 @@ fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rig
 // pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(a: u32, b: u32) -> u32 {
 //     unimplemented!()
 // }
-

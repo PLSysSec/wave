@@ -15,6 +15,6 @@ mod fdmap;
 mod os;
 mod runtime;
 mod types;
-mod wrappers;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;
+mod wrappers;
