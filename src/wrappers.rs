@@ -23,6 +23,12 @@ macro_rules! exit_with_errno {
     };
 }
 
+fn is_syscall_error(val: u32) -> bool {
+    // syscall returns between -1 and -4095 are errors, source:
+    // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
+    val >= -4095i32 as u32
+}
+
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> u32 {
@@ -115,6 +121,50 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> u32 
             i += 1;
         }
         return num;
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_seek(ctx: &mut VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let ret = os_seek(fd, v_filedelta, v_whence.into()) as u32;
+        if is_syscall_error(ret) {
+            let errno = ret.into();
+            exit_with_errno!(ctx, errno);
+        } else {
+            return ret;
+        }
+    }
+    exit_with_errno!(ctx, Ebadf);
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_tell(ctx: &mut VmCtx, v_fd: u32) -> u32 {
+    wasi_seek(ctx, v_fd, 0, Whence::Cur)
+}
+
+#[requires(safe(ctx))]
+#[ensures(safe(ctx))]
+pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> u32 {
+    if v_fd >= MAX_SBOX_FDS {
+        exit_with_errno!(ctx, Ebadf);
+    }
+
+    if let Ok(fd) = ctx.fdmap.m[v_fd as usize] {
+        let ret = os_sync(fd) as u32;
+        if is_syscall_error(ret) {
+            let errno = ret.into();
+            exit_with_errno!(ctx, errno);
+        } else {
+            return ret;
+        }
     }
     exit_with_errno!(ctx, Ebadf);
 }
