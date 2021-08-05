@@ -1,72 +1,186 @@
 use crate::types::*;
 use crate::wrappers::*;
+use RuntimeError::*;
+use trace::trace;
 
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_args_getZ_iii(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> u32 {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii(ctx: &mut VmCtx, pargc: u32, pargv_buf_size: u32) -> u32 {
-//     unimplemented!()
-// }
+trace::init_depth_var!();
 
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx: &mut VmCtx, x: u32) {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_environ_sizes_getZ_iii(ctx: &mut VmCtx, pcount: u32, pbuf_size: u32) -> u32 {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_environ_getZ_iii(ctx: &mut VmCtx, __environ: u32, environ_buf: u32) -> u32 {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_prestat_getZ_iii(ctx: &mut VmCtx, fd: u32, prestat: u32) -> u32 {
-//     unimplemented!()
-// }
+/// Used for FFI. (wasm2c frontend)
+/// Initialize a vmctx with a memory that points to memptr
+fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
+    let memlen = LINEAR_MEM_SIZE;
+    //let mem = vec![0; memlen];
+    let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
+    let fdmap = FdMap::new();
+    VmCtx {
+        mem,
+        memlen,
+        fdmap,
+        homedir,
+        errno: Success,
+    }
+}
+
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii(
-    ctx: &mut VmCtx,
+#[trace]
+pub extern "C" fn veriwasi_init(memptr: *mut u8, memsize: isize) -> *mut VmCtx {
+    // println!("veriwasi_init({:x}, {:x})", memptr, memsize);
+    let ctx = ctx_from_memptr(memptr, memsize, "/".to_string());
+    let result = Box::into_raw(Box::new(ctx));
+    // println!("returned {:x}", result);
+    result
+    // unimplemented!()
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_args_getZ_iii(
+    ctx: *mut VmCtx,
+    argv: u32,
+    argv_buf: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_args_getZ_iii");
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii(
+    ctx: *mut VmCtx,
+    pargc: u32,
+    pargv_buf_size: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii");
+    unimplemented!()
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx: *mut VmCtx, x: u32) {
+    // println!("Z_wasi_snapshot_preview1Z_proc_exitZ_vi");
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_environ_sizes_getZ_iii(
+    ctx: *mut VmCtx,
+    pcount: u32,
+    pbuf_size: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_environ_sizes_getZ_iii");
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_environ_getZ_iii(
+    ctx: *mut VmCtx,
+    __environ: u32,
+    environ_buf: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_environ_getZ_iii");
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_prestat_getZ_iii(
+    ctx: *mut VmCtx,
+    fd: u32,
+    prestat: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_fd_prestat_getZ_iii");
+    unimplemented!()
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii(
+    ctx: *mut VmCtx,
     fd: u32,
     iov: u32,
     iovcnt: u32,
     pnum: u32,
 ) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii");
     // TODO: write back to pnum
-    wasi_fd_write(ctx, fd, iov, iovcnt)
+    if ctx.is_null() {
+        panic!("null ctx")
+    }
+    let result = wasi_fd_write(unsafe { &mut *ctx }, fd, iov, iovcnt);
+    println!("returned {:x}", result);
+    result
+
 }
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readZ_iiiii(
-    ctx: &mut VmCtx,
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_readZ_iiiii(
+    ctx: *mut VmCtx,
     fd: u32,
     iov: u32,
     iovcnt: u32,
     pnum: u32,
 ) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_fd_readZ_iiiii");
     // TODO: writeback to pnum
-    wasi_fd_read(ctx, fd, iov, iovcnt)
+    if ctx.is_null() {
+        panic!("null ctx")
+    }
+    let result = wasi_fd_read(unsafe { &mut *ctx }, fd, iov, iovcnt);
+    result
+    // println!("returned {:x}", result);
 }
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_closeZ_ii(ctx: &mut VmCtx, fd: u32) -> u32 {
-    wasi_fd_close(ctx, fd)
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_closeZ_ii(ctx: *mut VmCtx, fd: u32) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_fd_closeZ_ii");
+    if ctx.is_null() {
+        panic!("null ctx")
+    }
+    wasi_fd_close(unsafe { &mut *ctx }, fd)
 }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(ctx: &mut VmCtx, fd: u32, offset: u64, whence: u32, new_offset: u32) -> u32 {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_seekZ_iiiiii(ctx: &mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(ctx: &mut VmCtx, clock_id: u32, max_lag: u64, out: u32) -> u32 {
-//     unimplemented!()
-// }
-//#[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(ctx: &mut VmCtx, clock_id: u32, out: u32) -> u32 {
-//     unimplemented!()
-// }
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(
+    ctx: *mut VmCtx,
+    fd: u32,
+    offset: u64,
+    whence: u32,
+    new_offset: u32,
+) -> u32 {
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_seekZ_iiiiii(
+    ctx: *mut VmCtx,
+    a: u32,
+    b: u32,
+    c: u32,
+    d: u32,
+    e: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_fd_seekZ_iiiiii");
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(
+    ctx: *mut VmCtx,
+    clock_id: u32,
+    max_lag: u64,
+    out: u32,
+) -> u32 {
+    // println!("Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji");
+    unimplemented!()
+}
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(
+    ctx: *mut VmCtx,
+    clock_id: u32,
+    out: u32,
+) -> u32 {
+    // println!(" Z_wasi_snapshot_preview1Z_clock_res_getZ_iii");
+    unimplemented!()
+}
 
 // void wasm_rt_sys_init() {
 // void wasm_rt_init_wasi(wasm_sandbox_wasi_data* wasi_data) {

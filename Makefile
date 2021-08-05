@@ -1,4 +1,4 @@
-.PHONY: bootstrap build verify prusti bindings
+.PHONY: bootstrap build verify prusti bindings wasm2c
 
 # Prusti setup and build instructions: 
 # https://viperproject.github.io/prusti-dev/dev-guide/development/setup.html
@@ -36,3 +36,7 @@ verify:
 bindings:
 	mkdir -p bindings
 	cbindgen --config cbindgen.toml --crate veriwasi --lang c --output bindings/veriwasi.h
+
+wasm2c:
+	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
+	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
