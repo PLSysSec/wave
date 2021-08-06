@@ -151,13 +151,13 @@ impl VmCtx {
             self.mem[start + 2],
             self.mem[start + 3],
         ];
-        u32::from_be_bytes(bytes)
+        u32::from_le_bytes(bytes)
     }
 
     /// write u32 to wasm linear memory
     // Not thrilled about this implementation, but it works
     pub fn write_u32(&mut self, start: usize, v: u32) {
-        let bytes: [u8; 4] = v.to_be_bytes();
+        let bytes: [u8; 4] = v.to_le_bytes();
         self.mem[start] = bytes[0];
         self.mem[start + 1] = bytes[1];
         self.mem[start + 2] = bytes[2];

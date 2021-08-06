@@ -37,6 +37,7 @@ impl From<usize> for HostFd {
 pub type SboxFd = u32;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(test, derive(Debug))] // needed for assert_eq!
 pub enum RuntimeError {
     Success,
     Ebadf,
@@ -49,9 +50,20 @@ pub enum RuntimeError {
     Eacces,
 }
 
-impl From<u32> for RuntimeError {
-    fn from(val: u32) -> Self {
-        match val as i32 {
+pub type RuntimeResult<T> = Result<T, RuntimeError>;
+
+impl RuntimeError {
+    /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
+    /// Returns Err(RuntimeError) if it does.
+    pub fn from_syscall_ret(ret: usize) -> RuntimeResult<()> {
+        // syscall returns between -1 and -4095 are errors, source:
+        // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
+        if ret < -4095isize as usize {
+            return Ok(());
+        }
+
+        let ret = -(ret as i32);
+        let errno = match ret {
             libc::EBADF => Self::Ebadf,
             libc::EMFILE => Self::Emfile,
             libc::EFAULT => Self::Efault,
@@ -61,11 +73,14 @@ impl From<u32> for RuntimeError {
             libc::ENOSPC => Self::Enospc,
             libc::EACCES => Self::Eacces,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
-        }
+        };
+
+        Err(errno)
     }
 }
 
-pub type RuntimeResult<T> = Result<T, RuntimeError>;
+#[repr(transparent)]
+pub struct SyscallRet(usize);
 
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
@@ -106,6 +121,191 @@ impl From<Whence> for i32 {
             Whence::Set => libc::SEEK_SET,
             Whence::Cur => libc::SEEK_CUR,
             Whence::End => libc::SEEK_END,
+        }
+    }
+}
+
+pub enum ClockId {
+    Realtime,
+    Monotonic,
+    ProcessCpuTimeId,
+    ThreadCpuTime,
+}
+
+impl From<ClockId> for i32 {
+    fn from(id: ClockId) -> Self {
+        match id {
+            ClockId::Realtime => libc::CLOCK_REALTIME,
+            ClockId::Monotonic => libc::CLOCK_MONOTONIC,
+            ClockId::ProcessCpuTimeId => libc::CLOCK_PROCESS_CPUTIME_ID,
+            ClockId::ThreadCpuTime => libc::CLOCK_THREAD_CPUTIME_ID,
+        }
+    }
+}
+
+/// Wasi timestamp in nanoseconds
+#[repr(transparent)]
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(test, derive(Debug))] // needed for assert_eq!
+pub struct Timestamp(u64);
+
+impl Timestamp {
+    pub fn new(nsec: u64) -> Timestamp {
+        Timestamp(nsec)
+    }
+
+    pub fn max() -> Timestamp {
+        Timestamp(u64::MAX)
+    }
+
+    pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
+        let nanos = (sec * 1_000_000_000 + nsec) as u64;
+        Timestamp(nanos)
+    }
+}
+
+impl From<libc::timespec> for Timestamp {
+    fn from(spec: libc::timespec) -> Timestamp {
+        Timestamp::from_sec_nsec(spec.tv_sec as u64, spec.tv_nsec as u64)
+    }
+}
+
+pub enum Advice {
+    Normal,
+    Sequential,
+    Random,
+    WillNeed,
+    DontNeed,
+    NoReuse,
+}
+
+impl From<Advice> for i32 {
+    fn from(advice: Advice) -> Self {
+        match advice {
+            Advice::Normal => libc::POSIX_FADV_NORMAL,
+            Advice::Sequential => libc::POSIX_FADV_SEQUENTIAL,
+            Advice::Random => libc::POSIX_FADV_RANDOM,
+            Advice::WillNeed => libc::POSIX_FADV_WILLNEED,
+            Advice::DontNeed => libc::POSIX_FADV_DONTNEED,
+            Advice::NoReuse => libc::POSIX_FADV_NOREUSE,
+        }
+    }
+}
+
+pub enum Filetype {
+    Unknown,
+    BlockDevice,
+    CharacterDevice,
+    Directory,
+    RegularFile,
+    SocketDgram,
+    SocketStream,
+    SymbolicLink,
+}
+
+impl From<libc::mode_t> for Filetype {
+    // must be trusted, bitwise ops not supported in prusti...
+    #[trusted]
+    fn from(filetype: libc::mode_t) -> Self {
+        match filetype & libc::S_IFMT {
+            libc::S_IFBLK => Filetype::BlockDevice,
+            libc::S_IFCHR => Filetype::CharacterDevice,
+            libc::S_IFDIR => Filetype::Directory,
+            libc::S_IFREG => Filetype::RegularFile,
+            // TODO: need to get socket type, just do unknown for now cause we don't support
+            // sockets anyway...
+            libc::S_IFSOCK => Filetype::Unknown,
+            libc::S_IFLNK => Filetype::SymbolicLink,
+            _ => Filetype::Unknown,
+        }
+    }
+}
+
+// TODO: can't use bitflags crate due to prusti issues.
+// TODO: pruti doesn't support bitwise operators
+//       hmm instead we could have a lame struct full of bools....
+type Rights = u64;
+
+#[repr(transparent)]
+pub struct FdFlags(u16);
+
+impl FdFlags {
+    pub fn empty() -> FdFlags {
+        FdFlags(0)
+    }
+}
+
+impl From<libc::c_int> for FdFlags {
+    // must be trusted, bitwise ops not supported in prusti...
+    #[trusted]
+    fn from(flags: libc::c_int) -> Self {
+        let mut result = FdFlags(0);
+        if flags & libc::O_APPEND != 0 {
+            result.0 |= 1 << 0;
+        }
+        if flags & libc::O_DSYNC != 0 {
+            result.0 |= 1 << 1;
+        }
+        if flags & libc::O_NONBLOCK != 0 {
+            result.0 |= 1 << 2;
+        }
+        if flags & libc::O_RSYNC != 0 {
+            result.0 |= 1 << 3;
+        }
+        if flags & libc::O_SYNC != 0 {
+            result.0 |= 1 << 4;
+        }
+        result
+    }
+}
+
+// TODO: This doesn't exactly match due to layout issues. Could use repr tags to try and make
+//       it match, or could have a translation between this and wasm FdStat
+//       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
+pub struct FdStat {
+    pub fs_filetype: Filetype,
+    pub fs_flags: FdFlags,
+    pub fs_rights_base: Rights,
+    pub fs_rights_inheriting: Rights,
+}
+
+pub struct FileStat {
+    dev: u64,
+    ino: u64,
+    filetype: Filetype,
+    nlink: u64,
+    size: u64,
+    atim: Timestamp,
+    mtim: Timestamp,
+    ctim: Timestamp,
+}
+
+impl From<libc::stat> for FileStat {
+    fn from(stat: libc::stat) -> Self {
+        FileStat {
+            dev: stat.st_dev,
+            ino: stat.st_ino,
+            filetype: stat.st_mode.into(),
+            nlink: stat.st_nlink,
+            size: stat.st_size as u64,
+            atim: Timestamp::from_sec_nsec(stat.st_atime as u64, stat.st_atime_nsec as u64),
+            mtim: Timestamp::from_sec_nsec(stat.st_mtime as u64, stat.st_mtime_nsec as u64),
+            ctim: Timestamp::from_sec_nsec(stat.st_ctime as u64, stat.st_ctime_nsec as u64),
+        }
+    }
+}
+
+impl Default for FileStat {
+    fn default() -> FileStat {
+        FileStat {
+            dev: 0,
+            ino: 0,
+            filetype: Filetype::Unknown,
+            nlink: 0,
+            size: 0,
+            atim: Timestamp::new(0),
+            mtim: Timestamp::new(0),
+            ctim: Timestamp::new(0),
         }
     }
 }
