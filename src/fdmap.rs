@@ -15,6 +15,7 @@ impl FdMap {
     // #[trusted]
     // #[ensures (result.m.len() == MAX_SBOX_FDS)]
     #[ensures (result.reserve.len() == 0)]
+    #[ensures (result.counter == 0)]
     pub fn new() -> Self {
         FdMap {
             m: vec![Err(Ebadf); MAX_SBOX_FDS as usize],
