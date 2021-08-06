@@ -50,14 +50,17 @@ pub enum RuntimeError {
     Eacces,
 }
 
+pub type RuntimeResult<T> = Result<T, RuntimeError>;
+
+// TODO:
 impl RuntimeError {
-    /// Returns Some(RuntimeError) if the passed in `ret` value from a syscall corresponds to
-    /// some Errno value. None otherwise.
-    pub fn from_syscall_ret(ret: usize) -> Option<RuntimeError> {
+    /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
+    /// Returns Err(RuntimeError) if it does.
+    pub fn from_syscall_ret(ret: usize) -> RuntimeResult<()> {
         // syscall returns between -1 and -4095 are errors, source:
         // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
         if ret < -4095isize as usize {
-            return None;
+            return Ok(());
         }
 
         let ret = -(ret as i32);
@@ -73,11 +76,12 @@ impl RuntimeError {
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
         };
 
-        Some(errno)
+        Err(errno)
     }
 }
 
-pub type RuntimeResult<T> = Result<T, RuntimeError>;
+#[repr(transparent)]
+pub struct SyscallRet(usize);
 
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
