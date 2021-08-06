@@ -111,12 +111,7 @@ pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeR
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 // modifies: none
-pub fn wasi_seek(
-    ctx: &VmCtx,
-    v_fd: u32,
-    v_filedelta: i64,
-    v_whence: Whence,
-) -> RuntimeResult<u64> {
+pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
