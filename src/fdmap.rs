@@ -2,6 +2,8 @@
 use crate::external_specs::vec::*;
 use crate::types::*;
 use prusti_contracts::*;
+use std::io::{stderr, stdin, stdout};
+use std::os::unix::io::AsRawFd;
 use RuntimeError::*;
 
 /*
@@ -19,6 +21,16 @@ impl FdMap {
             reserve: Vec::new(),
             counter: 0,
         }
+    }
+
+    #[requires (self.counter == 0)] //should only be called on empty fdmap
+    pub fn init_std_fds(&mut self) {
+        let stdin_fd = stdin().as_raw_fd() as usize;
+        let stdout_fd = stdout().as_raw_fd() as usize;
+        let stderr_fd = stderr().as_raw_fd() as usize;
+        self.create(stdin_fd.into());
+        self.create(stdout_fd.into());
+        self.create(stderr_fd.into());
     }
 
     // Trusted because I can't get the verifier to understand that

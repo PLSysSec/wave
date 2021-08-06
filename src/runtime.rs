@@ -3,9 +3,7 @@ use crate::external_specs::option::*;
 use crate::types::*;
 use prusti_contracts::*;
 use std::ffi::OsString;
-use std::io::{stderr, stdin, stdout};
 use std::os::unix::ffi::OsStringExt;
-use std::os::unix::io::AsRawFd;
 use std::path::{Component, Path, PathBuf};
 use std::ptr::{copy, copy_nonoverlapping};
 use RuntimeError::*;
@@ -33,13 +31,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
-
-    let stdin_fd = stdin().as_raw_fd() as usize;
-    let stdout_fd = stdout().as_raw_fd() as usize;
-    let stderr_fd = stderr().as_raw_fd() as usize;
-    fdmap.create(stdin_fd.into());
-    fdmap.create(stdout_fd.into());
-    fdmap.create(stderr_fd.into());
+    fdmap.init_std_fds();
 
     VmCtx {
         mem,

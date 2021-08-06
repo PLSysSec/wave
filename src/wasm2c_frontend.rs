@@ -11,7 +11,9 @@ fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     //let mem = vec![0; memlen];
     let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
-    let fdmap = FdMap::new();
+    let mut fdmap = FdMap::new();
+    fdmap.init_std_fds();
+
     VmCtx {
         mem,
         memlen,
