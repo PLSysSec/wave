@@ -52,7 +52,6 @@ pub enum RuntimeError {
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
-// TODO:
 impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
@@ -146,6 +145,8 @@ impl From<ClockId> for i32 {
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(test, derive(Debug))] // needed for assert_eq!
 pub struct Timestamp(u64);
 
 impl Timestamp {
