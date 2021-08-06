@@ -16,8 +16,6 @@ predicate! {
     }
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // Modifies: fdmap
 pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResult<u32> {
     if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
@@ -30,8 +28,6 @@ pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResu
     ctx.fdmap.create(fd.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 //modifies: fdmap
 pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -42,9 +38,6 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(os_close(fd) as u32)
 }
 
-//TODO: fix return type
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: mem
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -80,9 +73,6 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     Ok(num)
 }
 
-// TODO: fix return type
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -108,8 +98,6 @@ pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeR
     Ok(num)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
     if v_fd >= MAX_SBOX_FDS {
@@ -122,15 +110,11 @@ pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> 
     Ok(ret as u64)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
     wasi_seek(ctx, v_fd, 0, Whence::Cur)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_advise(
     ctx: &VmCtx,
@@ -151,8 +135,6 @@ pub fn wasi_advise(
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -167,8 +149,6 @@ pub fn wasi_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeRe
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -181,8 +161,6 @@ pub fn wasi_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: None
 pub fn wasi_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -195,8 +173,6 @@ pub fn wasi_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 //modifies: none
 pub fn wasi_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     if v_fd >= MAX_SBOX_FDS {
@@ -229,8 +205,6 @@ pub fn wasi_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 // TODO: need wasm layout for FdFlags to read from ptr
 // pub fn wasi_fdstat_set(ctx: &mut VmCtx, flags: FdFlags) -> u32
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: None
 pub fn wasi_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     if v_fd >= MAX_SBOX_FDS {
@@ -248,8 +222,6 @@ pub fn wasi_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     Ok(stat.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
@@ -266,8 +238,6 @@ pub fn wasi_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResul
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_filestat_set_timesfd-fd-atim-timestamp-mtim-timestamp-fst_flags-fstflags---result-errno
 
 // TODO: refactor read and pread into common impl
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: mem
 pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -299,9 +269,6 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 }
 
 // TODO: refactor write and pwrite into common impl
-//TODO: fix return type
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_fd_pwrite(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
@@ -327,8 +294,6 @@ pub fn wasi_fd_pwrite(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runtime
     Ok(num)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> {
     let mut spec = libc::timespec {
@@ -341,8 +306,6 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> 
     Ok(spec.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 // modifies: none
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
