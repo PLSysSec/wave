@@ -52,6 +52,23 @@ pub enum RuntimeError {
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
+impl From<RuntimeError> for u32 {
+    fn from(item: RuntimeError) -> Self {
+        let result = match item {
+            RuntimeError::Success => 0,
+            RuntimeError::Ebadf => libc::EBADF,
+            RuntimeError::Emfile => libc::EMFILE,
+            RuntimeError::Efault => libc::EFAULT,
+            RuntimeError::Einval => libc::EINVAL,
+            RuntimeError::Eoverflow => libc::EOVERFLOW,
+            RuntimeError::Eio => libc::EIO,
+            RuntimeError::Enospc => libc::ENOSPC,
+            RuntimeError::Eacces => libc::EACCES,
+        };
+        result as u32
+    }
+}
+
 impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.

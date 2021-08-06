@@ -31,7 +31,7 @@ pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResu
 
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
-pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }

@@ -103,8 +103,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii(
 ) -> u32 {
     // TODO: write back to pnum
     let ctx_ref = ptr_to_ref(ctx);
-    let result = wasi_fd_write(ctx_ref, fd, iov, iovcnt);
-    result
+    match wasi_fd_write(ctx_ref, fd, iov, iovcnt) {
+        Ok(result) => {
+            ctx_ref.write_u32(pnum as usize, result); // writeback result
+            0
+        }
+        Err(err) => err.into(),
+    }
 }
 #[no_mangle]
 #[trace]
@@ -117,14 +122,22 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_readZ_iiiii(
 ) -> u32 {
     // TODO: writeback to pnum
     let ctx_ref = ptr_to_ref(ctx);
-    let result = wasi_fd_read(ctx_ref, fd, iov, iovcnt);
-    result
+    match wasi_fd_read(ctx_ref, fd, iov, iovcnt) {
+        Ok(result) => {
+            ctx_ref.write_u32(pnum as usize, result); // writeback result
+            0
+        }
+        Err(err) => err.into(),
+    }
 }
 #[no_mangle]
 #[trace]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_closeZ_ii(ctx: *const *mut VmCtx, fd: u32) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    wasi_fd_close(ctx_ref, fd)
+    match wasi_fd_close(ctx_ref, fd) {
+        Ok(result) => 0,
+        Err(err) => err.into(),
+    }
 }
 #[no_mangle]
 #[trace]
