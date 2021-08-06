@@ -15,6 +15,7 @@ mod external_specs;
 mod fdmap;
 mod os;
 mod runtime;
+mod tests;
 mod types;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;
