@@ -100,7 +100,7 @@ pub fn os_fstat(fd: HostFd, stat: &mut libc::stat) -> usize {
 }
 
 #[trusted]
-pub fn os_fstatat(fd: HostFd, path: RelativePath, stat: &mut libc::stat, flags: i32) -> usize {
+pub fn os_fstatat(fd: HostFd, path: SandboxedPath, stat: &mut libc::stat, flags: i32) -> usize {
     let os_fd: usize = fd.into();
     let os_path: Vec<u8> = path.into();
     unsafe {
@@ -135,9 +135,9 @@ pub fn os_ftruncate(fd: HostFd, length: libc::off_t) -> usize {
 #[trusted]
 pub fn os_linkat(
     old_fd: HostFd,
-    old_path: RelativePath,
+    old_path: SandboxedPath,
     new_fd: HostFd,
-    new_path: RelativePath,
+    new_path: SandboxedPath,
     flags: i32,
 ) -> usize {
     let os_old_fd: usize = old_fd.into();
@@ -157,7 +157,7 @@ pub fn os_linkat(
 }
 
 #[trusted]
-pub fn os_mkdirat(dir_fd: HostFd, pathname: RelativePath, mode: libc::mode_t) -> usize {
+pub fn os_mkdirat(dir_fd: HostFd, pathname: SandboxedPath, mode: libc::mode_t) -> usize {
     let os_fd: usize = dir_fd.into();
     let os_path: Vec<u8> = pathname.into();
     unsafe { syscall!(MKDIRAT, os_fd, os_path.as_ptr(), mode) }
@@ -169,7 +169,7 @@ pub fn os_mkdirat(dir_fd: HostFd, pathname: RelativePath, mode: libc::mode_t) ->
 #[trusted]
 pub fn os_readlinkat(
     dir_fd: HostFd,
-    pathname: RelativePath,
+    pathname: SandboxedPath,
     buf: &mut Vec<u8>,
     cnt: usize,
 ) -> usize {
@@ -183,7 +183,7 @@ pub fn os_readlinkat(
 }
 
 #[trusted]
-pub fn os_unlinkat(dir_fd: HostFd, pathname: RelativePath, flags: libc::c_int) -> usize {
+pub fn os_unlinkat(dir_fd: HostFd, pathname: SandboxedPath, flags: libc::c_int) -> usize {
     let os_fd: usize = dir_fd.into();
     let os_path: Vec<u8> = pathname.into();
     unsafe { syscall!(UNLINKAT, os_fd, os_path.as_ptr(), flags) }
@@ -192,9 +192,9 @@ pub fn os_unlinkat(dir_fd: HostFd, pathname: RelativePath, flags: libc::c_int) -
 #[trusted]
 pub fn os_renameat(
     old_dir_fd: HostFd,
-    old_pathname: RelativePath,
+    old_pathname: SandboxedPath,
     new_dir_fd: HostFd,
-    new_pathname: RelativePath,
+    new_pathname: SandboxedPath,
 ) -> usize {
     let os_old_fd: usize = old_dir_fd.into();
     let os_old_path: Vec<u8> = old_pathname.into();
@@ -215,7 +215,7 @@ pub fn os_renameat(
 pub fn os_symlinkat(
     old_pathname: SandboxedPath,
     dir_fd: HostFd,
-    new_pathname: RelativePath,
+    new_pathname: SandboxedPath,
 ) -> usize {
     let os_fd: usize = dir_fd.into();
     let os_old_path: Vec<u8> = old_pathname.into();
@@ -223,19 +223,21 @@ pub fn os_symlinkat(
     unsafe { syscall!(SYMLINKAT, os_old_path.as_ptr(), os_fd, os_new_path.as_ptr()) }
 }
 
+#[requires(specs.capacity() >= 2)]
 #[trusted]
-pub fn os_futimens(fd: HostFd, specs: &[libc::timespec; 2]) -> usize {
+pub fn os_futimens(fd: HostFd, specs: &Vec<libc::timespec>) -> usize {
     let os_fd: usize = fd.into();
     // Linux impls futimens as UTIMENSAT with null path
     // source: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/futimens.c.html
     unsafe { syscall!(UTIMENSAT, os_fd, 0, specs.as_ptr(), 0) }
 }
 
+#[requires(specs.capacity() >= 2)]
 #[trusted]
 pub fn os_utimensat(
     fd: HostFd,
-    pathname: RelativePath,
-    specs: &[libc::timespec; 2],
+    pathname: SandboxedPath,
+    specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> usize {
     let os_fd: usize = fd.into();

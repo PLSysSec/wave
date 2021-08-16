@@ -11,6 +11,7 @@ impl<T> Vec<T> {
     fn len(&self) -> usize;
 
     #[ensures(self.len() == old(self.len()) + 1)]
+    #[ensures(self.capacity() >= old(self.capacity()))]
     fn push(&mut self, value: T);
 
     #[ensures(self.len() == 0)]
