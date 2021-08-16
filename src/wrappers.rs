@@ -354,6 +354,30 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     Ok(num)
 }
 
+#[requires(safe(ctx))]
+#[requires(safe(ctx))]
+pub fn wasi_prestat_dirname(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    path: u32,
+    path_len: u32,
+) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let dirname = "/";
+    let dirname_len = dirname.len();
+    if !ctx.fits_in_lin_mem(path, dirname_len) {
+        return Err(Efault);
+    }
+
+    let copy_ok = ctx
+        .copy_buf_to_sandbox(path, &dirname, dirname_len)
+        .ok_or(Efault)?;
+    Ok(())
+}
+
 // TODO: refactor write and pwrite into common impl
 //TODO: fix return type
 #[requires(safe(ctx))]
