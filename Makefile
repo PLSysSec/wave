@@ -1,6 +1,7 @@
 .PHONY: bootstrap build verify prusti bindings wasm2c
 
 # Prusti setup and build instructions: 
+# (this makefile should handle anything, but you can look at these if you run into problems)
 # https://viperproject.github.io/prusti-dev/dev-guide/development/setup.html
 # https://viperproject.github.io/prusti-dev/dev-guide/development/build.html
 
@@ -40,3 +41,5 @@ bindings:
 wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
 	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
+
+
