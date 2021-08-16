@@ -16,8 +16,7 @@ predicate! {
     }
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
+// Modifies: fdmap
 pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResult<u32> {
     if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
         return Err(Ebadf);
@@ -29,9 +28,8 @@ pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResu
     ctx.fdmap.create(fd.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+//modifies: fdmap
+pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -40,9 +38,7 @@ pub fn wasi_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(os_close(fd) as u32)
 }
 
-//TODO: fix return type
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
+// modifies: mem
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -77,10 +73,8 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     Ok(num)
 }
 
-// TODO: fix return type
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+// modifies: none
+pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -104,14 +98,8 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     Ok(num)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_seek(
-    ctx: &mut VmCtx,
-    v_fd: u32,
-    v_filedelta: i64,
-    v_whence: Whence,
-) -> RuntimeResult<u64> {
+// modifies: none
+pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -122,16 +110,14 @@ pub fn wasi_seek(
     Ok(ret as u64)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_tell(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u64> {
+// modifies: none
+pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
     wasi_seek(ctx, v_fd, 0, Whence::Cur)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
+// modifies: none
 pub fn wasi_advise(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     v_fd: u32,
     offset: u64,
     len: u64,
@@ -149,9 +135,8 @@ pub fn wasi_advise(
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_allocate(ctx: &mut VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
+// modifies: none
+pub fn wasi_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -164,9 +149,8 @@ pub fn wasi_allocate(ctx: &mut VmCtx, v_fd: u32, offset: u64, len: u64) -> Runti
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+// modifies: none
+pub fn wasi_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -177,9 +161,8 @@ pub fn wasi_sync(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_datasync(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+// modifies: None
+pub fn wasi_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -190,9 +173,8 @@ pub fn wasi_datasync(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_fdstat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
+//modifies: none
+pub fn wasi_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -235,9 +217,9 @@ pub fn wasi_fdstat_set(ctx: &mut VmCtx, v_fd: u32, flags: FdFlags) -> RuntimeRes
     Ok(())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_fd_filestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
+
+// modifies: None
+pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -253,9 +235,8 @@ pub fn wasi_fd_filestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<FileSta
     Ok(stat.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_filestat_set_size(ctx: &mut VmCtx, v_fd: u32, size: u64) -> RuntimeResult<()> {
+// modifies: none
+pub fn wasi_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -323,8 +304,7 @@ pub fn wasi_fd_filestat_set_times(
 }
 
 // TODO: refactor read and pread into common impl
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
+// modifies: mem
 pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -379,10 +359,8 @@ pub fn wasi_prestat_dirname(
 }
 
 // TODO: refactor write and pwrite into common impl
-//TODO: fix return type
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+// modifies: none
+pub fn wasi_fd_pwrite(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -695,9 +673,9 @@ pub fn wasi_path_unlink_file(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> Runti
     Ok(())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
-pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> RuntimeResult<Timestamp> {
+// modifies: none
+pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> {
+
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -708,10 +686,9 @@ pub fn wasi_clock_res_get(ctx: &mut VmCtx, id: ClockId) -> RuntimeResult<Timesta
     Ok(spec.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
+// modifies: none
 pub fn wasi_clock_time_get(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     id: ClockId,
     precision: Timestamp,
 ) -> RuntimeResult<Timestamp> {
@@ -744,32 +721,4 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     Ok(())
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::types::RuntimeResult;
-    use std::time::Instant;
 
-    // some basic sanity tests
-    #[test]
-    fn test_time_get() -> RuntimeResult<()> {
-        let mut ctx = fresh_ctx(String::from("."));
-        let ret = wasi_clock_time_get(&mut ctx, ClockId::Realtime, Timestamp::new(0))?;
-        let reference = Instant::now();
-
-        assert_ne!(ret, Timestamp::new(0));
-        assert_eq!(ctx.errno, RuntimeError::Success);
-        Ok(())
-    }
-
-    #[test]
-    fn test_res_get() -> RuntimeResult<()> {
-        let mut ctx = fresh_ctx(String::from("."));
-        let ret = wasi_clock_res_get(&mut ctx, ClockId::Realtime)?;
-        let reference = Instant::now();
-
-        assert_ne!(ret, Timestamp::new(0));
-        assert_eq!(ctx.errno, RuntimeError::Success);
-        Ok(())
-    }
-}
