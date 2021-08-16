@@ -139,6 +139,7 @@ impl VmCtx {
     // TODO: should a relative path really be an (fd, path) tuple? i.e. whenever we use them,
     //       they always have an associated Fd that they are relative to.
     //       See wasi_path_create_directory for an example
+    #[trusted]
     pub fn ensure_relative_path(&self, in_path: Vec<u8>) -> RuntimeResult<RelativePath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
         if !path.is_relative() {
