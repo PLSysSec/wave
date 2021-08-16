@@ -217,7 +217,6 @@ pub fn wasi_fdstat_set(ctx: &mut VmCtx, v_fd: u32, flags: FdFlags) -> RuntimeRes
     Ok(())
 }
 
-
 // modifies: None
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     if v_fd >= MAX_SBOX_FDS {
@@ -268,34 +267,37 @@ pub fn wasi_fd_filestat_set_times(
     // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
     //       and handle here?
     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
-    let mut specs: [libc::timespec; 2] = [
-        libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-    ];
 
-    specs[0].tv_sec = 0;
-    specs[0].tv_nsec = if fst_flags.atim() {
+    let mut specs: Vec<libc::timespec> = Vec::new();
+    specs.reserve_exact(2);
+    let atim_nsec = if fst_flags.atim() {
         atim.nsec() as i64
-    } else if fst_flags.atim_now() {
-        libc::UTIME_NOW
     } else {
-        libc::UTIME_OMIT
+        if fst_flags.atim_now() {
+            libc::UTIME_NOW
+        } else {
+            libc::UTIME_OMIT
+        }
+    };
+    let atim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: atim_nsec,
     };
 
-    specs[1].tv_sec = 0;
-    specs[1].tv_nsec = if fst_flags.mtim() {
+    let mtim_nsec = if fst_flags.mtim() {
         mtim.nsec() as i64
     } else if fst_flags.mtim_now() {
         libc::UTIME_NOW
     } else {
         libc::UTIME_OMIT
     };
+    let mtim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: mtim_nsec,
+    };
+
+    specs.push(atim_spec);
+    specs.push(mtim_spec);
 
     let res = os_futimens(fd, &specs);
     RuntimeError::from_syscall_ret(res)?;
@@ -346,8 +348,9 @@ pub fn wasi_prestat_dirname(
         return Err(Ebadf);
     }
 
-    let dirname = "/";
-    let dirname_len = dirname.len();
+    let mut dirname: Vec<u8> = Vec::new();
+    dirname.push('/' as u8);
+    let dirname_len = dirname.len() as u32;
     if !ctx.fits_in_lin_mem(path, dirname_len) {
         return Err(Efault);
     }
@@ -392,7 +395,7 @@ pub fn wasi_path_create_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> 
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.ensure_relative_path(host_buffer)?;
+    let host_pathname = ctx.resolve_path(host_buffer)?;
     let fd = ctx.fdmap.m[v_fd as usize]?;
     // TODO: wasi doesn't seem so specify what permissions should be?
     //       I will use rw------- cause it seems sane.
@@ -422,7 +425,7 @@ pub fn wasi_path_filestat_get(
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.ensure_relative_path(host_buffer)?;
+    let host_pathname = ctx.resolve_path(host_buffer)?;
     let fd = ctx.fdmap.m[v_fd as usize]?;
     // Unsafe necessary as libc::stat is opaque. It is safe but we can replace it by implementing
     // the struct ourselves if we want to avoid as much unsafe as possible.
@@ -453,39 +456,44 @@ pub fn wasi_path_filestat_set_times(
         return Err(Ebadf);
     }
 
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.ensure_relative_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
-    // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
-    //       and handle here?
-    let mut specs: [libc::timespec; 2] = [
-        libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-        libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        },
-    ];
+    if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
+        return Err(Ebadf);
+    }
 
-    specs[0].tv_sec = 0;
-    specs[0].tv_nsec = if fst_flags.atim() {
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+
+    let mut specs: Vec<libc::timespec> = Vec::new();
+    specs.reserve_exact(2);
+    let atim_nsec = if fst_flags.atim() {
         atim.nsec() as i64
-    } else if fst_flags.atim_now() {
-        libc::UTIME_NOW
     } else {
-        libc::UTIME_OMIT
+        if fst_flags.atim_now() {
+            libc::UTIME_NOW
+        } else {
+            libc::UTIME_OMIT
+        }
+    };
+    let atim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: atim_nsec,
     };
 
-    specs[1].tv_sec = 0;
-    specs[1].tv_nsec = if fst_flags.mtim() {
+    let mtim_nsec = if fst_flags.mtim() {
         mtim.nsec() as i64
     } else if fst_flags.mtim_now() {
         libc::UTIME_NOW
     } else {
         libc::UTIME_OMIT
     };
+    let mtim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: mtim_nsec,
+    };
+
+    specs.push(atim_spec);
+    specs.push(mtim_spec);
 
     // TODO: path flags
     let res = os_utimensat(fd, host_pathname, &specs, 0);
@@ -520,9 +528,9 @@ pub fn wasi_path_link(
     }
 
     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, PATH_MAX);
-    let old_host_pathname = ctx.ensure_relative_path(old_host_buffer)?;
+    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
     let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, PATH_MAX);
-    let new_host_pathname = ctx.ensure_relative_path(new_host_buffer)?;
+    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
     let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
 
@@ -548,7 +556,7 @@ pub fn wasi_path_readlink(
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.ensure_relative_path(host_buffer)?;
+    let host_pathname = ctx.resolve_path(host_buffer)?;
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     if !ctx.fits_in_lin_mem(ptr, len) {
@@ -575,7 +583,7 @@ pub fn wasi_path_remove_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> 
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.ensure_relative_path(host_buffer)?;
+    let host_pathname = ctx.resolve_path(host_buffer)?;
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = os_unlinkat(fd, host_pathname, libc::AT_REMOVEDIR);
@@ -583,10 +591,8 @@ pub fn wasi_path_remove_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> 
     // posix spec allows unlinkat to return EEXIST for a non-empty directory
     // however, the wasi spec requires that ENOTEMPTY is returned
     // see: https://man7.org/linux/man-pages/man2/rmdir.2.html
-    if let Err(errno) = err {
-        if errno == Eexist {
-            return Err(RuntimeError::Enotempty);
-        }
+    if let Err(Eexist) = err {
+        return Err(RuntimeError::Enotempty);
     }
     err
 }
@@ -614,9 +620,9 @@ pub fn wasi_path_rename(
     }
 
     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, PATH_MAX);
-    let old_host_pathname = ctx.ensure_relative_path(old_host_buffer)?;
+    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
     let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, PATH_MAX);
-    let new_host_pathname = ctx.ensure_relative_path(new_host_buffer)?;
+    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
     let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
 
@@ -646,7 +652,7 @@ pub fn wasi_path_symlink(
     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, PATH_MAX);
     let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
     let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, PATH_MAX);
-    let new_host_pathname = ctx.ensure_relative_path(new_host_buffer)?;
+    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = os_symlinkat(old_host_pathname, fd, new_host_pathname);
@@ -665,7 +671,7 @@ pub fn wasi_path_unlink_file(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> Runti
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-    let host_pathname = ctx.ensure_relative_path(host_buffer)?;
+    let host_pathname = ctx.resolve_path(host_buffer)?;
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = os_unlinkat(fd, host_pathname, 0);
@@ -675,7 +681,6 @@ pub fn wasi_path_unlink_file(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> Runti
 
 // modifies: none
 pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> {
-
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -720,5 +725,3 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
         .ok_or(Efault)?;
     Ok(())
 }
-
-
