@@ -48,6 +48,8 @@ pub enum RuntimeError {
     Eio,
     Enospc,
     Eacces,
+    Eexist,
+    Enotempty,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -126,6 +128,19 @@ impl From<Vec<u8>> for SandboxedPath {
     }
 }
 
+pub struct RelativePath(Vec<u8>);
+impl From<RelativePath> for Vec<u8> {
+    fn from(w: RelativePath) -> Vec<u8> {
+        w.0
+    }
+}
+
+impl From<Vec<u8>> for RelativePath {
+    fn from(w: Vec<u8>) -> RelativePath {
+        RelativePath(w)
+    }
+}
+
 pub enum Whence {
     Set,
     Cur,
@@ -178,6 +193,10 @@ impl Timestamp {
     pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
         let nanos = (sec * 1_000_000_000 + nsec) as u64;
         Timestamp(nanos)
+    }
+
+    pub fn nsec(&self) -> u64 {
+        self.0
     }
 }
 
@@ -249,6 +268,28 @@ pub struct FdFlags(u16);
 impl FdFlags {
     pub fn empty() -> FdFlags {
         FdFlags(0)
+    }
+
+    // trusted due to bitwise ops, can refactor later...
+    #[trusted]
+    pub fn to_posix(&self) -> i32 {
+        let mut flags = 0;
+        if self.0 & 1 << 0 != 0 {
+            flags |= libc::O_APPEND
+        }
+        if self.0 & 1 << 1 != 0 {
+            flags |= libc::O_DSYNC
+        }
+        if self.0 & 1 << 2 != 0 {
+            flags |= libc::O_NONBLOCK
+        }
+        if self.0 & 1 << 3 != 0 {
+            flags |= libc::O_RSYNC
+        }
+        if self.0 & 1 << 4 != 0 {
+            flags |= libc::O_SYNC
+        }
+        flags
     }
 }
 
@@ -324,5 +365,32 @@ impl Default for FileStat {
             mtim: Timestamp::new(0),
             ctim: Timestamp::new(0),
         }
+    }
+}
+
+pub type LookupFlags = u32;
+
+pub struct FstFlags(u16);
+
+impl FstFlags {
+    // must impl flag checking as trusted due to bitwise ops not being supported by prusti
+    #[trusted]
+    pub fn atim(&self) -> bool {
+        self.0 & (1 << 0) != 0
+    }
+
+    #[trusted]
+    pub fn atim_now(&self) -> bool {
+        self.0 & (1 << 1) != 0
+    }
+
+    #[trusted]
+    pub fn mtim(&self) -> bool {
+        self.0 & (1 << 2) != 0
+    }
+
+    #[trusted]
+    pub fn mtim_now(&self) -> bool {
+        self.0 & (1 << 4) != 0
     }
 }

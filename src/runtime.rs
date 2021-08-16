@@ -134,6 +134,23 @@ impl VmCtx {
         Err(Eacces)
     }
 
+    /// Check whether a path is relative.
+    /// If it is, return it as a relative path. If it isn't, return an error
+    // TODO: should a relative path really be an (fd, path) tuple? i.e. whenever we use them,
+    //       they always have an associated Fd that they are relative to.
+    //       See wasi_path_create_directory for an example
+    pub fn ensure_relative_path(&self, in_path: Vec<u8>) -> RuntimeResult<RelativePath> {
+        let path = PathBuf::from(OsString::from_vec(in_path));
+        if !path.is_relative() {
+            return Err(Eacces);
+        }
+        let path_str = path.into_os_string();
+        if let Ok(s) = path_str.into_string() {
+            return Ok(RelativePath::from(s.into_bytes()));
+        }
+        Err(Eacces)
+    }
+
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
     pub fn read_u32(&self, start: usize) -> u32 {
