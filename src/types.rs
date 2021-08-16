@@ -66,6 +66,8 @@ impl From<RuntimeError> for u32 {
             RuntimeError::Eio => libc::EIO,
             RuntimeError::Enospc => libc::ENOSPC,
             RuntimeError::Eacces => libc::EACCES,
+            RuntimeError::Eexist => libc::EEXIST,
+            RuntimeError::Enotempty => libc::ENOTEMPTY,
         };
         result as u32
     }

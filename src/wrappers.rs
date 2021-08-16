@@ -217,7 +217,6 @@ pub fn wasi_fdstat_set(ctx: &mut VmCtx, v_fd: u32, flags: FdFlags) -> RuntimeRes
     Ok(())
 }
 
-
 // modifies: None
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     if v_fd >= MAX_SBOX_FDS {
@@ -651,7 +650,6 @@ pub fn wasi_path_unlink_file(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> Runti
 
 // modifies: none
 pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> {
-
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -696,5 +694,3 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
         .ok_or(Efault)?;
     Ok(())
 }
-
-
