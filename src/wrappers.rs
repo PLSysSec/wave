@@ -710,6 +710,18 @@ pub fn wasi_clock_time_get(
     Ok(spec.into())
 }
 
+pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
+    Ok(())
+}
+
+pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
+    Ok(())
+}
+
+pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
+    Ok(())
+}
+
 #[requires(safe(ctx))]
 #[ensures(safe(ctx))]
 pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
