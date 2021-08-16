@@ -348,7 +348,7 @@ pub fn wasi_prestat_dirname(
     }
 
     let mut dirname: Vec<u8> = Vec::new();
-    dirname.push('/' as u8);
+    dirname.push(b'/');
     let dirname_len = dirname.len() as u32;
     if !ctx.fits_in_lin_mem(path, dirname_len) {
         return Err(Efault);
