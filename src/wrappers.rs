@@ -336,8 +336,7 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     Ok(num)
 }
 
-#[requires(safe(ctx))]
-#[requires(safe(ctx))]
+// modifies: ????
 pub fn wasi_prestat_dirname(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -387,6 +386,8 @@ pub fn wasi_fd_pwrite(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runtime
     Ok(num)
 }
 
+//TODO: should create fd for directory
+// modifies: adds hostfd for directory created
 pub fn wasi_path_create_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> RuntimeResult<()> {
     if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
         return Err(Ebadf);
@@ -406,8 +407,9 @@ pub fn wasi_path_create_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> 
 // TODO: handle lookup flags
 // TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
 //       respect the fd.
+// modifies: None
 pub fn wasi_path_filestat_get(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     v_fd: u32,
     flags: LookupFlags,
     pathname: u32,
@@ -433,10 +435,9 @@ pub fn wasi_path_filestat_get(
     Ok(stat.into())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
+// modifies: None
 pub fn wasi_path_filestat_set_times(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     v_fd: u32,
     flags: LookupFlags,
     pathname: u32,
@@ -500,9 +501,9 @@ pub fn wasi_path_filestat_set_times(
 
 // TODO: handle LookupFlags
 // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
-
+// modifies: none
 pub fn wasi_path_link(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     v_old_fd: u32,
     old_flags: LookupFlags,
     old_pathname: u32,
@@ -534,6 +535,7 @@ pub fn wasi_path_link(
     Ok(())
 }
 
+// modifies: mem
 pub fn wasi_path_readlink(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -565,6 +567,8 @@ pub fn wasi_path_readlink(
     Ok(res)
 }
 
+//TODO: should remove fd from map?
+//modifies: removes directory from fdmap
 pub fn wasi_path_remove_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -588,8 +592,9 @@ pub fn wasi_path_remove_directory(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> 
     err
 }
 
+// modifies: none
 pub fn wasi_path_rename(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     v_old_fd: u32,
     old_pathname: u32,
     v_new_fd: u32,
@@ -620,8 +625,9 @@ pub fn wasi_path_rename(
     Ok(())
 }
 
+//modifies: none
 pub fn wasi_path_symlink(
-    ctx: &mut VmCtx,
+    ctx: &VmCtx,
     old_pathname: u32,
     v_fd: u32,
     new_pathname: u32,
@@ -707,6 +713,7 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
     Ok(())
 }
 
+// modifies: memory
 pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);

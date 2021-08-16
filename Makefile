@@ -30,7 +30,7 @@ run_hello_example:
 	cd examples/hello && make run
 
 # If this command is giving you trouble, try deleting the ./target directory and retrying
-# overflow checks temporarily disabled
+# TODO: reenable overflow checks
 verify:
 	PRUSTI_CHECK_OVERFLOWS=false prusti-dev/target/release/cargo-prusti --features verify
 
