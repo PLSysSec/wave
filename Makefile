@@ -30,8 +30,9 @@ run_hello_example:
 	cd examples/hello && make run
 
 # If this command is giving you trouble, try deleting the ./target directory and retrying
+# overflow checks temporarily disabled
 verify:
-	prusti-dev/target/release/cargo-prusti --features verify
+	PRUSTI_CHECK_OVERFLOWS=false prusti-dev/target/release/cargo-prusti --features verify
 
 # Generate C/Cpp bindings for veriwasi
 bindings:
