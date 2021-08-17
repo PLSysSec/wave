@@ -115,6 +115,10 @@ pub struct VmCtx {
     pub fdmap: FdMap,
     pub homedir: String,
     pub errno: RuntimeError,
+    pub arg_buffer: Vec<u8>,
+    pub argc: usize,
+    pub env_buffer: Vec<u8>,
+    pub envc: usize,
 }
 
 pub struct SandboxedPath(Vec<u8>);

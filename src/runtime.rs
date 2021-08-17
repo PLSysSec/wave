@@ -32,6 +32,10 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
+    let arg_buffer = Vec::new();
+    let argc = 0;
+    let env_buffer = Vec::new();
+    let envc = 0;
 
     VmCtx {
         mem,
@@ -39,6 +43,10 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         fdmap,
         homedir,
         errno: Success,
+        arg_buffer,
+        argc,
+        env_buffer,
+        envc,
     }
 }
 

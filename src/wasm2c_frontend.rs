@@ -13,6 +13,10 @@ fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
     let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
+    let arg_buffer = Vec::new();
+    let argc = 0;
+    let env_buffer = Vec::new();
+    let envc = 0;
 
     VmCtx {
         mem,
@@ -20,6 +24,10 @@ fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
         fdmap,
         homedir,
         errno: Success,
+        arg_buffer,
+        argc,
+        env_buffer,
+        envc,
     }
 }
 

@@ -727,3 +727,19 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
         .ok_or(Efault)?;
     Ok(())
 }
+
+// pub fn wasi_args_get(argv: Pointer<Pointer<u8>>, argv_buf: u32) -> RuntimeResult<()> {
+//     // let argc = ctx.args.len();
+//     // let argv_buf = string_list.join("\0").len();
+//     // Ok((argc, argv_buf))
+// }
+
+// modifies: none
+pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {
+    Ok((ctx.argc, ctx.arg_buffer.len()))
+}
+
+// modifies: none
+pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {
+    Ok((ctx.envc, ctx.env_buffer.len()))
+}

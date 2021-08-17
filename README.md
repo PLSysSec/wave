@@ -19,9 +19,9 @@ Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/ma
 ## Syscalls
 
 - [ ] [args_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-args_getargv-pointerpointeru8-argv_buf-pointeru8---result-errno)
-- [ ] [args_sizes_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-args_sizes_get---resultsize-size-errno)
+- [x] [args_sizes_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-args_sizes_get---resultsize-size-errno)
 - [ ] [environ_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-environ_getenviron-pointerpointeru8-environ_buf-pointeru8---result-errno)
-- [ ] [environ_sizes_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-environ_sizes_get---resultsize-size-errno)
+- [x] [environ_sizes_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-environ_sizes_get---resultsize-size-errno)
 - [x] [clock_res_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-clock_res_getid-clockid---resulttimestamp-errno)
 - [x] [clock_time_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-clock_time_getid-clockid-precision-timestamp---resulttimestamp-errno)
 - [x] [fd_advise](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_advisefd-fd-offset-filesize-len-filesize-advice-advice---result-errno)
