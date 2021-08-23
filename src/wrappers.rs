@@ -728,11 +728,65 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     Ok(())
 }
 
-// pub fn wasi_args_get(argv: Pointer<Pointer<u8>>, argv_buf: u32) -> RuntimeResult<()> {
-//     // let argc = ctx.args.len();
-//     // let argv_buf = string_list.join("\0").len();
-//     // Ok((argc, argv_buf))
-// }
+pub fn fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
+    // 1. translate from fd
+    if v_from >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    // let from = ctx.fdmap.m[v_from as usize]?;
+    // 2. translate to fd
+    if v_to >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    // let to = ctx.fdmap.m[v_to as usize]?;
+    // 3. delete old
+    ctx.fdmap.shift(v_from, v_to);
+    Ok(())
+    // ctx.fdmap.delete(from);
+    // 4. create new
+    // self.m[k as usize]
+    //ctx.fdmap.create(fd.into())
+}
+
+pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
+    // 1. copy argv_buffer
+    let argv_buf_len = ctx.arg_buffer.len() as u32;
+    ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
+        .ok_or(Efault)?;
+    // 2. copy in argv
+    let mut idx: usize = 0;
+    let mut start: u32 = 0;
+    let mut cursor: usize = 0;
+    while idx < ctx.arg_buffer.len() {
+        if ctx.arg_buffer[idx] == b'\0' {
+            ctx.write_u32((argv as usize) + cursor, start);
+            cursor += 4;
+            start = (idx as u32) + 1;
+        }
+        idx += 1;
+    }
+    Ok(())
+}
+
+pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
+    // 1. copy argv_buffer
+    let env_buf_len = ctx.env_buffer.len() as u32;
+    ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)
+        .ok_or(Efault)?;
+    // 2. copy in argv
+    let mut idx: usize = 0;
+    let mut start: u32 = 0;
+    let mut cursor: usize = 0;
+    while idx < ctx.env_buffer.len() {
+        if ctx.env_buffer[idx] == b'\0' {
+            ctx.write_u32((env as usize) + cursor, start);
+            cursor += 4;
+            start = (idx as u32) + 1;
+        }
+        idx += 1;
+    }
+    Ok(())
+}
 
 // modifies: none
 pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {

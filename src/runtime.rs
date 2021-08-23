@@ -25,6 +25,24 @@ predicate! {
     }
 }
 
+/// Function for memcpy from sandbox to host
+/// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
+//TODO: verify that regions do not overlap so that we can use copy_non_overlapping
+// #[trusted]
+// #[requires(src.len() == (n as usize) )]
+// #[requires( dst as usize < memlen )]
+// #[requires( (dst + n) as usize < memlen )]
+// // #[requires(self.fits_in_lin_mem(dst, n))]
+// pub fn memcpy_to_sandbox(mem: &mut Vec<u8>, memlen: usize, dst: SboxPtr, src: &Vec<u8>, n: u32) {
+//     unsafe {
+//         copy(
+//             src.as_ptr(),
+//             mem.as_mut_ptr().offset(dst as isize),
+//             n as usize,
+//         )
+//     };
+// }
+
 //TODO: instantiate stdin,stdout,stderr?
 #[ensures(safe(&result))]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
@@ -67,8 +85,6 @@ impl VmCtx {
 
     /// Copy buffer from sandbox to host
     #[requires(self.fits_in_lin_mem(src, n))]
-    #[requires(safe(self))]
-    #[ensures(safe(self))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
@@ -86,6 +102,32 @@ impl VmCtx {
             return None;
         }
         self.memcpy_to_sandbox(dst, src, n);
+        Some(())
+    }
+
+    /// Copy arg buffer from from host to sandbox
+    /// TODO: make this not trusted
+    /// (its only trusted because clone breaks viper for some reason)
+    #[trusted]
+    #[requires(self.arg_buffer.len() == (n as usize) )]
+    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
+        if !self.fits_in_lin_mem(dst, n) {
+            return None;
+        }
+        self.memcpy_to_sandbox(dst, &self.arg_buffer.clone(), n);
+        Some(())
+    }
+
+    /// Copy arg buffer from from host to sandbox
+    /// TODO: make this not trusted
+    /// (its only trusted because clone breaks viper for some reason)
+    #[trusted]
+    #[requires(self.env_buffer.len() == (n as usize) )]
+    pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
+        if !self.fits_in_lin_mem(dst, n) {
+            return None;
+        }
+        self.memcpy_to_sandbox(dst, &self.env_buffer.clone(), n);
         Some(())
     }
 
@@ -114,6 +156,8 @@ impl VmCtx {
     #[trusted]
     #[requires(src.len() == (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n))]
+    #[requires(safe(self))]
+    #[ensures(safe(self))]
     // #[requires(dst < (self.memlen as u32) )]
     // #[requires(dst + n < (self.memlen as u32) )]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
@@ -130,6 +174,8 @@ impl VmCtx {
     /// If it is, return it as an absolute path, if it isn't, return error
     // TODO: verify and make untrusted
     #[trusted]
+    #[requires(safe(self))]
+    #[ensures(safe(self))]
     pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
         let safe_path = normalize_path(&path);

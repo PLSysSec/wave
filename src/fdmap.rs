@@ -80,4 +80,13 @@ impl FdMap {
         }
         self.m[k as usize] = Err(Ebadf);
     }
+
+    #[requires(from < MAX_SBOX_FDS)]
+    #[requires(to < MAX_SBOX_FDS)]
+    pub fn shift(&mut self, from: SboxFd, to: SboxFd) {
+        if let Ok(hostfd) = self.m[from as usize] {
+            self.m[to as usize] = Ok(hostfd)
+        }
+        self.m[from as usize] = Err(Ebadf);
+    }
 }

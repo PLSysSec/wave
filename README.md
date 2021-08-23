@@ -18,9 +18,9 @@ Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/ma
 
 ## Syscalls
 
-- [ ] [args_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-args_getargv-pointerpointeru8-argv_buf-pointeru8---result-errno)
+- [x] [args_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-args_getargv-pointerpointeru8-argv_buf-pointeru8---result-errno)
 - [x] [args_sizes_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-args_sizes_get---resultsize-size-errno)
-- [ ] [environ_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-environ_getenviron-pointerpointeru8-environ_buf-pointeru8---result-errno)
+- [x] [environ_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-environ_getenviron-pointerpointeru8-environ_buf-pointeru8---result-errno)
 - [x] [environ_sizes_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-environ_sizes_get---resultsize-size-errno)
 - [x] [clock_res_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-clock_res_getid-clockid---resulttimestamp-errno)
 - [x] [clock_time_get](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-clock_time_getid-clockid-precision-timestamp---resulttimestamp-errno)
@@ -40,7 +40,7 @@ Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/ma
 - [x] [fd_pwrite](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_pwritefd-fd-iovs-ciovec_array-offset-filesize---resultsize-errno)
 - [x] [fd_read](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_readfd-fd-iovs-iovec_array---resultsize-errno)
 - [ ] [fd_readdir](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_readdirfd-fd-buf-pointeru8-buf_len-size-cookie-dircookie---resultsize-errno)
-- [ ] [fd_renumber](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_renumberfd-fd-to-fd---result-errno)
+- [x] [fd_renumber](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_renumberfd-fd-to-fd---result-errno)
 - [x] [fd_seek](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_seekfd-fd-offset-filedelta-whence-whence---resultfilesize-errno)
 - [x] [fd_sync](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_syncfd-fd---result-errno)
 - [x] [fd_tell](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#-fd_tellfd-fd---resultfilesize-errno)
