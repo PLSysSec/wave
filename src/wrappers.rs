@@ -733,19 +733,13 @@ pub fn fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()>
     if v_from >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
-    // let from = ctx.fdmap.m[v_from as usize]?;
     // 2. translate to fd
     if v_to >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
-    // let to = ctx.fdmap.m[v_to as usize]?;
-    // 3. delete old
+    // 3. delete from with to
     ctx.fdmap.shift(v_from, v_to);
     Ok(())
-    // ctx.fdmap.delete(from);
-    // 4. create new
-    // self.m[k as usize]
-    //ctx.fdmap.create(fd.into())
 }
 
 pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
