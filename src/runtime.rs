@@ -207,6 +207,13 @@ impl VmCtx {
         Err(Eacces)
     }*/
 
+    /// read u16 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn read_u16(&self, start: usize) -> u16 {
+        let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
+        u16::from_le_bytes(bytes)
+    }
+
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
     pub fn read_u32(&self, start: usize) -> u32 {
@@ -219,6 +226,30 @@ impl VmCtx {
         u32::from_le_bytes(bytes)
     }
 
+    /// read u64 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn read_u64(&self, start: usize) -> u64 {
+        let bytes: [u8; 8] = [
+            self.mem[start],
+            self.mem[start + 1],
+            self.mem[start + 2],
+            self.mem[start + 3],
+            self.mem[start + 4],
+            self.mem[start + 5],
+            self.mem[start + 6],
+            self.mem[start + 7],
+        ];
+        u64::from_le_bytes(bytes)
+    }
+
+    /// write u16 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn write_u16(&mut self, start: usize, v: u16) {
+        let bytes: [u8; 2] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+    }
+
     /// write u32 to wasm linear memory
     // Not thrilled about this implementation, but it works
     pub fn write_u32(&mut self, start: usize, v: u32) {
@@ -227,6 +258,20 @@ impl VmCtx {
         self.mem[start + 1] = bytes[1];
         self.mem[start + 2] = bytes[2];
         self.mem[start + 3] = bytes[3];
+    }
+
+    /// write u64 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn write_u64(&mut self, start: usize, v: u64) {
+        let bytes: [u8; 8] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+        self.mem[start + 2] = bytes[2];
+        self.mem[start + 3] = bytes[3];
+        self.mem[start + 4] = bytes[4];
+        self.mem[start + 5] = bytes[5];
+        self.mem[start + 6] = bytes[6];
+        self.mem[start + 7] = bytes[7];
     }
 }
 

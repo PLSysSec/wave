@@ -262,3 +262,45 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) }
 }
+
+#[requires(buf.capacity() >= cnt)]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+#[trusted]
+pub fn os_recv(fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(RECVFROM, os_fd, buf.as_mut_ptr(), cnt, flags, 0, 0) }
+}
+
+#[requires(buf.len() >= cnt)]
+#[trusted]
+pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(SENDTO, os_fd, buf.as_ptr(), cnt, flags, 0, 0) }
+}
+
+#[trusted]
+pub fn os_shutdown(fd: HostFd, how: libc::c_int) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(SHUTDOWN, os_fd, how) }
+}
+
+//#[trusted]
+//pub fn os_
+
+#[trusted]
+pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {
+    unsafe {
+        syscall!(
+            NANOSLEEP,
+            req as *const libc::timespec,
+            rem as *mut libc::timespec
+        )
+    }
+}
+
+// can make more efficient using slice of pollfds
+#[trusted]
+pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
+    unsafe { syscall!(POLL, pollfd as *const libc::pollfd, 1, timeout) }
+}

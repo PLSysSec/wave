@@ -5,6 +5,7 @@ use crate::runtime::*;
 use crate::types::*;
 use prusti_contracts::*;
 use std::convert::TryInto;
+use std::mem;
 use RuntimeError::*;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
@@ -790,4 +791,221 @@ pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {
 // modifies: none
 pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {
     Ok((ctx.envc, ctx.env_buffer.len()))
+}
+
+pub fn wasi_sock_recv(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    ri_data: u32,
+    ri_data_count: u32,
+    ri_flags: u32,
+) -> RuntimeResult<(u32, u32)> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < ri_data_count {
+        let start = (ri_data + i * 8) as usize;
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        buf.reserve_exact(len as usize);
+        let flags = 0;
+        // TODO: handle flags
+        let result = os_recv(fd, &mut buf, len as usize, flags);
+        RuntimeError::from_syscall_ret(result)?;
+        let result = result as u32;
+        let copy_ok = ctx
+            .copy_buf_to_sandbox(ptr, &buf, result as u32)
+            .ok_or(Efault)?;
+        num += result;
+        i += 1;
+    }
+    // TODO: handle ro_flags
+    Ok((num, 0))
+}
+
+pub fn wasi_sock_send(
+    ctx: &VmCtx,
+    v_fd: u32,
+    si_data: u32,
+    si_data_count: u32,
+    si_flags: u32,
+) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < si_data_count {
+        let start = (si_data + i * 8) as usize;
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
+        let flags = 0;
+        // TODO: handle flags
+        let result = os_send(fd, &host_buffer, len as usize, flags);
+        RuntimeError::from_syscall_ret(result)?;
+        num += result as u32;
+        i += 1;
+    }
+    Ok(num)
+}
+
+pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, how: SdFlags) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let res = os_shutdown(fd, how.into());
+    RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
+
+// TODO: Do we need to check alignment on the pointers?
+pub fn poll_oneoff(
+    ctx: &mut VmCtx,
+    in_ptr: u32,
+    out_ptr: u32,
+    nsubscriptions: u32,
+) -> RuntimeResult<u32> {
+    // copy events to runtime buffer
+    if !ctx.fits_in_lin_mem(
+        in_ptr,
+        nsubscriptions * mem::size_of::<Subscription>() as u32,
+    ) {
+        return Err(Efault);
+    }
+
+    if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * mem::size_of::<Event>() as u32) {
+        return Err(Efault);
+    }
+
+    let mut current_byte = 0;
+    let mut i = 0;
+    while i < nsubscriptions {
+        // TODO: refactor to use constants
+        let sub_offset = i * 48;
+        let event_offset = i * 32;
+
+        // read the subscription struct fields
+        let userdata = ctx.read_u64((in_ptr + sub_offset) as usize);
+        let tag = ctx.read_u64((in_ptr + sub_offset + 8) as usize);
+
+        match tag {
+            0 => {
+                let clock_id = ClockId::from_u32(ctx.read_u32((in_ptr + sub_offset + 16) as usize));
+                let clock_id = clock_id.ok_or(Einval)?;
+                let timeout = Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 24) as usize));
+                let _precision: Timestamp =
+                    Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
+                let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
+                // TODO: get clock time and use it to check if passed
+
+                let mut now = wasi_clock_time_get(ctx, clock_id, _precision)?;
+                let req: libc::timespec = if flags.subscription_clock_abstime() {
+                    // is absolute, wait the diff between timeout and noew
+                    // TODO: I assume we should check for underflow
+                    (timeout - now).into()
+                } else {
+                    timeout.into()
+                };
+
+                let mut rem = libc::timespec {
+                    tv_sec: 0,
+                    tv_nsec: 0,
+                };
+
+                // TODO: handle multi-threaded case, in which nanosleep can be canceled by
+                //       signals... we shouldn't need to handle it now though...
+                let res = os_nanosleep(&req, &mut rem);
+                RuntimeError::from_syscall_ret(res)?;
+
+                // write the event output...
+                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
+                let errno = 0;
+                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
+                ctx.write_u16(
+                    (out_ptr + event_offset + 10) as usize,
+                    EventType::Clock.into(),
+                );
+                // clock event ignores fd_readwrite field.
+            }
+            1 => {
+                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
+                if v_fd >= MAX_SBOX_FDS {
+                    return Err(Ebadf);
+                }
+                let fd = ctx.fdmap.m[v_fd as usize]?;
+                let host_fd: usize = fd.into();
+
+                let mut pollfd = libc::pollfd {
+                    fd: host_fd as i32,
+                    events: libc::POLLIN,
+                    revents: 0,
+                };
+                let timeout = -1;
+
+                let res = os_poll(&mut pollfd, timeout);
+                RuntimeError::from_syscall_ret(res)?;
+
+                // write the event output...
+                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
+                let errno = 0;
+                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
+                ctx.write_u16(
+                    (out_ptr + event_offset + 10) as usize,
+                    EventType::FdRead.into(),
+                );
+                // TODO: fd_readwrite member...need number of bytes available....
+            }
+            2 => {
+                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
+                if v_fd >= MAX_SBOX_FDS {
+                    return Err(Ebadf);
+                }
+                let fd = ctx.fdmap.m[v_fd as usize]?;
+                let host_fd: usize = fd.into();
+
+                let mut pollfd = libc::pollfd {
+                    fd: host_fd as i32,
+                    events: libc::POLLIN,
+                    revents: 0,
+                };
+                let timeout = -1;
+
+                let res = os_poll(&mut pollfd, timeout);
+                RuntimeError::from_syscall_ret(res)?;
+
+                // write the event output...
+                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
+                let errno = 0;
+                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
+                ctx.write_u16(
+                    (out_ptr + event_offset + 10) as usize,
+                    EventType::FdWrite.into(),
+                );
+                // TODO: fd_readwrite member...need number of bytes available....
+            }
+            _ => {
+                return Err(Einval);
+            }
+        }
+
+        i += 1;
+    }
+
+    Ok(0)
 }

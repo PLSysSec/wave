@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 use prusti_contracts::*;
 
 pub const MAX_SBOX_FDS: u32 = 8;
@@ -181,6 +183,18 @@ impl From<ClockId> for i32 {
     }
 }
 
+impl ClockId {
+    pub fn from_u32(id: u32) -> Option<Self> {
+        match id {
+            0 => Some(ClockId::Realtime),
+            1 => Some(ClockId::Monotonic),
+            2 => Some(ClockId::ProcessCpuTimeId),
+            3 => Some(ClockId::ThreadCpuTime),
+            _ => None,
+        }
+    }
+}
+
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
 #[derive(Eq, PartialEq, Ord, PartialOrd)]
@@ -209,6 +223,27 @@ impl Timestamp {
 impl From<libc::timespec> for Timestamp {
     fn from(spec: libc::timespec) -> Timestamp {
         Timestamp::from_sec_nsec(spec.tv_sec as u64, spec.tv_nsec as u64)
+    }
+}
+
+impl From<Timestamp> for libc::timespec {
+    fn from(timestamp: Timestamp) -> Self {
+        // nanos must be in range 0 to 999999999
+        // see: https://man7.org/linux/man-pages/man2/nanosleep.2.html
+        let sec = timestamp.0 / 1000000000;
+        let nsec = timestamp.0 % 1000000000;
+        libc::timespec {
+            tv_sec: sec as i64,
+            tv_nsec: nsec as i64,
+        }
+    }
+}
+
+impl Sub for Timestamp {
+    type Output = Timestamp;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Timestamp(self.0 - rhs.0)
     }
 }
 
@@ -399,4 +434,103 @@ impl FstFlags {
     pub fn mtim_now(&self) -> bool {
         self.0 & (1 << 4) != 0
     }
+}
+
+pub struct SdFlags(u8);
+
+impl SdFlags {
+    #[trusted]
+    pub fn rd(&self) -> bool {
+        self.0 & (1 << 0) != 0
+    }
+
+    #[trusted]
+    pub fn wr(&self) -> bool {
+        self.0 & (1 << 1) != 0
+    }
+}
+
+impl From<SdFlags> for libc::c_int {
+    fn from(flags: SdFlags) -> Self {
+        if flags.rd() && flags.wr() {
+            libc::SHUT_RDWR
+        } else if flags.rd() {
+            libc::SHUT_RD
+        } else if flags.wr() {
+            libc::SHUT_WR
+        } else {
+            // TODO: correct behavior here?
+            0
+        }
+    }
+}
+
+#[repr(C)]
+pub struct Subscription {
+    userdata: u64,
+    subscription_u: SubscriptionInner,
+}
+
+#[repr(C, u8)]
+pub enum SubscriptionInner {
+    Clock(SubscriptionClock),
+    FdRead(SubscriptionFdReadWrite),
+    FdWrite(SubscriptionFdReadWrite),
+}
+
+#[repr(C)]
+pub struct SubscriptionClock {
+    id: ClockId,
+    timeout: Timestamp,
+    precision: Timestamp,
+    flags: SubClockFlags,
+}
+
+#[repr(C)]
+pub struct SubscriptionFdReadWrite {
+    fd: u32,
+}
+
+#[repr(transparent)]
+pub struct SubClockFlags(u16);
+
+impl SubClockFlags {
+    #[trusted]
+    pub fn subscription_clock_abstime(&self) -> bool {
+        self.0 & (1 << 0) != 0
+    }
+}
+
+impl From<u16> for SubClockFlags {
+    fn from(raw: u16) -> Self {
+        SubClockFlags(raw)
+    }
+}
+
+pub struct Event {
+    userdata: u64,
+    error: Option<RuntimeError>,
+    typ: EventType,
+    fd_readwrite: EventFdReadWrite,
+}
+
+pub enum EventType {
+    Clock,
+    FdRead,
+    FdWrite,
+}
+
+impl From<EventType> for u16 {
+    fn from(event: EventType) -> Self {
+        match event {
+            EventType::Clock => 0,
+            EventType::FdRead => 1,
+            EventType::FdWrite => 2,
+        }
+    }
+}
+
+pub struct EventFdReadWrite {
+    nbytes: u64,
+    flags: u16,
 }
