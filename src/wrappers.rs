@@ -2,6 +2,7 @@
 use crate::external_specs::result::*;
 use crate::os::*;
 use crate::runtime::*;
+use crate::trace::*;
 use crate::types::*;
 use prusti_contracts::*;
 use std::convert::TryInto;
@@ -12,8 +13,16 @@ use RuntimeError::*;
 
 #[cfg(feature = "verify")]
 predicate! {
-    fn safe(ctx: &VmCtx) -> bool {
-        true
+    fn trace_safe(ctx: &VmCtx, trace: &Trace) -> bool {
+        forall(|i: usize|
+            (i < trace.len() ==> (
+                match trace.lookup(i) {
+                    // dumb right now, just make sure count less than size of mem...
+                    Effect::ReadN { count } => (count < ctx.memlen),
+                    Effect::WriteN { count } => (count < ctx.memlen),
+                }
+            ))
+        )
     }
 }
 
@@ -40,7 +49,15 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 }
 
 // modifies: mem
-pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_fd_read(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+    trace: &mut Trace,
+) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -49,6 +66,8 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
+        body_invariant!(trace_safe(ctx, trace));
+
         let start = (iovs + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
@@ -57,16 +76,10 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
         }
         let mut buf: Vec<u8> = Vec::new();
         buf.reserve_exact(len as usize);
-        let result = os_read(fd, &mut buf, len as usize);
-        // TODO: This pattern is a bit strange
-        //       Probably better to have syscalls return an opaque SyscallRet type, which can
-        //       be converted to RuntimeResult<usize> which we can use ? operator on.
-        //       This also would put the logic to convert from a syscall return into OS specific
-        //       code, which would be good for portability.
-        RuntimeError::from_syscall_ret(result)?;
+        let result = trace_read(fd, &mut buf, len as usize, trace);
+        RuntimeError::from_syscall_ret(result as usize)?;
         let result = result as u32;
-        let copy_ok = ctx
-            .copy_buf_to_sandbox(ptr, &buf, result as u32)
+        ctx.copy_buf_to_sandbox(ptr, &buf, result as u32)
             .ok_or(Efault)?;
         num += result;
         i += 1;
@@ -75,7 +88,15 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 }
 
 // modifies: none
-pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_fd_write(
+    ctx: &VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+    trace: &mut Trace,
+) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -84,6 +105,8 @@ pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeR
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
+        body_invariant!(trace_safe(ctx, trace));
+
         let start = (iovs + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
@@ -91,7 +114,7 @@ pub fn wasi_fd_write(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeR
             return Err(Efault);
         }
         let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
-        let result = os_write(fd, &host_buffer, len as usize);
+        let result = trace_write(fd, &host_buffer, len as usize, trace);
         RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
         i += 1;
@@ -875,6 +898,7 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, how: SdFlags) -> RuntimeResult
 }
 
 // TODO: Do we need to check alignment on the pointers?
+// TODO: clean this up, pretty gross
 pub fn poll_oneoff(
     ctx: &mut VmCtx,
     in_ptr: u32,

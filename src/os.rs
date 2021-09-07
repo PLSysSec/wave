@@ -1,3 +1,4 @@
+use crate::trace::*;
 use crate::types::*;
 use prusti_contracts::*;
 use syscall::syscall;
@@ -5,6 +6,15 @@ use syscall::syscall;
 /// This module contains our syscall specifications
 /// These functions must be trusted because we don't know what the os actually does
 /// on a syscall
+
+// TODO: refactor out
+macro_rules! effect {
+    ($trace:expr, $input:expr) => {
+        if cfg!(feature = "verify") {
+            $trace.push($input);
+        }
+    };
+}
 
 #[trusted]
 pub fn os_open(pathname: SandboxedPath, flags: i32) -> usize {
@@ -21,6 +31,25 @@ pub fn os_close(fd: HostFd) -> usize {
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
+// TODO: the top checking is kinda gross, will figure out refactor later
+// TODO: the following three predicates will be common...is there a way to modularize?
+//       cannot use predicate! afaik cause we cannot use old(trace) in them...
+#[ensures(trace.len() == old(trace.len()) + 1)]
+#[ensures(match trace.lookup(trace.len()-1) {
+    Effect::ReadN { count } => count == cnt,
+    _ => false,
+})]
+#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
+                trace.lookup(i) == old(trace.lookup(i))))]
+pub fn trace_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize, trace: &mut Trace) -> usize {
+    effect!(trace, Effect::ReadN { count: cnt });
+    os_read(fd, buf, cnt)
+}
+
+#[requires(buf.capacity() >= cnt)]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+#[ensures(result <= cnt)]
 #[trusted]
 pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
     let os_fd: usize = fd.into();
@@ -46,6 +75,22 @@ pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
         buf.set_len(result);
         result
     }
+}
+
+#[requires(buf.len() >= cnt)]
+// TODO: the top checking is kinda gross, will figure out refactor later
+// TODO: the following three predicates will be common...is there a way to modularize?
+//       cannot use predicate! afaik cause we cannot use old(trace) in them...
+#[ensures(trace.len() == old(trace.len()) + 1)]
+#[ensures(match trace.lookup(trace.len()-1) {
+    Effect::WriteN { count } => count == cnt,
+    _ => false,
+})]
+#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
+                trace.lookup(i) == old(trace.lookup(i))))]
+pub fn trace_write(fd: HostFd, buf: &Vec<u8>, cnt: usize, trace: &mut Trace) -> usize {
+    effect!(trace, Effect::WriteN { count: cnt });
+    os_write(fd, buf, cnt)
 }
 
 #[requires(buf.len() >= cnt)]

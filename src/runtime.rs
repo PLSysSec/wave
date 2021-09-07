@@ -78,9 +78,9 @@ impl VmCtx {
 
     /// Check whether buffer is entirely within sandbox
     #[pure]
-    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen)]
+    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
-        self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt)
+        self.in_lin_mem(buf) && self.in_lin_mem(cnt) && self.in_lin_mem(buf + cnt)
     }
 
     /// Copy buffer from sandbox to host
@@ -97,6 +97,7 @@ impl VmCtx {
     #[requires(src.len() == (n as usize) )]
     #[requires(safe(self))]
     #[ensures(safe(self))]
+    #[ensures(self.memlen == old(self.memlen))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
@@ -139,6 +140,7 @@ impl VmCtx {
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n))]
     #[ensures(dst.len() == (n as usize) )]
+    #[ensures(self.memlen == old(self.memlen))]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
         unsafe {
             copy(
@@ -158,6 +160,7 @@ impl VmCtx {
     #[requires(self.fits_in_lin_mem(dst, n))]
     #[requires(safe(self))]
     #[ensures(safe(self))]
+    #[ensures(old(self.memlen) == self.memlen)]
     // #[requires(dst < (self.memlen as u32) )]
     // #[requires(dst + n < (self.memlen as u32) )]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
