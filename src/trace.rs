@@ -68,3 +68,24 @@ struct ServerCtx {
     pub read_addr: u32,  // ip to read from
     pub write_addr: u32, // ip to write from
 }
+
+/*SafePtr --> newtype around pointer
+Track length and is safe
+    - basically it came from a safe struct so we know it is safe?
+    - statically tracked size*/
+
+/*
+ * 1. Invariants:
+ *    - make sure fds are actually fds that are distinct from sandbox filedescriptors
+ *    - passing paths to the os: make sure paths are within the home directory of the
+ *          sandbox
+ *          - try not trusted
+ *    - multi-threading? maybe
+ *          -
+ *    - try prove functional correctness for one call
+ *      - encode posix spec.
+ *      - can try
+ *      - encoding sandbox memory isolation on top of that
+ *      - plus any added invariants
+ *      - path_open might be more complicated
+ */

@@ -28,9 +28,8 @@ pub fn os_close(fd: HostFd) -> usize {
     unsafe { syscall!(CLOSE, os_fd) }
 }
 
-#[requires(buf.capacity() >= cnt)]
-#[ensures(buf.len() == result)]
-#[ensures(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
+#[ensures(buf.len() >= cnt)]
 // TODO: the top checking is kinda gross, will figure out refactor later
 // TODO: the following three predicates will be common...is there a way to modularize?
 //       cannot use predicate! afaik cause we cannot use old(trace) in them...
@@ -41,17 +40,16 @@ pub fn os_close(fd: HostFd) -> usize {
 })]
 #[ensures(forall(|i: usize| (i < old(trace.len())) ==>
                 trace.lookup(i) == old(trace.lookup(i))))]
-pub fn trace_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize, trace: &mut Trace) -> usize {
+pub fn trace_read(fd: HostFd, buf: &mut [u8], cnt: usize, trace: &mut Trace) -> usize {
     effect!(trace, Effect::ReadN { count: cnt });
     os_read(fd, buf, cnt)
 }
 
-#[requires(buf.capacity() >= cnt)]
-#[ensures(buf.len() == result)]
-#[ensures(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
+#[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
 #[trusted]
-pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
+pub fn os_read(fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     unsafe {
         let result = syscall!(READ, os_fd, buf.as_mut_ptr(), cnt);
@@ -59,7 +57,6 @@ pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
         //       i.e. -4095 is probably > buf.capacity. Would need to also update
         //       post-conditions to reflect errno case.
         //       See: https://doc.rust-lang.org/std/vec/struct.Vec.html#method.set_len
-        buf.set_len(result);
         result
     }
 }
@@ -88,14 +85,14 @@ pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
 })]
 #[ensures(forall(|i: usize| (i < old(trace.len())) ==>
                 trace.lookup(i) == old(trace.lookup(i))))]
-pub fn trace_write(fd: HostFd, buf: &Vec<u8>, cnt: usize, trace: &mut Trace) -> usize {
+pub fn trace_write(fd: HostFd, buf: &[u8], cnt: usize, trace: &mut Trace) -> usize {
     effect!(trace, Effect::WriteN { count: cnt });
     os_write(fd, buf, cnt)
 }
 
 #[requires(buf.len() >= cnt)]
 #[trusted]
-pub fn os_write(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
+pub fn os_write(fd: HostFd, buf: &[u8], cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
 }

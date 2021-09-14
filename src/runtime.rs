@@ -76,9 +76,34 @@ impl VmCtx {
         (ptr as usize) < self.memlen
     }
 
+    // TODO: does this have to be trusted?
+    #[requires(self.fits_in_lin_mem(ptr, len))]
+    #[ensures(result.len() == (len as usize))]
+    #[after_expiry(
+        self.memlen == old(self.memlen))]
+    #[trusted]
+    pub fn slice_mem(&self, ptr: SboxPtr, len: u32) -> &[u8] {
+        let start = ptr as usize;
+        let end = ptr as usize + len as usize;
+        &self.mem[start..end]
+    }
+
+    // TODO: does this have to be trusted?
+    #[requires(self.fits_in_lin_mem(ptr, len))]
+    #[ensures(result.len() == (len as usize))]
+    #[after_expiry(
+        self.memlen == old(self.memlen))]
+    #[trusted]
+    pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
+        let start = ptr as usize;
+        let end = ptr as usize + len as usize;
+        &mut self.mem[start..end]
+    }
+
     /// Check whether buffer is entirely within sandbox
     #[pure]
     #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
+    //#[ensures(result == true ==> (buf as usize) < self.mem.len() && ((buf + cnt) as usize) < self.mem.len() && (cnt as usize) < self.mem.len())]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         self.in_lin_mem(buf) && self.in_lin_mem(cnt) && self.in_lin_mem(buf + cnt)
     }

@@ -74,13 +74,10 @@ pub fn wasi_fd_read(
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        let mut buf: Vec<u8> = Vec::new();
-        buf.reserve_exact(len as usize);
-        let result = trace_read(fd, &mut buf, len as usize, trace);
+        let slice = ctx.slice_mem_mut(ptr, len);
+        let result = trace_read(fd, slice, len as usize, trace);
         RuntimeError::from_syscall_ret(result as usize)?;
         let result = result as u32;
-        ctx.copy_buf_to_sandbox(ptr, &buf, result as u32)
-            .ok_or(Efault)?;
         num += result;
         i += 1;
     }
@@ -88,39 +85,42 @@ pub fn wasi_fd_read(
 }
 
 // modifies: none
-#[requires(trace_safe(ctx, trace))]
-#[ensures(trace_safe(ctx, trace))]
-pub fn wasi_fd_write(
-    ctx: &VmCtx,
-    v_fd: u32,
-    iovs: u32,
-    iovcnt: u32,
-    trace: &mut Trace,
-) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
-    let mut num: u32 = 0;
-    let mut i = 0;
-    while i < iovcnt {
-        body_invariant!(trace_safe(ctx, trace));
-
-        let start = (iovs + i * 8) as usize;
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-        let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
-        let result = trace_write(fd, &host_buffer, len as usize, trace);
-        RuntimeError::from_syscall_ret(result)?;
-        num += result as u32;
-        i += 1;
-    }
-    Ok(num)
-}
+//#[requires(trace_safe(ctx, trace))]
+//#[ensures(trace_safe(ctx, trace))]
+//pub fn wasi_fd_write(
+//    ctx: &mut VmCtx,
+//    v_fd: u32,
+//    iovs: u32,
+//    iovcnt: u32,
+//    trace: &mut Trace,
+//) -> RuntimeResult<u32> {
+//    if v_fd >= MAX_SBOX_FDS {
+//        return Err(Ebadf);
+//    }
+//
+//    let fd = ctx.fdmap.m[v_fd as usize]?;
+//    let mut num: u32 = 0;
+//    let mut i = 0;
+//    while i < iovcnt {
+//        body_invariant!(trace_safe(ctx, trace));
+//
+//        let start = (iovs + i * 8) as usize;
+//        let ptr = ctx.read_u32(start);
+//        let len = ctx.read_u32(start + 4);
+//        if !ctx.fits_in_lin_mem(ptr, len) {
+//            return Err(Efault);
+//        }
+//        //let slice = ctx.slice_mem(ptr, len);
+//        let start = ptr as usize;
+//        let end = (ptr + len) as usize;
+//        let slice = &ctx.mem[start..end];
+//        let result = trace_write(fd, slice, len as usize, trace);
+//        RuntimeError::from_syscall_ret(result)?;
+//        num += result as u32;
+//        i += 1;
+//    }
+//    Ok(num)
+//}
 
 // modifies: none
 pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
@@ -270,8 +270,6 @@ pub fn wasi_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResul
     Ok(())
 }
 
-#[requires(safe(ctx))]
-#[ensures(safe(ctx))]
 pub fn wasi_fd_filestat_set_times(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -331,34 +329,34 @@ pub fn wasi_fd_filestat_set_times(
 
 // TODO: refactor read and pread into common impl
 // modifies: mem
-pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
-    let mut num: u32 = 0;
-    let mut i = 0;
-    while i < iovcnt {
-        let start = (iovs + i * 8) as usize;
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-        let mut buf: Vec<u8> = Vec::new();
-        buf.reserve_exact(len as usize);
-        let result = os_read(fd, &mut buf, len as usize);
-        RuntimeError::from_syscall_ret(result)?;
-        let result = result as u32;
-        let copy_ok = ctx
-            .copy_buf_to_sandbox(ptr, &buf, result as u32)
-            .ok_or(Efault)?;
-        num += result;
-        i += 1;
-    }
-    Ok(num)
-}
+//pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+//    if v_fd >= MAX_SBOX_FDS {
+//        return Err(Ebadf);
+//    }
+//
+//    let fd = ctx.fdmap.m[v_fd as usize]?;
+//    let mut num: u32 = 0;
+//    let mut i = 0;
+//    while i < iovcnt {
+//        let start = (iovs + i * 8) as usize;
+//        let ptr = ctx.read_u32(start);
+//        let len = ctx.read_u32(start + 4);
+//        if !ctx.fits_in_lin_mem(ptr, len) {
+//            return Err(Efault);
+//        }
+//        let mut buf: Vec<u8> = Vec::new();
+//        buf.reserve_exact(len as usize);
+//        let result = os_read(fd, &mut buf, len as usize);
+//        RuntimeError::from_syscall_ret(result)?;
+//        let result = result as u32;
+//        let copy_ok = ctx
+//            .copy_buf_to_sandbox(ptr, &buf, result as u32)
+//            .ok_or(Efault)?;
+//        num += result;
+//        i += 1;
+//    }
+//    Ok(num)
+//}
 
 // modifies: ????
 pub fn wasi_prestat_dirname(
@@ -386,29 +384,29 @@ pub fn wasi_prestat_dirname(
 
 // TODO: refactor write and pwrite into common impl
 // modifies: none
-pub fn wasi_fd_pwrite(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
-    let mut num: u32 = 0;
-    let mut i = 0;
-    while i < iovcnt {
-        let start = (iovs + i * 8) as usize;
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-        let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
-        let result = os_write(fd, &host_buffer, len as usize);
-        RuntimeError::from_syscall_ret(result)?;
-        num += result as u32;
-        i += 1;
-    }
-    Ok(num)
-}
+//pub fn wasi_fd_pwrite(ctx: &VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+//    if v_fd >= MAX_SBOX_FDS {
+//        return Err(Ebadf);
+//    }
+//
+//    let fd = ctx.fdmap.m[v_fd as usize]?;
+//    let mut num: u32 = 0;
+//    let mut i = 0;
+//    while i < iovcnt {
+//        let start = (iovs + i * 8) as usize;
+//        let ptr = ctx.read_u32(start);
+//        let len = ctx.read_u32(start + 4);
+//        if !ctx.fits_in_lin_mem(ptr, len) {
+//            return Err(Efault);
+//        }
+//        let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
+//        let result = os_write(fd, &host_buffer, len as usize);
+//        RuntimeError::from_syscall_ret(result)?;
+//        num += result as u32;
+//        i += 1;
+//    }
+//    Ok(num)
+//}
 
 //TODO: should create fd for directory
 // modifies: adds hostfd for directory created
