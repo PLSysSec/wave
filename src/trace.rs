@@ -25,6 +25,7 @@ macro_rules! effect {
 pub enum Effect {
     ReadN { count: usize },  // read into `addr` `count` bytes
     WriteN { count: usize }, // write into `addr` `count` bytes
+    Shutdown,
 }
 
 pub struct Trace {

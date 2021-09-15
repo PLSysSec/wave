@@ -20,6 +20,7 @@ predicate! {
                     // dumb right now, just make sure count less than size of mem...
                     Effect::ReadN { count } => (count < ctx.memlen),
                     Effect::WriteN { count } => (count < ctx.memlen),
+                    Effect::Shutdown => true, // currently, all shutdowns are safe
                 }
             ))
         )
@@ -87,23 +88,23 @@ pub fn wasi_fd_read(
 // modifies: none
 //#[requires(trace_safe(ctx, trace))]
 //#[ensures(trace_safe(ctx, trace))]
-//pub fn wasi_fd_write(
+// pub fn wasi_fd_write(
 //    ctx: &mut VmCtx,
 //    v_fd: u32,
 //    iovs: u32,
 //    iovcnt: u32,
 //    trace: &mut Trace,
-//) -> RuntimeResult<u32> {
+// ) -> RuntimeResult<u32> {
 //    if v_fd >= MAX_SBOX_FDS {
 //        return Err(Ebadf);
 //    }
-//
+
 //    let fd = ctx.fdmap.m[v_fd as usize]?;
 //    let mut num: u32 = 0;
 //    let mut i = 0;
 //    while i < iovcnt {
 //        body_invariant!(trace_safe(ctx, trace));
-//
+
 //        let start = (iovs + i * 8) as usize;
 //        let ptr = ctx.read_u32(start);
 //        let len = ctx.read_u32(start + 4);
@@ -120,10 +121,10 @@ pub fn wasi_fd_read(
 //        i += 1;
 //    }
 //    Ok(num)
-//}
+// }
 
 // modifies: none
-pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
+pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -136,7 +137,7 @@ pub fn wasi_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> 
 
 // modifies: none
 pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
-    wasi_seek(ctx, v_fd, 0, Whence::Cur)
+    wasi_fd_seek(ctx, v_fd, 0, Whence::Cur)
 }
 
 // modifies: none
@@ -380,6 +381,19 @@ pub fn wasi_prestat_dirname(
         .copy_buf_to_sandbox(path, &dirname, dirname_len)
         .ok_or(Efault)?;
     Ok(())
+}
+
+
+/// Currently we use the same implementation as wasm2c, which is to not do very mucb at all
+/// TODO: real implementation for this, most likely following wasi-common's implementation
+pub fn wasi_fd_prestat_get(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+) -> RuntimeResult<()>{
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    return Err(Emfile);
 }
 
 // TODO: refactor write and pwrite into common impl
@@ -708,7 +722,7 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> 
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
     id: ClockId,
-    precision: Timestamp,
+    //precision: Timestamp,
 ) -> RuntimeResult<Timestamp> {
     // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
     //       and handle here?
@@ -884,13 +898,21 @@ pub fn wasi_sock_send(
     Ok(num)
 }
 
-pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, how: SdFlags) -> RuntimeResult<()> {
+
+// ensures: valid(v_fd) => trace = old(shutdown :: trace)
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(v_fd >= MAX_SBOX_FDS ==> trace.len() == old(trace.len()))]
+// #[ensures(v_fd < MAX_SBOX_FDS ==> trace.len() == old(trace.len()) + 1)] // we added 1 effect (add-only)
+// #[ensures(v_fd < MAX_SBOX_FDS ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
+pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, how: SdFlags, trace: &mut Trace) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
-    let res = os_shutdown(fd, how.into());
+    // let res = os_shutdown(fd, how.into());
+    let res = trace_shutdown(fd, how.into(), trace);
     RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
@@ -915,7 +937,7 @@ pub fn poll_oneoff(
         return Err(Efault);
     }
 
-    let mut current_byte = 0;
+    //let mut current_byte = 0;
     let mut i = 0;
     while i < nsubscriptions {
         // TODO: refactor to use constants
@@ -931,12 +953,12 @@ pub fn poll_oneoff(
                 let clock_id = ClockId::from_u32(ctx.read_u32((in_ptr + sub_offset + 16) as usize));
                 let clock_id = clock_id.ok_or(Einval)?;
                 let timeout = Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 24) as usize));
-                let _precision: Timestamp =
-                    Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
+                // let _precision: Timestamp =
+                //     Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
                 let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
                 // TODO: get clock time and use it to check if passed
 
-                let mut now = wasi_clock_time_get(ctx, clock_id, _precision)?;
+                let now = wasi_clock_time_get(ctx, clock_id)?;
                 let req: libc::timespec = if flags.subscription_clock_abstime() {
                     // is absolute, wait the diff between timeout and noew
                     // TODO: I assume we should check for underflow
