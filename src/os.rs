@@ -321,6 +321,15 @@ pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(SENDTO, os_fd, buf.as_ptr(), cnt, flags, 0, 0) }
 }
 
+#[ensures(trace.len() == old(trace.len()) + 1)]
+#[ensures( matches!(trace.lookup(trace.len()-1), Effect::Shutdown) )]
+#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
+                trace.lookup(i) == old(trace.lookup(i))))]
+pub fn trace_shutdown(fd: HostFd, how: libc::c_int, trace: &mut Trace) -> usize {
+    effect!(trace, Effect::Shutdown );
+    os_shutdown(fd, how)
+}
+
 #[trusted]
 pub fn os_shutdown(fd: HostFd, how: libc::c_int) -> usize {
     let os_fd: usize = fd.into();
