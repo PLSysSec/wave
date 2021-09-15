@@ -165,6 +165,18 @@ impl From<Whence> for i32 {
     }
 }
 
+
+impl Whence {
+    pub fn from_u32(num: u32) -> Option<Self> {
+        match num {
+            0 => Some(Whence::Set),
+            1 => Some(Whence::Cur),
+            2 => Some(Whence::End),
+            _ => None
+        }
+    }
+}
+
 pub enum ClockId {
     Realtime,
     Monotonic,
