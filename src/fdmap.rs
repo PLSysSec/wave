@@ -44,6 +44,12 @@ impl FdMap {
         self.m[index as usize]
     }
 
+    #[pure]
+    #[requires(index < MAX_SBOX_FDS)]
+    pub fn contains(&self, index: SboxFd) -> bool {
+        matches!(self.lookup(index), Ok(_))
+    }
+
     // #[trusted]
     fn pop_fd(&mut self) -> RuntimeResult<SboxFd> {
         match self.reserve.pop() {

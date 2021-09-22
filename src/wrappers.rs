@@ -124,20 +124,23 @@ pub fn wasi_fd_read(
 // }
 
 // modifies: none
-pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: Whence) -> RuntimeResult<u64> {
+pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
+    let whence =  Whence::from_u32(v_whence).ok_or(Einval)?;
+
+
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
-    let ret = os_seek(fd, v_filedelta, v_whence.into());
+    let ret = os_seek(fd, v_filedelta, whence.into());
     RuntimeError::from_syscall_ret(ret)?;
-    Ok(ret as u64)
+    Ok(ret as u32)
 }
 
 // modifies: none
-pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
-    wasi_fd_seek(ctx, v_fd, 0, Whence::Cur)
+pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
 
 // modifies: none
@@ -707,7 +710,9 @@ pub fn wasi_path_unlink_file(ctx: &mut VmCtx, v_fd: u32, pathname: u32) -> Runti
 }
 
 // modifies: none
-pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> {
+pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
+    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -721,11 +726,10 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, id: ClockId) -> RuntimeResult<Timestamp> 
 // modifies: none
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
-    id: ClockId,
+    clock_id: u32,
     //precision: Timestamp,
 ) -> RuntimeResult<Timestamp> {
-    // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
-    //       and handle here?
+    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
     let mut spec = libc::timespec {
         tv_sec: 0,
@@ -902,9 +906,11 @@ pub fn wasi_sock_send(
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
-#[ensures(v_fd >= MAX_SBOX_FDS ==> trace.len() == old(trace.len()))]
-// #[ensures(v_fd < MAX_SBOX_FDS ==> trace.len() == old(trace.len()) + 1)] // we added 1 effect (add-only)
-// #[ensures(v_fd < MAX_SBOX_FDS ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
+// If sandbox does not own fd, no effects take place
+// #[ensures(v_fd >= MAX_SBOX_FDS || !ctx.fdmap.contains(v_fd) ==> trace.len() == old(trace.len()))]
+// if args are valid, we do invoke an effect
+// #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> trace.len() == old(trace.len()) + 1)] // we added 1 effect (add-only)
+// #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
 pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, how: SdFlags, trace: &mut Trace) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -950,8 +956,8 @@ pub fn poll_oneoff(
 
         match tag {
             0 => {
-                let clock_id = ClockId::from_u32(ctx.read_u32((in_ptr + sub_offset + 16) as usize));
-                let clock_id = clock_id.ok_or(Einval)?;
+                let clock_id = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
+                //let clock_id = clock_id.ok_or(Einval)?;
                 let timeout = Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 24) as usize));
                 // let _precision: Timestamp =
                 //     Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
