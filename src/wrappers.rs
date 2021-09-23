@@ -139,7 +139,7 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
 }
 
 // modifies: none
-pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
 
@@ -180,7 +180,8 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 }
 
 // modifies: none
-pub fn wasi_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+// TODO: should not return u32 at all? 
+pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -281,10 +282,14 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeRe
 pub fn wasi_fd_filestat_set_times(
     ctx: &mut VmCtx,
     v_fd: u32,
-    atim: Timestamp,
-    mtim: Timestamp,
-    fst_flags: FstFlags,
+    v_atim: u64,
+    v_mtim: u64,
+    v_fst_flags: u32,
 ) -> RuntimeResult<()> {
+    let atim = Timestamp::new(v_atim);
+    let mtim = Timestamp::new(v_mtim);
+    let fst_flags = FstFlags::new(v_fst_flags as u16); 
+
     if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
         return Err(Einval);
     }
@@ -768,7 +773,7 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     Ok(())
 }
 
-pub fn fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
+pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
     // 1. translate from fd
     if v_from >= MAX_SBOX_FDS {
         return Err(Ebadf);

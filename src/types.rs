@@ -441,6 +441,10 @@ pub type LookupFlags = u32;
 pub struct FstFlags(u16);
 
 impl FstFlags {
+    pub fn new(flags: u16) -> Self {
+        FstFlags(flags)
+    }
+
     // must impl flag checking as trusted due to bitwise ops not being supported by prusti
     #[trusted]
     pub fn atim(&self) -> bool {
