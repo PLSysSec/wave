@@ -27,7 +27,7 @@ predicate! {
         // The trace is the same length
         trace.len() == old_trace.len() + 1 &&
         // And hasn't been changed
-        forall(|i: usize| (i < old_trace.len()) ==> 
+        forall(|i: usize| (i < old_trace.len()) ==>
             trace.lookup(i) == old_trace.lookup(i))
     }
 }
@@ -38,7 +38,7 @@ predicate! {
         // We added 1 more step
         trace.len() == old_trace.len() + 1 &&
         // But the other effects were not affected
-        forall(|i: usize| (i < old_trace.len()) ==> 
+        forall(|i: usize| (i < old_trace.len()) ==>
             trace.lookup(i) == old_trace.lookup(i))
     }
 }
@@ -49,7 +49,7 @@ predicate! {
         // We added 1 more step
         trace.len() == old_trace.len() + 2 &&
         // But the other effects were not affected
-        forall(|i: usize| (i < old_trace.len()) ==> 
+        forall(|i: usize| (i < old_trace.len()) ==>
             trace.lookup(i) == old_trace.lookup(i))
     }
 }
@@ -58,24 +58,23 @@ predicate! {
 macro_rules! no_effect {
     ($old_trace:expr, $trace:expr, $pattern:pat) => {
         takes_no_steps($old_trace, $trace)
-    }
+    };
 }
 
 /// Enforce that 1 effect occured, and that effect matches "pattern"
 macro_rules! one_effect {
     ($old_trace:expr, $trace:expr, $pattern:pat) => {
-        takes_one_step($old_trace, $trace) &&   
-        matches!($trace.lookup($trace.len()-1), $pattern)
-    }
+        takes_one_step($old_trace, $trace) && matches!($trace.lookup($trace.len() - 1), $pattern)
+    };
 }
 
 /// Enforce that 1 effect occured, and that effect matches "pattern"
 macro_rules! two_effects {
     ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
-        takes_two_steps($old_trace, $trace) &&   
-        matches!($trace.lookup($trace.len()-2), $pattern1) &&
-        matches!($trace.lookup($trace.len()-1), $pattern2)
-    }
+        takes_two_steps($old_trace, $trace)
+            && matches!($trace.lookup($trace.len() - 2), $pattern1)
+            && matches!($trace.lookup($trace.len() - 1), $pattern2)
+    };
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]

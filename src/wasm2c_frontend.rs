@@ -19,7 +19,6 @@ trace::init_depth_var!();
 //     }
 // }
 
-
 //TODO: figure out how to remove the dummy traces
 
 /// Used for FFI. (wasm2c frontend)
@@ -481,7 +480,6 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
     wasm2c_marshal(r)
 }
 
-
 // // wasi libc truncates result to 16 bits ???
 // #[no_mangle]
 // #[trace]
@@ -505,7 +503,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
 //     ctx: *const *mut VmCtx,
 //     fd: u32,
 //     flags: u32,
-//     path: u32, 
+//     path: u32,
 //     path_len: u32, // wasi-libc and wasm2c disagree about whether this arg should exist
 //     atim: u64,
 //     mtim: u64,
@@ -516,28 +514,22 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
 //     wasm2c_marshal(r)
 // }
 
-
-
-
-
-
-
-
-
-// #[no_mangle]
-// #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
-//     ctx: *const *mut VmCtx,
-//     a: u32,
-//     b: u32,
-//     c: u32,
-//     d: u32,
-//     e: u32,
-//     f: u32,
-//     g: u32,
-// ) -> u32 {
-//     unimplemented!()
-// }
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
+    ctx: *const *mut VmCtx,
+    old_fd: u32,
+    old_flags: u32,
+    old_path: u32,
+    old_path_len: u32,
+    new_fd: u32,
+    new_path: u32,
+    new_path_len: u32,
+) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_path_link(ctx_ref, old_fd, old_flags, old_path, new_fd, new_path);
+    wasm2c_marshal(r)
+}
 
 /*
 fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rights, fs_rights_inheriting: rights, fdflags: fdflags
@@ -585,38 +577,63 @@ fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rig
 //     unimplemented!()
 // }
 
-// #[no_mangle]
-// #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(ctx: *const *mut VmCtx, a: u32) -> u32 {
-//     unimplemented!()
-// }
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
+    ctx: *const *mut VmCtx,
+    signal: u32,
+) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_proc_raise(ctx_ref, signal);
+    wasm2c_marshal(r)
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_random_getZ_iii(
+    ctx: *const *mut VmCtx,
+    buf: u32,
+    buf_len: u32,
+) -> u32 {
+    unimplemented!()
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmCtx) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_sched_yield(ctx_ref);
+    wasm2c_marshal(r)
+}
 
 // #[no_mangle]
 // #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_random_getZ_iii(ctx: *const *mut VmCtx, a: u32, b: u32) -> u32 {
-//     unimplemented!()
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(ctx: *const *mut VmCtx, fd: u32, ri_data: u32, ri_data_count: u32, ri_flags: u32, out0: u32, out1: u32) -> u32 {
+//     let ctx_ref = ptr_to_ref(ctx);
+//     let r = wasi_sock_recv(ctx_ref, fd, ri_data, ri_data_count, ri_flags);
+//     wasm2c_marshal_and_writeback_u32_pair(ctx_ref, out0 as usize, out1 as usize, r)
 // }
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(
+    ctx: *const *mut VmCtx,
+    fd: u32,
+    si_data: u32,
+    si_data_count: u32,
+    si_flags: u32,
+    out: u32,
+) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_sock_send(ctx_ref, fd, si_data, si_data_count, si_flags);
+    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
+}
 
 // #[no_mangle]
 // #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmCtx, ) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(ctx: *const *mut VmCtx, v_fd: u32, ri_data: u32, ri_data_count: u32, ri_flags: u32, out0: u32, out1: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(ctx: *const *mut VmCtx, v_fd: u32, si_data: u32, si_data_count: u32, si_flags: u32, out: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// #[trace]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(ctx: *const *mut VmCtx, v_fd: u32, how: u32) -> u32 {
-//     unimplemented!()
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(ctx: *const *mut VmCtx, fd: u32, how: u32) -> u32 {
+//     let ctx_ref = ptr_to_ref(ctx);
+//     let mut dummy_trace = Trace::new();
+//     let r = wasi_sock_shutdown(ctx_ref, fd, how, &mut dummy_trace);
+//     wasm2c_marshal(r)
 // }

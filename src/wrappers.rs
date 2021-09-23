@@ -180,7 +180,7 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 }
 
 // modifies: none
-// TODO: should not return u32 at all? 
+// TODO: should not return u32 at all?
 pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -288,7 +288,7 @@ pub fn wasi_fd_filestat_set_times(
 ) -> RuntimeResult<()> {
     let atim = Timestamp::new(v_atim);
     let mtim = Timestamp::new(v_mtim);
-    let fst_flags = FstFlags::new(v_fst_flags as u16); 
+    let fst_flags = FstFlags::new(v_fst_flags as u16);
 
     if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
         return Err(Einval);
@@ -543,6 +543,7 @@ pub fn wasi_path_filestat_set_times(
     Ok(())
 }
 
+// TODO: Pass through the path lengths
 // TODO: handle LookupFlags
 // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
 // modifies: none
