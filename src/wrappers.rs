@@ -5,10 +5,10 @@ use crate::runtime::*;
 use crate::trace::*;
 use crate::types::*;
 use prusti_contracts::*;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::mem;
 use RuntimeError::*;
-use std::convert::TryFrom;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
 
@@ -126,8 +126,7 @@ pub fn wasi_fd_read(
 
 // modifies: none
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
-    let whence =  Whence::from_u32(v_whence).ok_or(Einval)?;
-
+    let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
 
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -152,7 +151,6 @@ pub fn wasi_fd_advise(
     len: u64,
     v_advice: u32,
 ) -> RuntimeResult<u32> {
-
     let advice = Advice::try_from(v_advice as i32)?;
 
     if v_fd >= MAX_SBOX_FDS {
@@ -238,7 +236,7 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 // TODO: need wasm layout for FdFlags to read from ptr
 pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
     let flags = FdFlags::from(v_flags as i32);
-    
+
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -392,13 +390,9 @@ pub fn wasi_prestat_dirname(
     Ok(())
 }
 
-
 /// Currently we use the same implementation as wasm2c, which is to not do very mucb at all
 /// TODO: real implementation for this, most likely following wasi-common's implementation
-pub fn wasi_fd_prestat_get(
-    ctx: &mut VmCtx,
-    v_fd: u32,
-) -> RuntimeResult<()>{
+pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -908,7 +902,6 @@ pub fn wasi_sock_send(
     Ok(num)
 }
 
-
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
@@ -917,7 +910,12 @@ pub fn wasi_sock_send(
 // if args are valid, we do invoke an effect
 // #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> trace.len() == old(trace.len()) + 1)] // we added 1 effect (add-only)
 // #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
-pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, how: SdFlags, trace: &mut Trace) -> RuntimeResult<()> {
+pub fn wasi_sock_shutdown(
+    ctx: &VmCtx,
+    v_fd: u32,
+    how: SdFlags,
+    trace: &mut Trace,
+) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }

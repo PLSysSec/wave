@@ -45,14 +45,18 @@ fn ptr_to_ref(ctx: *const *mut VmCtx) -> &'static mut VmCtx {
     unsafe { &mut **ctx }
 }
 
-fn wasm2c_marshal<T>(result: RuntimeResult<T>) -> u32{
+fn wasm2c_marshal<T>(result: RuntimeResult<T>) -> u32 {
     match result {
         Ok(r) => 0,
         Err(err) => err.into(),
     }
-} 
+}
 
-fn wasm2c_marshal_and_writeback_u32(ctx_ref: &mut VmCtx, addr: usize, result: RuntimeResult<u32>) -> u32{
+fn wasm2c_marshal_and_writeback_u32(
+    ctx_ref: &mut VmCtx,
+    addr: usize,
+    result: RuntimeResult<u32>,
+) -> u32 {
     match result {
         Ok(r) => {
             ctx_ref.write_u32(addr, r); // writeback result
@@ -60,9 +64,13 @@ fn wasm2c_marshal_and_writeback_u32(ctx_ref: &mut VmCtx, addr: usize, result: Ru
         }
         Err(err) => err.into(),
     }
-} 
+}
 
-fn wasm2c_marshal_and_writeback_u64(ctx_ref: &mut VmCtx, addr: usize, result: RuntimeResult<u64>) -> u32{
+fn wasm2c_marshal_and_writeback_u64(
+    ctx_ref: &mut VmCtx,
+    addr: usize,
+    result: RuntimeResult<u64>,
+) -> u32 {
     match result {
         Ok(r) => {
             ctx_ref.write_u64(addr, r); // writeback result
@@ -70,9 +78,13 @@ fn wasm2c_marshal_and_writeback_u64(ctx_ref: &mut VmCtx, addr: usize, result: Ru
         }
         Err(err) => err.into(),
     }
-} 
+}
 
-fn wasm2c_marshal_and_writeback_timestamp(ctx_ref: &mut VmCtx, addr: usize, result: RuntimeResult<Timestamp>) -> u32{
+fn wasm2c_marshal_and_writeback_timestamp(
+    ctx_ref: &mut VmCtx,
+    addr: usize,
+    result: RuntimeResult<Timestamp>,
+) -> u32 {
     match result {
         Ok(r) => {
             ctx_ref.write_u64(addr, r.nsec()); // writeback result
@@ -80,16 +92,21 @@ fn wasm2c_marshal_and_writeback_timestamp(ctx_ref: &mut VmCtx, addr: usize, resu
         }
         Err(err) => err.into(),
     }
-} 
+}
 
-fn wasm2c_marshal_and_writeback_u32_pair(ctx_ref: &mut VmCtx, addr0: usize, addr1: usize, result: RuntimeResult<(usize,usize)>) -> u32{
+fn wasm2c_marshal_and_writeback_u32_pair(
+    ctx_ref: &mut VmCtx,
+    addr0: usize,
+    addr1: usize,
+    result: RuntimeResult<(usize, usize)>,
+) -> u32 {
     match result {
         Ok((v0, v1)) => {
             ctx_ref.write_u32(v0 as usize, addr0 as u32); // writeback envc
             ctx_ref.write_u32(v1 as usize, addr1 as u32); // writeback environ_buf
             0
         }
-        Err(err) => err.into()
+        Err(err) => err.into(),
     }
 }
 
@@ -131,7 +148,6 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx: *const *mut VmCtx
     let ctx_ref = ptr_to_ref(ctx);
     wasi_proc_exit(ctx_ref, x);
 }
-
 
 #[no_mangle]
 #[trace]
@@ -187,8 +203,6 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_prestat_getZ_iii(
 //     let r = wasi_fd_write(ctx_ref, fd, iov, iovcnt, &mut dummy_trace);
 //     wasm2c_marshal_and_writeback_u32(ctx_ref, pnum as usize, r)
 // }
-
-
 
 #[no_mangle]
 #[trace]
@@ -247,7 +261,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(
     out: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r =  wasi_clock_res_get(ctx_ref, clock_id);
+    let r = wasi_clock_res_get(ctx_ref, clock_id);
     wasm2c_marshal_and_writeback_timestamp(ctx_ref, out as usize, r)
 }
 
@@ -259,28 +273,41 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(
 Wasi API that is not currently supported by wasm2c
 */
 
-
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(ctx: *const *mut VmCtx, v_fd: u32, offset: u64, len: u64, advice: u32) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(
+    ctx: *const *mut VmCtx,
+    v_fd: u32,
+    offset: u64,
+    len: u64,
+    advice: u32,
+) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r =  wasi_fd_advise(ctx_ref, v_fd, offset, len, advice);
+    let r = wasi_fd_advise(ctx_ref, v_fd, offset, len, advice);
     wasm2c_marshal(r)
 }
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(ctx: *const *mut VmCtx, v_fd: u32, offset: u64, len: u64) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(
+    ctx: *const *mut VmCtx,
+    v_fd: u32,
+    offset: u64,
+    len: u64,
+) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r =  wasi_fd_allocate(ctx_ref, v_fd, offset, len);
+    let r = wasi_fd_allocate(ctx_ref, v_fd, offset, len);
     wasm2c_marshal(r)
 }
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(ctx: *const *mut VmCtx, v_fd: u32) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(
+    ctx: *const *mut VmCtx,
+    v_fd: u32,
+) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r =  wasi_fd_datasync(ctx_ref, v_fd);
+    let r = wasi_fd_datasync(ctx_ref, v_fd);
     wasm2c_marshal(r)
 }
 
@@ -293,9 +320,13 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(ctx: *const *mut Vm
 // }
 
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(ctx: *const *mut VmCtx, v_fd: u32, flags: u32) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
+    ctx: *const *mut VmCtx,
+    v_fd: u32,
+    flags: u32,
+) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r =  wasi_fd_fdstat_set_flags(ctx_ref, v_fd, flags);
+    let r = wasi_fd_fdstat_set_flags(ctx_ref, v_fd, flags);
     wasm2c_marshal(r)
 }
 
@@ -316,9 +347,13 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(ctx: *cons
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(ctx: *const *mut VmCtx, v_fd: u32, size: u64) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(
+    ctx: *const *mut VmCtx,
+    v_fd: u32,
+    size: u64,
+) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r =  wasi_fd_filestat_set_size(ctx_ref, v_fd, size);
+    let r = wasi_fd_filestat_set_size(ctx_ref, v_fd, size);
     wasm2c_marshal(r)
 }
 

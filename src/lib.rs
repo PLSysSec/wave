@@ -21,4 +21,3 @@ mod types;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;
 mod wrappers;
-

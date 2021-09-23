@@ -326,7 +326,7 @@ pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
 #[ensures(forall(|i: usize| (i < old(trace.len())) ==>
                 trace.lookup(i) == old(trace.lookup(i))))]
 pub fn trace_shutdown(fd: HostFd, how: libc::c_int, trace: &mut Trace) -> usize {
-    effect!(trace, Effect::Shutdown );
+    effect!(trace, Effect::Shutdown);
     os_shutdown(fd, how)
 }
 
