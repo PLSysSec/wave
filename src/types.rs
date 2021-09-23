@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::ops::Sub;
 
 use prusti_contracts::*;
@@ -277,6 +278,21 @@ impl From<Advice> for i32 {
             Advice::WillNeed => libc::POSIX_FADV_WILLNEED,
             Advice::DontNeed => libc::POSIX_FADV_DONTNEED,
             Advice::NoReuse => libc::POSIX_FADV_NOREUSE,
+        }
+    }
+}
+
+impl TryFrom<i32> for Advice {
+    type Error = RuntimeError;
+    fn try_from(advice: i32) -> RuntimeResult<Self> {
+        match advice {
+            libc::POSIX_FADV_NORMAL => Ok(Advice::Normal),
+            libc::POSIX_FADV_SEQUENTIAL => Ok(Advice::Sequential),
+            libc::POSIX_FADV_RANDOM => Ok(Advice::Random),
+            libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
+            libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
+            libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
+            _ => Err(RuntimeError::Einval)
         }
     }
 }

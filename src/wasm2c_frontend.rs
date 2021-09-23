@@ -259,103 +259,138 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(
 Wasi API that is not currently supported by wasm2c
 */
 
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(ctx: *const *mut VmCtx, v_fd: u32, offset: u64, len: u64, advice: u32) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r =  wasi_fd_advise(ctx_ref, v_fd, offset, len, advice);
+    wasm2c_marshal(r)
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(ctx: *const *mut VmCtx, v_fd: u32, offset: u64, len: u64) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r =  wasi_fd_allocate(ctx_ref, v_fd, offset, len);
+    wasm2c_marshal(r)
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(ctx: *const *mut VmCtx, v_fd: u32) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r =  wasi_fd_datasync(ctx_ref, v_fd);
+    wasm2c_marshal(r)
+}
+
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(a: u32, b: u64, c: u64, d: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(ctx: *const *mut VmCtx, v_fd: u32, out: u32) -> u32 {
+//     let ctx_ref = ptr_to_ref(ctx);
+//     let r =  wasi_fd_fdstat_get(ctx_ref, v_fd);
+//     wasm2c_marshal_and_writeback_fdstat(ctx_ref, out as usize, r)
+// }
+
+#[no_mangle]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(ctx: *const *mut VmCtx, v_fd: u32, flags: u32) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r =  wasi_fd_fdstat_set_flags(ctx_ref, v_fd, flags);
+    wasm2c_marshal(r)
+}
+
+// Not supporting this because rights are getting removed
+// #[no_mangle]
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(ctx: *const *mut VmCtx, a: u32, b: u64, c: u64) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(a: u32, b: u64, c: u64) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(ctx: *const *mut VmCtx, v_fd: u32, out: u32) -> u32 {
+//     let ctx_ref = ptr_to_ref(ctx);
+//     let r =  wasi_fd_fdstat_set_flags(ctx_ref, v_fd, flags);
+//     wasm2c_marshal_and_writeback_filestat(ctx_ref, out as usize, r)
+// }
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(ctx: *const *mut VmCtx, v_fd: u32, size: u64) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r =  wasi_fd_filestat_set_size(ctx_ref, v_fd, size);
+    wasm2c_marshal(r)
+}
+
+// #[no_mangle]
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(ctx: *const *mut VmCtx, v_fd: u32, atim: u64, mtim: u64, fst_flags: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(a: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u64, e: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(a: u32, b: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(a: u32, b: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u64, e: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(a: u32, b: u64, c: u64) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u64, e: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(a: u32, b: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(ctx: *const *mut VmCtx, a: u32, b: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(a: u32, b: u64) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_syncZ_ii(ctx: *const *mut VmCtx, a: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(a: u32, b: u64, c: u64, d: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_tellZ_iii(ctx: *const *mut VmCtx, a: u32, b: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(a: u32, b: u32, c: u32, d: u64, e: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(a: u32, b: u32, c: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(a: u32, b: u32, c: u32, d: u64, e: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u64, f: u64, g: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(a: u32, b: u32, c: u32, d: u64, e: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(a: u32, b: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_syncZ_ii(a: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_tellZ_iii(a: u32, b: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(a: u32, b: u32, c: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(a: u32, b: u32, c: u32, d: u32, e: u64, f: u64, g: u32) -> u32 {
-//     unimplemented!()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32, g: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32, f: u32, g: u32) -> u32 {
 //     unimplemented!()
 // }
 
@@ -364,66 +399,79 @@ fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rig
 */
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(ctx: &mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32, f: u64, g: u64, h: u32, i: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32, f: u64, g: u64, h: u32, i: u32) -> u32 {
 //     wasi_path_open(ctx, a, b, c, d, e, f, g, h, i)
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32, f: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(a: u32, b: u32, c: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32) -> u32{
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32, f: u32) -> u32{
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(a: u32, b: u32, c: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(a: u32, b: u32, c: u32, d: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(ctx: *const *mut VmCtx, a: u32, b: u32, c: u32, d: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(a: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(ctx: *const *mut VmCtx, a: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_random_getZ_iii(a: u32, b: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_random_getZ_iii(ctx: *const *mut VmCtx, a: u32, b: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sched_yieldZ_i() -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmCtx, ) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(ctx: *const *mut VmCtx, v_fd: u32, ri_data: u32, ri_data_count: u32, ri_flags: u32, out0: u32, out1: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(a: u32, b: u32, c: u32, d: u32, e: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(ctx: *const *mut VmCtx, v_fd: u32, si_data: u32, si_data_count: u32, si_flags: u32, out: u32) -> u32 {
 //     unimplemented!()
 // }
 
 // #[no_mangle]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(a: u32, b: u32) -> u32 {
+// #[trace]
+// pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(ctx: *const *mut VmCtx, v_fd: u32, how: u32) -> u32 {
 //     unimplemented!()
 // }

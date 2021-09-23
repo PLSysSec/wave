@@ -8,6 +8,7 @@ use prusti_contracts::*;
 use std::convert::TryInto;
 use std::mem;
 use RuntimeError::*;
+use std::convert::TryFrom;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
 
@@ -144,13 +145,16 @@ pub fn wasi_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 }
 
 // modifies: none
-pub fn wasi_advise(
+pub fn wasi_fd_advise(
     ctx: &VmCtx,
     v_fd: u32,
     offset: u64,
     len: u64,
-    advice: Advice,
+    v_advice: u32,
 ) -> RuntimeResult<u32> {
+
+    let advice = Advice::try_from(v_advice as i32)?;
+
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -164,7 +168,7 @@ pub fn wasi_advise(
 }
 
 // modifies: none
-pub fn wasi_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
+pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -190,7 +194,7 @@ pub fn wasi_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 }
 
 // modifies: None
-pub fn wasi_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -202,7 +206,7 @@ pub fn wasi_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 }
 
 //modifies: none
-pub fn wasi_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
+pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -232,7 +236,9 @@ pub fn wasi_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 }
 
 // TODO: need wasm layout for FdFlags to read from ptr
-pub fn wasi_fdstat_set(ctx: &mut VmCtx, v_fd: u32, flags: FdFlags) -> RuntimeResult<()> {
+pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
+    let flags = FdFlags::from(v_flags as i32);
+    
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -263,7 +269,7 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 }
 
 // modifies: none
-pub fn wasi_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResult<()> {
+pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
