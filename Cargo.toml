@@ -13,6 +13,8 @@ system-call = "0.1.3"
 prusti-contracts = { path = "prusti-dev/prusti-contracts" }
 libc = "0.2"
 trace = "*"
+extra_args = "0.1.0"
+
 
 [features]
-verify = [] # feature for when we're verifying
+verify = ["extra_args/enable"] # feature for when we're verifying

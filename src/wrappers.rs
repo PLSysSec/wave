@@ -9,6 +9,7 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::mem;
 use RuntimeError::*;
+use extra_args::with_extra_arg;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
 
