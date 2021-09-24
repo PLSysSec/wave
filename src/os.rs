@@ -1,3 +1,4 @@
+use crate::effect;
 use crate::trace::*;
 use crate::types::*;
 use prusti_contracts::*;
@@ -6,15 +7,6 @@ use syscall::syscall;
 /// This module contains our syscall specifications
 /// These functions must be trusted because we don't know what the os actually does
 /// on a syscall
-
-// TODO: refactor out
-macro_rules! effect {
-    ($trace:expr, $input:expr) => {
-        if cfg!(feature = "verify") {
-            $trace.push($input);
-        }
-    };
-}
 
 #[trusted]
 pub fn os_open(pathname: SandboxedPath, flags: i32) -> usize {

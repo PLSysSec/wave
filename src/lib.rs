@@ -18,6 +18,6 @@ mod runtime;
 mod tests;
 mod trace;
 mod types;
-#[cfg(not(feature = "verify"))]
-pub mod wasm2c_frontend;
+//#[cfg(not(feature = "verify"))]
+//pub mod wasm2c_frontend;
 mod wrappers;

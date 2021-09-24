@@ -13,6 +13,7 @@ use prusti_contracts::*;
 ///     1. make trace exist at runtime, just don't interact with it: ==> we have to do this
 ///     2. make trace global: ==> Rust does not allow this
 
+#[macro_export]
 macro_rules! effect {
     ($trace:expr, $input:expr) => {
         if cfg!(feature = "verify") {
@@ -23,7 +24,7 @@ macro_rules! effect {
 
 #[cfg(feature = "verify")]
 predicate! {
-    fn takes_no_steps(old_trace: &Trace, trace: &Trace) -> bool {
+    pub fn takes_no_steps(old_trace: &Trace, trace: &Trace) -> bool {
         // The trace is the same length
         trace.len() == old_trace.len() + 1 &&
         // And hasn't been changed
@@ -34,7 +35,7 @@ predicate! {
 
 #[cfg(feature = "verify")]
 predicate! {
-    fn takes_one_step(old_trace: &Trace, trace: &Trace) -> bool {
+    pub fn takes_one_step(old_trace: &Trace, trace: &Trace) -> bool {
         // We added 1 more step
         trace.len() == old_trace.len() + 1 &&
         // But the other effects were not affected
@@ -45,7 +46,7 @@ predicate! {
 
 #[cfg(feature = "verify")]
 predicate! {
-    fn takes_two_steps(old_trace: &Trace, trace: &Trace) -> bool {
+    pub fn takes_two_steps(old_trace: &Trace, trace: &Trace) -> bool {
         // We added 1 more step
         trace.len() == old_trace.len() + 2 &&
         // But the other effects were not affected
@@ -55,6 +56,7 @@ predicate! {
 }
 
 /// Enforce that no effect occured
+#[macro_export]
 macro_rules! no_effect {
     ($old_trace:expr, $trace:expr, $pattern:pat) => {
         takes_no_steps($old_trace, $trace)
@@ -62,6 +64,7 @@ macro_rules! no_effect {
 }
 
 /// Enforce that 1 effect occured, and that effect matches "pattern"
+#[macro_export]
 macro_rules! one_effect {
     ($old_trace:expr, $trace:expr, $pattern:pat) => {
         takes_one_step($old_trace, $trace) && matches!($trace.lookup($trace.len() - 1), $pattern)
@@ -69,6 +72,7 @@ macro_rules! one_effect {
 }
 
 /// Enforce that 1 effect occured, and that effect matches "pattern"
+#[macro_export]
 macro_rules! two_effects {
     ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
         takes_two_steps($old_trace, $trace)

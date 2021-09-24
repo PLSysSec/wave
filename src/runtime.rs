@@ -6,6 +6,9 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path, PathBuf};
 use std::ptr::{copy, copy_nonoverlapping};
+use extra_args::with_extra_arg;
+use crate::trace::Trace;
+
 use RuntimeError::*;
 
 // TODO: any other ctx well-formedness checks?
@@ -70,6 +73,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
 
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
+    #[with_extra_arg(trace: &mut Trace)]
     #[pure]
     #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
@@ -77,6 +81,7 @@ impl VmCtx {
     }
 
     // TODO: does this have to be trusted?
+    #[with_extra_arg(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
@@ -89,6 +94,7 @@ impl VmCtx {
     }
 
     // TODO: does this have to be trusted?
+    #[with_extra_arg(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
@@ -102,6 +108,7 @@ impl VmCtx {
 
     /// Check whether buffer is entirely within sandbox
     #[pure]
+    #[with_extra_arg(trace: &mut Trace)]
     #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
     //#[ensures(result == true ==> (buf as usize) < self.mem.len() && ((buf + cnt) as usize) < self.mem.len() && (cnt as usize) < self.mem.len())]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
@@ -109,6 +116,7 @@ impl VmCtx {
     }
 
     /// Copy buffer from sandbox to host
+    #[with_extra_arg(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(src, n))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
@@ -119,6 +127,7 @@ impl VmCtx {
     }
 
     /// Copy buffer from from host to sandbox
+    #[with_extra_arg(trace: &mut Trace)]
     #[requires(src.len() == (n as usize) )]
     #[requires(safe(self))]
     #[ensures(safe(self))]
@@ -134,6 +143,7 @@ impl VmCtx {
     /// Copy arg buffer from from host to sandbox
     /// TODO: make this not trusted
     /// (its only trusted because clone breaks viper for some reason)
+    #[with_extra_arg(trace: &mut Trace)]
     #[trusted]
     #[requires(self.arg_buffer.len() == (n as usize) )]
     pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
@@ -147,6 +157,7 @@ impl VmCtx {
     /// Copy arg buffer from from host to sandbox
     /// TODO: make this not trusted
     /// (its only trusted because clone breaks viper for some reason)
+    #[with_extra_arg(trace: &mut Trace)]
     #[trusted]
     #[requires(self.env_buffer.len() == (n as usize) )]
     pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
@@ -161,6 +172,7 @@ impl VmCtx {
     /// Overwrites contents of vec
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
+    #[with_extra_arg(trace: &mut Trace)]
     #[trusted]
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n))]
@@ -180,6 +192,7 @@ impl VmCtx {
     /// Function for memcpy from sandbox to host
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
+    #[with_extra_arg(trace: &mut Trace)]
     #[trusted]
     #[requires(src.len() == (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n))]
