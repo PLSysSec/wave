@@ -76,11 +76,36 @@ impl VmCtx {
         (ptr as usize) < self.memlen
     }
 
+    // TODO: does this have to be trusted?
+    #[requires(self.fits_in_lin_mem(ptr, len))]
+    #[ensures(result.len() == (len as usize))]
+    #[after_expiry(
+        self.memlen == old(self.memlen))]
+    #[trusted]
+    pub fn slice_mem(&self, ptr: SboxPtr, len: u32) -> &[u8] {
+        let start = ptr as usize;
+        let end = ptr as usize + len as usize;
+        &self.mem[start..end]
+    }
+
+    // TODO: does this have to be trusted?
+    #[requires(self.fits_in_lin_mem(ptr, len))]
+    #[ensures(result.len() == (len as usize))]
+    #[after_expiry(
+        self.memlen == old(self.memlen))]
+    #[trusted]
+    pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
+        let start = ptr as usize;
+        let end = ptr as usize + len as usize;
+        &mut self.mem[start..end]
+    }
+
     /// Check whether buffer is entirely within sandbox
     #[pure]
-    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen)]
+    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
+    //#[ensures(result == true ==> (buf as usize) < self.mem.len() && ((buf + cnt) as usize) < self.mem.len() && (cnt as usize) < self.mem.len())]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
-        self.in_lin_mem(buf) && self.in_lin_mem(buf + cnt)
+        self.in_lin_mem(buf) && self.in_lin_mem(cnt) && self.in_lin_mem(buf + cnt)
     }
 
     /// Copy buffer from sandbox to host
@@ -97,6 +122,7 @@ impl VmCtx {
     #[requires(src.len() == (n as usize) )]
     #[requires(safe(self))]
     #[ensures(safe(self))]
+    #[ensures(self.memlen == old(self.memlen))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
@@ -139,6 +165,7 @@ impl VmCtx {
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n))]
     #[ensures(dst.len() == (n as usize) )]
+    #[ensures(self.memlen == old(self.memlen))]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
         unsafe {
             copy(
@@ -158,6 +185,7 @@ impl VmCtx {
     #[requires(self.fits_in_lin_mem(dst, n))]
     #[requires(safe(self))]
     #[ensures(safe(self))]
+    #[ensures(old(self.memlen) == self.memlen)]
     // #[requires(dst < (self.memlen as u32) )]
     // #[requires(dst + n < (self.memlen as u32) )]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
@@ -207,6 +235,13 @@ impl VmCtx {
         Err(Eacces)
     }*/
 
+    /// read u16 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn read_u16(&self, start: usize) -> u16 {
+        let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
+        u16::from_le_bytes(bytes)
+    }
+
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
     pub fn read_u32(&self, start: usize) -> u32 {
@@ -219,6 +254,30 @@ impl VmCtx {
         u32::from_le_bytes(bytes)
     }
 
+    /// read u64 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn read_u64(&self, start: usize) -> u64 {
+        let bytes: [u8; 8] = [
+            self.mem[start],
+            self.mem[start + 1],
+            self.mem[start + 2],
+            self.mem[start + 3],
+            self.mem[start + 4],
+            self.mem[start + 5],
+            self.mem[start + 6],
+            self.mem[start + 7],
+        ];
+        u64::from_le_bytes(bytes)
+    }
+
+    /// write u16 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn write_u16(&mut self, start: usize, v: u16) {
+        let bytes: [u8; 2] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+    }
+
     /// write u32 to wasm linear memory
     // Not thrilled about this implementation, but it works
     pub fn write_u32(&mut self, start: usize, v: u32) {
@@ -227,6 +286,20 @@ impl VmCtx {
         self.mem[start + 1] = bytes[1];
         self.mem[start + 2] = bytes[2];
         self.mem[start + 3] = bytes[3];
+    }
+
+    /// write u64 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    pub fn write_u64(&mut self, start: usize, v: u64) {
+        let bytes: [u8; 8] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+        self.mem[start + 2] = bytes[2];
+        self.mem[start + 3] = bytes[3];
+        self.mem[start + 4] = bytes[4];
+        self.mem[start + 5] = bytes[5];
+        self.mem[start + 6] = bytes[6];
+        self.mem[start + 7] = bytes[7];
     }
 }
 

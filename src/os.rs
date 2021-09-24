@@ -1,3 +1,4 @@
+use crate::trace::*;
 use crate::types::*;
 use prusti_contracts::*;
 use syscall::syscall;
@@ -5,6 +6,15 @@ use syscall::syscall;
 /// This module contains our syscall specifications
 /// These functions must be trusted because we don't know what the os actually does
 /// on a syscall
+
+// TODO: refactor out
+macro_rules! effect {
+    ($trace:expr, $input:expr) => {
+        if cfg!(feature = "verify") {
+            $trace.push($input);
+        }
+    };
+}
 
 #[trusted]
 pub fn os_open(pathname: SandboxedPath, flags: i32) -> usize {
@@ -18,11 +28,28 @@ pub fn os_close(fd: HostFd) -> usize {
     unsafe { syscall!(CLOSE, os_fd) }
 }
 
-#[requires(buf.capacity() >= cnt)]
-#[ensures(buf.len() == result)]
-#[ensures(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
+#[ensures(buf.len() >= cnt)]
+// TODO: the top checking is kinda gross, will figure out refactor later
+// TODO: the following three predicates will be common...is there a way to modularize?
+//       cannot use predicate! afaik cause we cannot use old(trace) in them...
+#[ensures(trace.len() == old(trace.len()) + 1)]
+#[ensures(match trace.lookup(trace.len()-1) {
+    Effect::ReadN { count } => count == cnt,
+    _ => false,
+})]
+#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
+                trace.lookup(i) == old(trace.lookup(i))))]
+pub fn trace_read(fd: HostFd, buf: &mut [u8], cnt: usize, trace: &mut Trace) -> usize {
+    effect!(trace, Effect::ReadN { count: cnt });
+    os_read(fd, buf, cnt)
+}
+
+#[requires(buf.len() >= cnt)]
+#[ensures(buf.len() >= cnt)]
+#[ensures(result <= cnt)]
 #[trusted]
-pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
+pub fn os_read(fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     unsafe {
         let result = syscall!(READ, os_fd, buf.as_mut_ptr(), cnt);
@@ -30,7 +57,6 @@ pub fn os_read(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
         //       i.e. -4095 is probably > buf.capacity. Would need to also update
         //       post-conditions to reflect errno case.
         //       See: https://doc.rust-lang.org/std/vec/struct.Vec.html#method.set_len
-        buf.set_len(result);
         result
     }
 }
@@ -49,8 +75,24 @@ pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
 }
 
 #[requires(buf.len() >= cnt)]
+// TODO: the top checking is kinda gross, will figure out refactor later
+// TODO: the following three predicates will be common...is there a way to modularize?
+//       cannot use predicate! afaik cause we cannot use old(trace) in them...
+#[ensures(trace.len() == old(trace.len()) + 1)]
+#[ensures(match trace.lookup(trace.len()-1) {
+    Effect::WriteN { count } => count == cnt,
+    _ => false,
+})]
+#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
+                trace.lookup(i) == old(trace.lookup(i))))]
+pub fn trace_write(fd: HostFd, buf: &[u8], cnt: usize, trace: &mut Trace) -> usize {
+    effect!(trace, Effect::WriteN { count: cnt });
+    os_write(fd, buf, cnt)
+}
+
+#[requires(buf.len() >= cnt)]
 #[trusted]
-pub fn os_write(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
+pub fn os_write(fd: HostFd, buf: &[u8], cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
 }
@@ -261,4 +303,55 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 #[trusted]
 pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) }
+}
+
+#[requires(buf.capacity() >= cnt)]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+#[trusted]
+pub fn os_recv(fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(RECVFROM, os_fd, buf.as_mut_ptr(), cnt, flags, 0, 0) }
+}
+
+#[requires(buf.len() >= cnt)]
+#[trusted]
+pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(SENDTO, os_fd, buf.as_ptr(), cnt, flags, 0, 0) }
+}
+
+#[ensures(trace.len() == old(trace.len()) + 1)]
+#[ensures( matches!(trace.lookup(trace.len()-1), Effect::Shutdown) )]
+#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
+                trace.lookup(i) == old(trace.lookup(i))))]
+pub fn trace_shutdown(fd: HostFd, how: libc::c_int, trace: &mut Trace) -> usize {
+    effect!(trace, Effect::Shutdown);
+    os_shutdown(fd, how)
+}
+
+#[trusted]
+pub fn os_shutdown(fd: HostFd, how: libc::c_int) -> usize {
+    let os_fd: usize = fd.into();
+    unsafe { syscall!(SHUTDOWN, os_fd, how) }
+}
+
+//#[trusted]
+//pub fn os_
+
+#[trusted]
+pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {
+    unsafe {
+        syscall!(
+            NANOSLEEP,
+            req as *const libc::timespec,
+            rem as *mut libc::timespec
+        )
+    }
+}
+
+// can make more efficient using slice of pollfds
+#[trusted]
+pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
+    unsafe { syscall!(POLL, pollfd as *const libc::pollfd, 1, timeout) }
 }
