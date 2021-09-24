@@ -829,13 +829,13 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
 }
 
 // modifies: none
-pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {
-    Ok((ctx.argc, ctx.arg_buffer.len()))
+pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
+    Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
 }
 
 // modifies: none
-pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(usize, usize)> {
-    Ok((ctx.envc, ctx.env_buffer.len()))
+pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
+    Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
 }
 
 pub fn wasi_sock_recv(
@@ -919,13 +919,14 @@ pub fn wasi_sock_send(
 pub fn wasi_sock_shutdown(
     ctx: &VmCtx,
     v_fd: u32,
-    how: SdFlags,
+    v_how: u32,
     trace: &mut Trace,
 ) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
 
+    let how = SdFlags::new(v_how);
     let fd = ctx.fdmap.m[v_fd as usize]?;
     // let res = os_shutdown(fd, how.into());
     let res = trace_shutdown(fd, how.into(), trace);
@@ -935,7 +936,7 @@ pub fn wasi_sock_shutdown(
 
 // TODO: Do we need to check alignment on the pointers?
 // TODO: clean this up, pretty gross
-pub fn poll_oneoff(
+pub fn wasi_poll_oneoff(
     ctx: &mut VmCtx,
     in_ptr: u32,
     out_ptr: u32,

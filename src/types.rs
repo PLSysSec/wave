@@ -470,6 +470,10 @@ impl FstFlags {
 pub struct SdFlags(u8);
 
 impl SdFlags {
+    pub fn new(num: u32) -> Self {
+        SdFlags(num as u8)
+    }
+
     #[trusted]
     pub fn rd(&self) -> bool {
         self.0 & (1 << 0) != 0
@@ -495,6 +499,27 @@ impl From<SdFlags> for libc::c_int {
         }
     }
 }
+
+// impl TryFrom<libc::c_int> for SdFlags {
+//     type Error = RuntimeError;
+//     fn try_from(flags: libc::c_int) -> RuntimeResult<Self> {
+//         match flags{
+//             libc::SHUT_RDRW => Ok()
+//             libc::SHUT_RD =>
+//             libc::SHUT_WR =>
+//         }
+//         // if flags.rd() && flags.wr() {
+//         //     libc::SHUT_RDWR
+//         // } else if flags.rd() {
+//         //     libc::SHUT_RD
+//         // } else if flags.wr() {
+//         //     libc::SHUT_WR
+//         // } else {
+//         //     // TODO: correct behavior here? (Should it be TryFrom?)
+//         //     0
+//         // }
+//     }
+// }
 
 #[repr(C)]
 pub struct Subscription {
