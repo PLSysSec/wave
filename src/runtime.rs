@@ -1,5 +1,6 @@
 #[cfg(feature = "verify")]
 use crate::external_specs::option::*;
+use crate::spec::trace_safe;
 use crate::trace::Trace;
 use crate::types::*;
 use extra_args::{external_call, external_method, with_ghost_var};
@@ -11,43 +12,7 @@ use std::ptr::{copy, copy_nonoverlapping};
 
 use RuntimeError::*;
 
-// TODO: any other ctx well-formedness checks?
-// predicate! {
-//     fn fd_safe(ctx: &FdMap) -> bool {
-//         forall(|s_fd: SboxFd|
-//             (s_fd < MAX_SBOX_FDS ==> ctx.lookup(s_fd) >= 0))
-//     }
-// }
-
-// TODO: exportable predicates
-// Placeholder for ctx well-formedness checks
-#[cfg(feature = "verify")]
-predicate! {
-    fn safe(ctx: &VmCtx) -> bool {
-        true
-    }
-}
-
-/// Function for memcpy from sandbox to host
-/// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
-//TODO: verify that regions do not overlap so that we can use copy_non_overlapping
-// #[trusted]
-// #[requires(src.len() == (n as usize) )]
-// #[requires( dst as usize < memlen )]
-// #[requires( (dst + n) as usize < memlen )]
-// // #[requires(self.fits_in_lin_mem(dst, n))]
-// pub fn memcpy_to_sandbox(mem: &mut Vec<u8>, memlen: usize, dst: SboxPtr, src: &Vec<u8>, n: u32) {
-//     unsafe {
-//         copy(
-//             src.as_ptr(),
-//             mem.as_mut_ptr().offset(dst as isize),
-//             n as usize,
-//         )
-//     };
-// }
-
-//TODO: instantiate stdin,stdout,stderr?
-#[ensures(safe(&result))]
+//#[ensures(safe(&result))]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
@@ -73,7 +38,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
 
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
-    //#[with_ghost_var(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
     #[pure]
     #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
@@ -82,7 +47,7 @@ impl VmCtx {
 
     // TODO: does this have to be trusted?
     #[with_ghost_var(trace: &mut Trace)]
-    #[requires(self.fits_in_lin_mem(ptr, len))]
+    #[requires(self.fits_in_lin_mem(ptr, len, trace))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
         self.memlen == old(self.memlen))]
@@ -95,7 +60,7 @@ impl VmCtx {
 
     // TODO: does this have to be trusted?
     #[with_ghost_var(trace: &mut Trace)]
-    #[requires(self.fits_in_lin_mem(ptr, len))]
+    #[requires(self.fits_in_lin_mem(ptr, len, trace))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
         self.memlen == old(self.memlen))]
@@ -108,9 +73,8 @@ impl VmCtx {
 
     /// Check whether buffer is entirely within sandbox
     #[pure]
-    //#[with_ghost_var(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
     #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
-    //#[ensures(result == true ==> (buf as usize) < self.mem.len() && ((buf + cnt) as usize) < self.mem.len() && (cnt as usize) < self.mem.len())]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         self.in_lin_mem(buf) && self.in_lin_mem(cnt) && self.in_lin_mem(buf + cnt)
     }
@@ -119,7 +83,7 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_call(new)]
     #[external_method(reserve_exact)]
-    #[requires(self.fits_in_lin_mem(src, n))]
+    #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
@@ -132,8 +96,8 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_call(Some)]
     #[requires(src.len() == (n as usize) )]
-    #[requires(safe(self))]
-    #[ensures(safe(self))]
+    // #[requires(trace_safe(self))]
+    // #[ensures(trace_safe(self))]
     #[ensures(self.memlen == old(self.memlen))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
@@ -182,7 +146,7 @@ impl VmCtx {
     #[external_method(set_len)]
     #[trusted]
     #[requires(dst.capacity() >= (n as usize) )]
-    #[requires(self.fits_in_lin_mem(src, n))]
+    #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[ensures(dst.len() == (n as usize) )]
     #[ensures(self.memlen == old(self.memlen))]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
@@ -203,9 +167,9 @@ impl VmCtx {
     #[external_call(copy)]
     #[trusted]
     #[requires(src.len() == (n as usize) )]
-    #[requires(self.fits_in_lin_mem(dst, n))]
-    #[requires(safe(self))]
-    #[ensures(safe(self))]
+    #[requires(self.fits_in_lin_mem(dst, n, trace))]
+    // #[requires(trace_safe(self, trace))]
+    // #[ensures(trace_safe(self, trace))]
     #[ensures(old(self.memlen) == self.memlen)]
     // #[requires(dst < (self.memlen as u32) )]
     // #[requires(dst + n < (self.memlen as u32) )]
@@ -222,9 +186,10 @@ impl VmCtx {
     /// Check whether a path is in the home directory.
     /// If it is, return it as an absolute path, if it isn't, return error
     // TODO: verify and make untrusted
+    // #[with_ghost_var(trace: &mut Trace)]
     #[trusted]
-    #[requires(safe(self))]
-    #[ensures(safe(self))]
+    // #[requires(trace_safe(self, trace))]
+    // #[ensures(trace_safe(self, trace))]
     pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
         let safe_path = normalize_path(&path);

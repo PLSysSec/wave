@@ -1,5 +1,6 @@
+use crate::trace::{Effect, Trace};
 use crate::types::VmCtx;
-use crate::trace::{Trace, Effect};
+use prusti_contracts::*;
 
 #[cfg(feature = "verify")]
 predicate! {

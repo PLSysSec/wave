@@ -15,6 +15,7 @@ mod external_specs;
 mod fdmap;
 mod os;
 mod runtime;
+mod spec;
 mod tests;
 mod trace;
 mod types;
