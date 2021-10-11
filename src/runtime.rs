@@ -1,13 +1,13 @@
 #[cfg(feature = "verify")]
 use crate::external_specs::option::*;
+use crate::trace::Trace;
 use crate::types::*;
+use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path, PathBuf};
 use std::ptr::{copy, copy_nonoverlapping};
-use extra_args::with_extra_arg;
-use crate::trace::Trace;
 
 use RuntimeError::*;
 
@@ -73,7 +73,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
 
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
-    #[with_extra_arg(trace: &mut Trace)]
+    //#[with_ghost_var(trace: &mut Trace)]
     #[pure]
     #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
@@ -81,7 +81,7 @@ impl VmCtx {
     }
 
     // TODO: does this have to be trusted?
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
@@ -94,7 +94,7 @@ impl VmCtx {
     }
 
     // TODO: does this have to be trusted?
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
@@ -108,7 +108,7 @@ impl VmCtx {
 
     /// Check whether buffer is entirely within sandbox
     #[pure]
-    #[with_extra_arg(trace: &mut Trace)]
+    //#[with_ghost_var(trace: &mut Trace)]
     #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
     //#[ensures(result == true ==> (buf as usize) < self.mem.len() && ((buf + cnt) as usize) < self.mem.len() && (cnt as usize) < self.mem.len())]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
@@ -116,7 +116,9 @@ impl VmCtx {
     }
 
     /// Copy buffer from sandbox to host
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(new)]
+    #[external_method(reserve_exact)]
     #[requires(self.fits_in_lin_mem(src, n))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
@@ -127,7 +129,8 @@ impl VmCtx {
     }
 
     /// Copy buffer from from host to sandbox
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(Some)]
     #[requires(src.len() == (n as usize) )]
     #[requires(safe(self))]
     #[ensures(safe(self))]
@@ -143,7 +146,8 @@ impl VmCtx {
     /// Copy arg buffer from from host to sandbox
     /// TODO: make this not trusted
     /// (its only trusted because clone breaks viper for some reason)
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(Some)]
     #[trusted]
     #[requires(self.arg_buffer.len() == (n as usize) )]
     pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
@@ -157,7 +161,8 @@ impl VmCtx {
     /// Copy arg buffer from from host to sandbox
     /// TODO: make this not trusted
     /// (its only trusted because clone breaks viper for some reason)
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(Some)]
     #[trusted]
     #[requires(self.env_buffer.len() == (n as usize) )]
     pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
@@ -172,7 +177,9 @@ impl VmCtx {
     /// Overwrites contents of vec
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(copy)]
+    #[external_method(set_len)]
     #[trusted]
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n))]
@@ -192,7 +199,8 @@ impl VmCtx {
     /// Function for memcpy from sandbox to host
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
-    #[with_extra_arg(trace: &mut Trace)]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(copy)]
     #[trusted]
     #[requires(src.len() == (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n))]
@@ -250,6 +258,8 @@ impl VmCtx {
 
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(from_le_bytes)]
     pub fn read_u16(&self, start: usize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
@@ -257,6 +267,8 @@ impl VmCtx {
 
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(from_le_bytes)]
     pub fn read_u32(&self, start: usize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
@@ -269,6 +281,8 @@ impl VmCtx {
 
     /// read u64 from wasm linear memory
     // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(from_le_bytes)]
     pub fn read_u64(&self, start: usize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
@@ -285,6 +299,8 @@ impl VmCtx {
 
     /// write u16 to wasm linear memory
     // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_method(to_le_bytes)]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -293,6 +309,8 @@ impl VmCtx {
 
     /// write u32 to wasm linear memory
     // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_method(to_le_bytes)]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -303,6 +321,8 @@ impl VmCtx {
 
     /// write u64 to wasm linear memory
     // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_method(to_le_bytes)]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.mem[start] = bytes[0];

@@ -1,16 +1,16 @@
+use crate::effect;
 #[cfg(feature = "verify")]
 use crate::external_specs::result::*;
 use crate::os::*;
 use crate::runtime::*;
-use crate::effect;
 use crate::trace::*;
 use crate::types::*;
+//use extra_args::with_extra_arg;
 use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::mem;
 use RuntimeError::*;
-use extra_args::with_extra_arg;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
 

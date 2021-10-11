@@ -590,6 +590,3 @@ pub struct EventFdReadWrite {
     nbytes: u64,
     flags: u16,
 }
-
-
-

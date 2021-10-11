@@ -125,10 +125,10 @@ impl Trace {
     }
 }
 
-struct ServerCtx {
-    pub read_addr: u32,  // ip to read from
-    pub write_addr: u32, // ip to write from
-}
+// struct ServerCtx {
+//     pub read_addr: u32,  // ip to read from
+//     pub write_addr: u32, // ip to write from
+// }
 
 /*SafePtr --> newtype around pointer
 Track length and is safe

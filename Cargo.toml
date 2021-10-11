@@ -13,7 +13,7 @@ system-call = "0.1.3"
 prusti-contracts = { path = "prusti-dev/prusti-contracts" }
 libc = "0.2"
 trace = "*"
-extra_args = "0.1.0"
+extra_args = "0.1.4"
 
 
 [features]
