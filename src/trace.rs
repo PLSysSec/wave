@@ -86,6 +86,7 @@ pub enum Effect {
     ReadN { count: usize },  // read into `addr` `count` bytes
     WriteN { count: usize }, // write into `addr` `count` bytes
     Shutdown,
+    FdAccess, // TODO: should this store the HostFd?
 }
 
 pub struct Trace {

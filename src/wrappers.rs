@@ -6,6 +6,8 @@ use crate::runtime::*;
 use crate::trace::*;
 use crate::types::*;
 //use extra_args::with_extra_arg;
+use crate::spec::*;
+use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -111,18 +113,25 @@ use RuntimeError::*;
 // // }
 
 // // modifies: none
-// pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
-//     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
+#[with_ghost_var(trace: &mut Trace)]
+#[external_method(ok_or)]
+#[external_call(Ok)]
+#[external_call(Err)]
+#[external_call(from_syscall_ret)] // TODO: remove
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
+    let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
 
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let ret = os_seek(fd, v_filedelta, whence.into());
-//     RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let ret = trace_seek(ctx, fd, v_filedelta, whence.into());
+    RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
 // // modifies: none
 // pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {

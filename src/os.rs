@@ -1,6 +1,8 @@
 use crate::effect;
+use crate::spec::*;
 use crate::trace::*;
 use crate::types::*;
+use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use syscall::syscall;
 
@@ -101,6 +103,15 @@ pub fn os_pwrite(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
 pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(LSEEK, os_fd, offset, whence) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_seek)] // Do not add trace to os_seek
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_seek(fd, offset, whence)
 }
 
 #[trusted]
