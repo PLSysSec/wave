@@ -1,8 +1,10 @@
 #[cfg(feature = "verify")]
-use crate::external_specs::option::*;
-use crate::spec::trace_safe;
-use crate::trace::Trace;
+use crate::verifier::external_specs::option::*;
+//use crate::spec::trace_safe;
+//use crate::trace::Trace;
 use crate::types::*;
+#[cfg(feature = "verify")]
+use crate::verifier::*;
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::ffi::OsString;

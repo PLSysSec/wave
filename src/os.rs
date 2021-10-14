@@ -1,6 +1,7 @@
 use crate::effect;
-use crate::spec::*;
-use crate::trace::*;
+#[cfg(feature = "verify")]
+use crate::verifier::*;
+//use crate::trace::*;
 use crate::types::*;
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;

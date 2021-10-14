@@ -1,16 +1,17 @@
 use crate::effect;
-#[cfg(feature = "verify")]
-use crate::external_specs::result::*;
 use crate::os::*;
 use crate::runtime::*;
-use crate::trace::*;
 use crate::types::*;
+#[cfg(feature = "verify")]
+use crate::verifier::external_specs::result::*;
+#[cfg(feature = "verify")]
+use crate::verifier::*;
 //use extra_args::with_extra_arg;
-use crate::spec::*;
+//use crate::verifier::spec::*;
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
+//use std::convert::TryInto;
 use std::mem;
 use RuntimeError::*;
 
@@ -120,6 +121,7 @@ use RuntimeError::*;
 #[external_call(from_syscall_ret)] // TODO: remove
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+// #[ensures(one_effect!(old(trace), trace, Effect::FdAccess(_) ))]
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
 

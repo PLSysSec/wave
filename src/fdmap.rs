@@ -1,6 +1,6 @@
-#[cfg(feature = "verify")]
-use crate::external_specs::vec::*;
 use crate::types::*;
+#[cfg(feature = "verify")]
+use crate::verifier::external_specs::vec::*;
 use prusti_contracts::*;
 use std::io::{stderr, stdin, stdout};
 use std::os::unix::io::AsRawFd;

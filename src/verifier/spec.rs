@@ -1,5 +1,5 @@
-use crate::trace::{Effect, Trace};
 use crate::types::VmCtx;
+use crate::verifier::trace::{Effect, Trace};
 use prusti_contracts::*;
 
 #[cfg(feature = "verify")]
