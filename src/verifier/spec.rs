@@ -13,6 +13,7 @@ predicate! {
                     Effect::WriteN(count) => (count < ctx.memlen),
                     Effect::Shutdown => true, // currently, all shutdowns are safe
                     Effect::FdAccess => true,
+                    Effect::PathAccess => true,
                 }
             ))
         )

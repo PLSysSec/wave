@@ -11,10 +11,26 @@ use syscall::syscall;
 /// These functions must be trusted because we don't know what the os actually does
 /// on a syscall
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_open)]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_open(pathname: SandboxedPath, flags: i32) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_open(pathname, flags)
+}
+
 #[trusted]
 pub fn os_open(pathname: SandboxedPath, flags: i32) -> usize {
     let os_path: Vec<u8> = pathname.into();
     unsafe { syscall!(OPEN, os_path.as_ptr(), flags) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_close)]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_close(fd: HostFd) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_close(fd)
 }
 
 #[trusted]
@@ -26,7 +42,10 @@ pub fn os_close(fd: HostFd) -> usize {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_read)]
 #[requires(buf.len() >= cnt)]
+// #[requires(trace_safe(ctx, trace))]
+// #[ensures(trace_safe(ctx, trace))]
 #[ensures(buf.len() >= cnt)]
+#[ensures(result <= cnt)]
 #[ensures(one_effect!(old(trace), trace, Effect::ReadN(count) if count == cnt ))]
 pub fn trace_read(fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
     effect!(trace, Effect::ReadN(cnt));
@@ -118,16 +137,46 @@ pub fn os_advise(fd: HostFd, offset: i64, len: i64, advice: i32) -> usize {
     unsafe { syscall!(FADVISE64, os_fd, offset, len, advice) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_allocate)] // Do not add trace to os_allocate
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_allocate(fd, offset, len)
+}
+
 #[trusted]
 pub fn os_allocate(fd: HostFd, offset: i64, len: i64) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FALLOCATE, os_fd, offset, len) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_sync)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_sync(ctx: &VmCtx, fd: HostFd) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_sync(fd)
+}
+
 #[trusted]
 pub fn os_sync(fd: HostFd) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FSYNC, os_fd) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_datasync)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_datasync(ctx: &VmCtx, fd: HostFd) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_datasync(fd)
 }
 
 #[trusted]
@@ -298,6 +347,19 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
     unsafe { syscall!(CLOCK_GETRES, clock_id, spec as *mut libc::timespec) }
 }
 
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_call(os_getrandom)]
+// #[requires(trace_safe(ctx, trace))]
+// #[requires(buf.capacity() >= cnt)]
+// #[ensures(buf.len() == result)]
+// #[ensures(buf.capacity() >= cnt)]
+// #[ensures(trace_safe(ctx, trace))]
+// #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
+// pub fn trace_getrandom(ctx: &VmCtx, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
+//     effect!(trace, Effect::WriteN(cnt));
+//     os_getrandom(buf, cnt, flags)
+// }
+
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
@@ -324,8 +386,10 @@ pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_shutdown)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::Shutdown))]
-pub fn trace_shutdown(fd: HostFd, how: libc::c_int) -> usize {
+pub fn trace_shutdown(ctx: &VmCtx, fd: HostFd, how: libc::c_int) -> usize {
     effect!(trace, Effect::Shutdown);
     os_shutdown(fd, how)
 }

@@ -26,7 +26,7 @@ macro_rules! effect {
 predicate! {
     pub fn takes_no_steps(old_trace: &Trace, trace: &Trace) -> bool {
         // The trace is the same length
-        trace.len() == old_trace.len() + 1 &&
+        trace.len() == old_trace.len() &&
         // And hasn't been changed
         forall(|i: usize| (i < old_trace.len()) ==>
             trace.lookup(i) == old_trace.lookup(i))
@@ -44,21 +44,21 @@ predicate! {
     }
 }
 
-#[cfg(feature = "verify")]
-predicate! {
-    pub fn takes_two_steps(old_trace: &Trace, trace: &Trace) -> bool {
-        // We added 1 more step
-        trace.len() == old_trace.len() + 2 &&
-        // But the other effects were not affected
-        forall(|i: usize| (i < old_trace.len()) ==>
-            trace.lookup(i) == old_trace.lookup(i))
-    }
-}
+// #[cfg(feature = "verify")]
+// predicate! {
+//     pub fn takes_two_steps(old_trace: &Trace, trace: &Trace) -> bool {
+//         // We added 1 more step
+//         trace.len() == old_trace.len() + 2 &&
+//         // But the other effects were not affected
+//         forall(|i: usize| (i < old_trace.len()) ==>
+//             trace.lookup(i) == old_trace.lookup(i))
+//     }
+// }
 
 /// Enforce that no effect occured
 #[macro_export]
 macro_rules! no_effect {
-    ($old_trace:expr, $trace:expr, $pattern:pat) => {
+    ($old_trace:expr, $trace:expr) => {
         takes_no_steps($old_trace, $trace)
     };
 }
@@ -71,15 +71,15 @@ macro_rules! one_effect {
     };
 }
 
-/// Enforce that 1 effect occured, and that effect matches "pattern"
-#[macro_export]
-macro_rules! two_effects {
-    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
-        takes_two_steps($old_trace, $trace)
-            && matches!($trace.lookup($trace.len() - 2), $pattern1)
-            && matches!($trace.lookup($trace.len() - 1), $pattern2)
-    };
-}
+// /// Enforce that 1 effect occured, and that effect matches "pattern"
+// #[macro_export]
+// macro_rules! two_effects {
+//     ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
+//         takes_two_steps($old_trace, $trace)
+//             && matches!($trace.lookup($trace.len() - 2), $pattern1)
+//             && matches!($trace.lookup($trace.len() - 1), $pattern2)
+//     };
+// }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Effect {
@@ -87,6 +87,7 @@ pub enum Effect {
     WriteN(usize), // write into `addr` `count` bytes
     Shutdown,
     FdAccess, // TODO: should this store the HostFd?
+    PathAccess,
 }
 
 pub struct Trace {

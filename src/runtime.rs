@@ -63,6 +63,8 @@ impl VmCtx {
     // TODO: does this have to be trusted?
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len, trace))]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     #[ensures(result.len() == (len as usize))]
     #[after_expiry(
         self.memlen == old(self.memlen))]
@@ -227,6 +229,8 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_call(from_le_bytes)]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn read_u16(&self, start: usize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
@@ -236,6 +240,8 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_call(from_le_bytes)]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn read_u32(&self, start: usize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
@@ -250,6 +256,8 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_call(from_le_bytes)]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn read_u64(&self, start: usize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
@@ -268,6 +276,8 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_method(to_le_bytes)]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -278,6 +288,8 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_method(to_le_bytes)]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -290,6 +302,8 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_method(to_le_bytes)]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.mem[start] = bytes[0];

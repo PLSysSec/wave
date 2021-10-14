@@ -1,7 +1,10 @@
+use crate::no_effect;
+#[cfg(feature = "verify")]
+use crate::verifier::*;
+use extra_args::{external_call, external_method, with_ghost_var};
+use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::ops::Sub;
-
-use prusti_contracts::*;
 
 pub const MAX_SBOX_FDS: u32 = 8;
 // pub const MAX_SBOX_FDS_I32: i32 = 8;
@@ -79,6 +82,10 @@ impl From<RuntimeError> for u32 {
 impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(Ok)]
+    #[external_call(Err)]
+    #[ensures(no_effect!( old(trace), trace))]
     pub fn from_syscall_ret(ret: usize) -> RuntimeResult<()> {
         // syscall returns between -1 and -4095 are errors, source:
         // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
