@@ -1,19 +1,13 @@
-//#[cfg(feature = "verify")]
-//use crate::verifier;
+/// This file contains dummy implementations that do nothing when we are not verifying
 
-/// If we are verifying, invoke verifier, else do nothing
-// #[cfg(feature = "verify")]
-// use ::effect;
-// #[macro_export]
-// macro_rules! effect {
-//     ($trace:expr, $input:expr) => {
-//         verifier::effect!($trace, $input)
-//     }
-// }
-
-//Dummy implementation that does nothing when we are not verifying
 #[cfg(not(feature = "verify"))]
 #[macro_export]
 macro_rules! effect {
     ($trace:expr, $input:expr) => {};
+}
+
+#[cfg(not(feature = "verify"))]
+#[macro_export]
+macro_rules! one_effect {
+    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
 }

@@ -1,6 +1,6 @@
-use crate::effect;
 #[cfg(feature = "verify")]
 use crate::verifier::*;
+use crate::{effect, one_effect};
 //use crate::trace::*;
 use crate::types::*;
 use extra_args::{external_call, external_method, with_ghost_var};
@@ -23,20 +23,13 @@ pub fn os_close(fd: HostFd) -> usize {
     unsafe { syscall!(CLOSE, os_fd) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_read)]
 #[requires(buf.len() >= cnt)]
 #[ensures(buf.len() >= cnt)]
-// TODO: the top checking is kinda gross, will figure out refactor later
-// TODO: the following three predicates will be common...is there a way to modularize?
-//       cannot use predicate! afaik cause we cannot use old(trace) in them...
-#[ensures(trace.len() == old(trace.len()) + 1)]
-#[ensures(match trace.lookup(trace.len()-1) {
-    Effect::ReadN { count } => count == cnt,
-    _ => false,
-})]
-#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
-                trace.lookup(i) == old(trace.lookup(i))))]
-pub fn trace_read(fd: HostFd, buf: &mut [u8], cnt: usize, trace: &mut Trace) -> usize {
-    effect!(trace, Effect::ReadN { count: cnt });
+#[ensures(one_effect!(old(trace), trace, Effect::ReadN(count) if count == cnt ))]
+pub fn trace_read(fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
+    effect!(trace, Effect::ReadN(cnt));
     os_read(fd, buf, cnt)
 }
 
@@ -69,19 +62,12 @@ pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
     }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_write)]
 #[requires(buf.len() >= cnt)]
-// TODO: the top checking is kinda gross, will figure out refactor later
-// TODO: the following three predicates will be common...is there a way to modularize?
-//       cannot use predicate! afaik cause we cannot use old(trace) in them...
-#[ensures(trace.len() == old(trace.len()) + 1)]
-#[ensures(match trace.lookup(trace.len()-1) {
-    Effect::WriteN { count } => count == cnt,
-    _ => false,
-})]
-#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
-                trace.lookup(i) == old(trace.lookup(i))))]
-pub fn trace_write(fd: HostFd, buf: &[u8], cnt: usize, trace: &mut Trace) -> usize {
-    effect!(trace, Effect::WriteN { count: cnt });
+//#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt ))]
+pub fn trace_write(fd: HostFd, buf: &[u8], cnt: usize) -> usize {
+    effect!(trace, Effect::WriteN(cnt));
     os_write(fd, buf, cnt)
 }
 
@@ -325,11 +311,10 @@ pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(SENDTO, os_fd, buf.as_ptr(), cnt, flags, 0, 0) }
 }
 
-#[ensures(trace.len() == old(trace.len()) + 1)]
-#[ensures( matches!(trace.lookup(trace.len()-1), Effect::Shutdown) )]
-#[ensures(forall(|i: usize| (i < old(trace.len())) ==>
-                trace.lookup(i) == old(trace.lookup(i))))]
-pub fn trace_shutdown(fd: HostFd, how: libc::c_int, trace: &mut Trace) -> usize {
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_shutdown)]
+#[ensures(one_effect!(old(trace), trace, Effect::Shutdown))]
+pub fn trace_shutdown(fd: HostFd, how: libc::c_int) -> usize {
     effect!(trace, Effect::Shutdown);
     os_shutdown(fd, how)
 }
@@ -339,9 +324,6 @@ pub fn os_shutdown(fd: HostFd, how: libc::c_int) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(SHUTDOWN, os_fd, how) }
 }
-
-//#[trusted]
-//pub fn os_
 
 #[trusted]
 pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {

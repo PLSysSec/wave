@@ -9,8 +9,8 @@ predicate! {
             (i < trace.len() ==> (
                 match trace.lookup(i) {
                     // dumb right now, just make sure count less than size of mem...
-                    Effect::ReadN { count } => (count < ctx.memlen),
-                    Effect::WriteN { count } => (count < ctx.memlen),
+                    Effect::ReadN(count) => (count < ctx.memlen),
+                    Effect::WriteN(count) => (count < ctx.memlen),
                     Effect::Shutdown => true, // currently, all shutdowns are safe
                     Effect::FdAccess => true,
                 }

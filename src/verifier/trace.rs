@@ -63,11 +63,11 @@ macro_rules! no_effect {
     };
 }
 
-/// Enforce that 1 effect occured, and that effect matches "pattern"
+/// Enforce that 1 effect occured, and that effect matches "pattern" and possible "guard"
 #[macro_export]
 macro_rules! one_effect {
-    ($old_trace:expr, $trace:expr, $pattern:pat) => {
-        takes_one_step($old_trace, $trace) && matches!($trace.lookup($trace.len() - 1), $pattern)
+    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {
+        takes_one_step($old_trace, $trace) && matches!($trace.lookup($trace.len() - 1), $( $pattern )|+ $( if $guard )?)
     };
 }
 
@@ -83,8 +83,8 @@ macro_rules! two_effects {
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Effect {
-    ReadN { count: usize },  // read into `addr` `count` bytes
-    WriteN { count: usize }, // write into `addr` `count` bytes
+    ReadN(usize),  // read into `addr` `count` bytes
+    WriteN(usize), // write into `addr` `count` bytes
     Shutdown,
     FdAccess, // TODO: should this store the HostFd?
 }
