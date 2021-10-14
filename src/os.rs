@@ -96,9 +96,20 @@ pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
 #[external_call(os_seek)] // Do not add trace to os_seek
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> usize {
     effect!(trace, Effect::FdAccess);
     os_seek(fd, offset, whence)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_advise)] // Do not add trace to os_advise
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_advise(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64, advice: i32) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_advise(fd, offset, len, advice)
 }
 
 #[trusted]

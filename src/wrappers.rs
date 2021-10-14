@@ -1,4 +1,3 @@
-use crate::effect;
 use crate::os::*;
 use crate::runtime::*;
 use crate::types::*;
@@ -6,6 +5,7 @@ use crate::types::*;
 use crate::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
 use crate::verifier::*;
+use crate::{effect, one_effect};
 //use extra_args::with_extra_arg;
 //use crate::verifier::spec::*;
 use extra_args::{external_call, external_method, with_ghost_var};
@@ -121,7 +121,7 @@ use RuntimeError::*;
 #[external_call(from_syscall_ret)] // TODO: remove
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
-// #[ensures(one_effect!(old(trace), trace, Effect::FdAccess(_) ))]
+// #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
 
@@ -140,27 +140,34 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
 //     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 // }
 
-// // modifies: none
-// pub fn wasi_fd_advise(
-//     ctx: &VmCtx,
-//     v_fd: u32,
-//     offset: u64,
-//     len: u64,
-//     v_advice: u32,
-// ) -> RuntimeResult<u32> {
-//     let advice = Advice::try_from(v_advice as i32)?;
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(try_from)]
+#[external_call(Ok)]
+#[external_call(Err)]
+#[external_call(from_syscall_ret)] // TODO: remove
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_fd_advise(
+    ctx: &VmCtx,
+    v_fd: u32,
+    offset: u64,
+    len: u64,
+    v_advice: u32,
+) -> RuntimeResult<u32> {
+    let advice = Advice::try_from(v_advice as i32)?;
 
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     // these casts could cause offset and len to become negative
-//     // I don't think this will be an issue as os_advise will throw an EINVAL error
-//     let ret = os_advise(fd, offset as i64, len as i64, advice.into());
-//     RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    // these casts could cause offset and len to become negative
+    // I don't think this will be an issue as os_advise will throw an EINVAL error
+    let ret = trace_advise(ctx, fd, offset as i64, len as i64, advice.into());
+    RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
 // // modifies: none
 // pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
