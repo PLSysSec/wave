@@ -88,6 +88,8 @@ impl VmCtx {
     #[external_call(new)]
     #[external_method(reserve_exact)]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
@@ -118,6 +120,8 @@ impl VmCtx {
     #[external_call(Some)]
     #[trusted]
     #[requires(self.arg_buffer.len() == (n as usize) )]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
@@ -133,6 +137,8 @@ impl VmCtx {
     #[external_call(Some)]
     #[trusted]
     #[requires(self.env_buffer.len() == (n as usize) )]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
@@ -151,6 +157,8 @@ impl VmCtx {
     #[trusted]
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     #[ensures(dst.len() == (n as usize) )]
     #[ensures(self.memlen == old(self.memlen))]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {

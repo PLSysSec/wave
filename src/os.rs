@@ -380,7 +380,7 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 // #[ensures(buf.len() == result)]
 // #[ensures(buf.capacity() >= cnt)]
 // #[ensures(trace_safe(ctx, trace))]
-// #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
+// // #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
 // pub fn trace_getrandom(ctx: &VmCtx, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
 //     effect!(trace, Effect::WriteN(cnt));
 //     os_getrandom(buf, cnt, flags)

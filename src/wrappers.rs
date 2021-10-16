@@ -819,7 +819,7 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
     Ok(())
 }
 
-// modifies: memory
+// // modifies: memory
 // #[with_ghost_var(trace: &mut Trace)]
 // #[external_call(Ok)]
 // #[external_call(Err)]
@@ -861,52 +861,61 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
 //     Ok(())
 // }
 
-// pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
-//     // 1. copy argv_buffer
-//     let argv_buf_len = ctx.arg_buffer.len() as u32;
-//     ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
-//         .ok_or(Efault)?;
-//     // 2. copy in argv
-//     let mut idx: usize = 0;
-//     let mut start: u32 = 0;
-//     let mut cursor: usize = 0;
-//     while idx < ctx.arg_buffer.len() {
-//         if ctx.arg_buffer[idx] == b'\0' {
-//             ctx.write_u32((argv as usize) + cursor, start);
-//             cursor += 4;
-//             start = (idx as u32) + 1;
-//         }
-//         idx += 1;
-//     }
-//     Ok(())
-// }
-
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_call(Ok)]
-// #[external_method(ok_or)]
-// #[external_method(len)]
-// #[requires(trace_safe(ctx, trace))]
-// #[ensures(trace_safe(ctx, trace))]
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_method(ok_or)]
+#[external_method(len)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
 // #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
-//     // 1. copy argv_buffer
-//     let env_buf_len = ctx.env_buffer.len() as u32;
-//     ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)
-//         .ok_or(Efault)?;
-//     // 2. copy in argv
-//     let mut idx: usize = 0;
-//     let mut start: u32 = 0;
-//     let mut cursor: usize = 0;
-//     while idx < ctx.env_buffer.len() {
-//         if ctx.env_buffer[idx] == b'\0' {
-//             ctx.write_u32((env as usize) + cursor, start);
-//             cursor += 4;
-//             start = (idx as u32) + 1;
-//         }
-//         idx += 1;
-//     }
-//     Ok(())
-// }
+pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
+    // 1. copy argv_buffer
+    let argv_buf_len = ctx.arg_buffer.len() as u32;
+    ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
+        .ok_or(Efault)?;
+    // 2. copy in argv
+    let mut idx: usize = 0;
+    let mut start: u32 = 0;
+    let mut cursor: usize = 0;
+    while idx < ctx.arg_buffer.len() {
+        body_invariant!(trace_safe(ctx, trace));
+        if ctx.arg_buffer[idx] == b'\0' {
+            ctx.write_u32((argv as usize) + cursor, start);
+            cursor += 4;
+            start = (idx as u32) + 1;
+        }
+        idx += 1;
+    }
+    Ok(())
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_method(ok_or)]
+#[external_method(len)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// #[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
+    // 1. copy argv_buffer
+    let env_buf_len = ctx.env_buffer.len() as u32;
+    ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)
+        .ok_or(Efault)?;
+    // 2. copy in argv
+    let mut idx: usize = 0;
+    let mut start: u32 = 0;
+    let mut cursor: usize = 0;
+    while idx < ctx.env_buffer.len() {
+        body_invariant!(trace_safe(ctx, trace));
+        if ctx.env_buffer[idx] == b'\0' {
+            ctx.write_u32((env as usize) + cursor, start);
+            cursor += 4;
+            start = (idx as u32) + 1;
+        }
+        idx += 1;
+    }
+    Ok(())
+}
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
