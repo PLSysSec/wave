@@ -829,6 +829,11 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
 //     Ok(())
 // }
 
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_call(Ok)]
+// #[requires(trace_safe(ctx, trace))]
+// #[ensures(trace_safe(ctx, trace))]
+// #[ensures(no_effect!(old(trace), trace))]
 // pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
 //     // 1. translate from fd
 //     if v_from >= MAX_SBOX_FDS {
@@ -863,6 +868,13 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
 //     Ok(())
 // }
 
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_call(Ok)]
+// #[external_method(ok_or)]
+// #[external_method(len)]
+// #[requires(trace_safe(ctx, trace))]
+// #[ensures(trace_safe(ctx, trace))]
+// #[ensures(no_effect!(old(trace), trace))]
 // pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
 //     // 1. copy argv_buffer
 //     let env_buf_len = ctx.env_buffer.len() as u32;
@@ -883,16 +895,35 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
 //     Ok(())
 // }
 
-// // modifies: none
-// pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
-//     Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
-// }
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
+    Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
+}
 
-// // modifies: none
-// pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
-//     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
-// }
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
+    Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
+}
 
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_call(Ok)]
+// #[external_call(Err)]
+// #[external_call(new)]
+// #[external_method(ok_or)]
+// #[external_method(reserve_exact)]
+// #[requires(trace_safe(ctx, trace))]
+// #[ensures(trace_safe(ctx, trace))]
+// #[ensures(no_effect!(old(trace), trace))]
 // pub fn wasi_sock_recv(
 //     ctx: &mut VmCtx,
 //     v_fd: u32,
