@@ -100,8 +100,8 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_call(Some)]
     #[requires(src.len() == (n as usize) )]
-    // #[requires(trace_safe(self))]
-    // #[ensures(trace_safe(self))]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     #[ensures(self.memlen == old(self.memlen))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
@@ -172,8 +172,8 @@ impl VmCtx {
     #[trusted]
     #[requires(src.len() == (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n, trace))]
-    // #[requires(trace_safe(self, trace))]
-    // #[ensures(trace_safe(self, trace))]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
     #[ensures(old(self.memlen) == self.memlen)]
     // #[requires(dst < (self.memlen as u32) )]
     // #[requires(dst + n < (self.memlen as u32) )]

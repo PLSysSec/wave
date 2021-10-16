@@ -748,37 +748,49 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 //     Ok(())
 // }
 
-// // modifies: none
-// pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
-//     let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(from_u32)]
+#[external_method(ok_or)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
+    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
 
-//     let mut spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: 0,
-//     };
+    let mut spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
 
-//     let ret = os_clock_get_res(id.into(), &mut spec);
-//     RuntimeError::from_syscall_ret(ret)?;
-//     Ok(spec.into())
-// }
+    let ret = trace_clock_get_res(ctx, id.into(), &mut spec);
+    RuntimeError::from_syscall_ret(ret)?;
+    Ok(spec.into())
+}
 
-// // modifies: none
-// pub fn wasi_clock_time_get(
-//     ctx: &VmCtx,
-//     clock_id: u32,
-//     //precision: Timestamp,
-// ) -> RuntimeResult<Timestamp> {
-//     let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
-//     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
-//     let mut spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: 0,
-//     };
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(from_u32)]
+#[external_method(ok_or)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_clock_time_get(
+    ctx: &VmCtx,
+    clock_id: u32,
+    //precision: Timestamp,
+) -> RuntimeResult<Timestamp> {
+    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
+    let mut spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
 
-//     let ret = os_clock_get_time(id.into(), &mut spec);
-//     RuntimeError::from_syscall_ret(ret)?;
-//     Ok(spec.into())
-// }
+    let ret = trace_clock_get_time(ctx, id.into(), &mut spec);
+    RuntimeError::from_syscall_ret(ret)?;
+    Ok(spec.into())
+}
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(Ok)]
@@ -916,53 +928,58 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(Err)]
+#[external_call(new)]
+#[external_method(ok_or)]
+#[external_method(reserve_exact)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_sock_recv(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    ri_data: u32,
+    ri_data_count: u32,
+    ri_flags: u32,
+) -> RuntimeResult<(u32, u32)> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < ri_data_count {
+        body_invariant!(trace_safe(ctx, trace));
+        let start = (ri_data + i * 8) as usize;
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        buf.reserve_exact(len as usize);
+        let flags = 0;
+        // TODO: handle flags
+        let result = trace_recv(ctx, fd, &mut buf, len as usize, flags);
+        RuntimeError::from_syscall_ret(result)?;
+        let result = result as u32;
+        let copy_ok = ctx
+            .copy_buf_to_sandbox(ptr, &buf, result as u32)
+            .ok_or(Efault)?;
+        num += result;
+        i += 1;
+    }
+    // TODO: handle ro_flags
+    Ok((num, 0))
+}
+
 // #[with_ghost_var(trace: &mut Trace)]
 // #[external_call(Ok)]
 // #[external_call(Err)]
-// #[external_call(new)]
-// #[external_method(ok_or)]
-// #[external_method(reserve_exact)]
 // #[requires(trace_safe(ctx, trace))]
 // #[ensures(trace_safe(ctx, trace))]
-// #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_sock_recv(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     ri_data: u32,
-//     ri_data_count: u32,
-//     ri_flags: u32,
-// ) -> RuntimeResult<(u32, u32)> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < ri_data_count {
-//         let start = (ri_data + i * 8) as usize;
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         let mut buf: Vec<u8> = Vec::new();
-//         buf.reserve_exact(len as usize);
-//         let flags = 0;
-//         // TODO: handle flags
-//         let result = os_recv(fd, &mut buf, len as usize, flags);
-//         RuntimeError::from_syscall_ret(result)?;
-//         let result = result as u32;
-//         let copy_ok = ctx
-//             .copy_buf_to_sandbox(ptr, &buf, result as u32)
-//             .ok_or(Efault)?;
-//         num += result;
-//         i += 1;
-//     }
-//     // TODO: handle ro_flags
-//     Ok((num, 0))
-// }
-
 // pub fn wasi_sock_send(
 //     ctx: &VmCtx,
 //     v_fd: u32,
@@ -978,6 +995,7 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 //     let mut num: u32 = 0;
 //     let mut i = 0;
 //     while i < si_data_count {
+//         body_invariant!(trace_safe(ctx, trace));
 //         let start = (si_data + i * 8) as usize;
 //         let ptr = ctx.read_u32(start);
 //         let len = ctx.read_u32(start + 4);
@@ -987,7 +1005,7 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 //         let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
 //         let flags = 0;
 //         // TODO: handle flags
-//         let result = os_send(fd, &host_buffer, len as usize, flags);
+//         let result = trace_send(ctx, fd, &host_buffer, len as usize, flags);
 //         RuntimeError::from_syscall_ret(result)?;
 //         num += result as u32;
 //         i += 1;

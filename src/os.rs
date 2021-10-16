@@ -1,6 +1,6 @@
 #[cfg(feature = "verify")]
 use crate::verifier::*;
-use crate::{effect, one_effect};
+use crate::{effect, no_effect, one_effect};
 //use crate::trace::*;
 use crate::types::*;
 use extra_args::{external_call, external_method, with_ghost_var};
@@ -337,9 +337,35 @@ pub fn os_utimensat(
     unsafe { syscall!(UTIMENSAT, os_fd, os_path.as_ptr(), specs.as_ptr(), flags) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_clock_get_time)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_clock_get_time(
+    ctx: &VmCtx,
+    clock_id: libc::clockid_t,
+    spec: &mut libc::timespec,
+) -> usize {
+    os_clock_get_time(clock_id, spec)
+}
+
 #[trusted]
 pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> usize {
     unsafe { syscall!(CLOCK_GETTIME, clock_id, spec as *mut libc::timespec) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_clock_get_res)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_clock_get_res(
+    ctx: &VmCtx,
+    clock_id: libc::clockid_t,
+    spec: &mut libc::timespec,
+) -> usize {
+    os_clock_get_res(clock_id, spec)
 }
 
 #[trusted]
@@ -368,6 +394,19 @@ pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_recv)]
+#[requires(buf.capacity() >= cnt)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+pub fn trace_recv(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_recv(fd, buf, cnt, flags)
+}
+
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
@@ -375,6 +414,17 @@ pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
 pub fn os_recv(fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(RECVFROM, os_fd, buf.as_mut_ptr(), cnt, flags, 0, 0) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_send)]
+#[requires(buf.len() >= cnt)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_send(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_send(fd, buf, cnt, flags)
 }
 
 #[requires(buf.len() >= cnt)]
