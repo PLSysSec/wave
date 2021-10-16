@@ -127,6 +127,7 @@ use RuntimeError::*;
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_method(ok_or)]
+#[external_call(from_u32)]
 #[external_call(Ok)]
 #[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
