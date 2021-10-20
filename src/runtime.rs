@@ -15,6 +15,8 @@ use std::ptr::{copy, copy_nonoverlapping};
 use RuntimeError::*;
 
 //#[ensures(safe(&result))]
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(new)]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];

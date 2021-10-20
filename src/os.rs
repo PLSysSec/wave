@@ -47,7 +47,7 @@ pub fn os_close(fd: HostFd) -> usize {
 #[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
 #[ensures(one_effect!(old(trace), trace, Effect::ReadN(count) if count == cnt ))]
-pub fn trace_read(fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
+pub fn trace_read(ctx: &VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
     effect!(trace, Effect::ReadN(cnt));
     os_read(fd, buf, cnt)
 }
@@ -85,7 +85,7 @@ pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
 #[external_call(os_write)]
 #[requires(buf.len() >= cnt)]
 //#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt ))]
-pub fn trace_write(fd: HostFd, buf: &[u8], cnt: usize) -> usize {
+pub fn trace_write(ctx: &VmCtx, fd: HostFd, buf: &[u8], cnt: usize) -> usize {
     effect!(trace, Effect::WriteN(cnt));
     os_write(fd, buf, cnt)
 }
@@ -185,10 +185,36 @@ pub fn os_datasync(fd: HostFd) -> usize {
     unsafe { syscall!(FDATASYNC, os_fd) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_fstat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_fstat(fd, stat)
+}
+
 #[trusted]
 pub fn os_fstat(fd: HostFd, stat: &mut libc::stat) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FSTAT, os_fd, stat as *mut libc::stat) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_fstatat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_fstatat(
+    ctx: &VmCtx,
+    fd: HostFd,
+    path: SandboxedPath,
+    stat: &mut libc::stat,
+    flags: i32,
+) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_fstatat(fd, path, stat, flags)
 }
 
 #[trusted]
@@ -206,10 +232,30 @@ pub fn os_fstatat(fd: HostFd, path: SandboxedPath, stat: &mut libc::stat, flags:
     }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_fgetfl)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_fgetfl(fd)
+}
+
 #[trusted]
 pub fn os_fgetfl(fd: HostFd) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FCNTL, os_fd, libc::F_GETFL, 0) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_fsetfl)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_fsetfl(ctx: &VmCtx, fd: HostFd, flags: libc::c_int) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_fsetfl(fd, flags)
 }
 
 #[trusted]
@@ -218,10 +264,37 @@ pub fn os_fsetfl(fd: HostFd, flags: libc::c_int) -> usize {
     unsafe { syscall!(FCNTL, os_fd, libc::F_SETFL, flags) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_ftruncate)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_ftruncate(fd, length)
+}
+
 #[trusted]
 pub fn os_ftruncate(fd: HostFd, length: libc::off_t) -> usize {
     let os_fd: usize = fd.into();
     unsafe { syscall!(FTRUNCATE, os_fd, length) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_linkat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_linkat(
+    ctx: &VmCtx,
+    old_fd: HostFd,
+    old_path: SandboxedPath,
+    new_fd: HostFd,
+    new_path: SandboxedPath,
+    flags: i32,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_linkat(old_fd, old_path, new_fd, new_path, flags)
 }
 
 #[trusted]
@@ -248,11 +321,45 @@ pub fn os_linkat(
     }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_mkdirat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_mkdirat(
+    ctx: &VmCtx,
+    dir_fd: HostFd,
+    pathname: SandboxedPath,
+    mode: libc::mode_t,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_mkdirat(dir_fd, pathname, mode)
+}
+
 #[trusted]
 pub fn os_mkdirat(dir_fd: HostFd, pathname: SandboxedPath, mode: libc::mode_t) -> usize {
     let os_fd: usize = dir_fd.into();
     let os_path: Vec<u8> = pathname.into();
     unsafe { syscall!(MKDIRAT, os_fd, os_path.as_ptr(), mode) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_readlinkat)]
+#[requires(trace_safe(ctx, trace))]
+#[requires(buf.capacity() >= cnt)]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_readlinkat(
+    ctx: &VmCtx,
+    dir_fd: HostFd,
+    pathname: SandboxedPath,
+    buf: &mut Vec<u8>,
+    cnt: usize,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_readlinkat(dir_fd, pathname, buf, cnt)
 }
 
 #[requires(buf.capacity() >= cnt)]
@@ -274,11 +381,42 @@ pub fn os_readlinkat(
     }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_unlinkat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_unlinkat(
+    ctx: &VmCtx,
+    dir_fd: HostFd,
+    pathname: SandboxedPath,
+    flags: libc::c_int,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_unlinkat(dir_fd, pathname, flags)
+}
+
 #[trusted]
 pub fn os_unlinkat(dir_fd: HostFd, pathname: SandboxedPath, flags: libc::c_int) -> usize {
     let os_fd: usize = dir_fd.into();
     let os_path: Vec<u8> = pathname.into();
     unsafe { syscall!(UNLINKAT, os_fd, os_path.as_ptr(), flags) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_renameat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_renameat(
+    ctx: &VmCtx,
+    old_dir_fd: HostFd,
+    old_pathname: SandboxedPath,
+    dir_fd: HostFd,
+    new_pathname: SandboxedPath,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_renameat(old_dir_fd, old_pathname, dir_fd, new_pathname)
 }
 
 #[trusted]
@@ -303,6 +441,21 @@ pub fn os_renameat(
     }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_symlinkat)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+pub fn trace_symlinkat(
+    ctx: &VmCtx,
+    old_pathname: SandboxedPath,
+    dir_fd: HostFd,
+    new_pathname: SandboxedPath,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_symlinkat(old_pathname, dir_fd, new_pathname)
+}
+
 #[trusted]
 pub fn os_symlinkat(
     old_pathname: SandboxedPath,
@@ -315,6 +468,17 @@ pub fn os_symlinkat(
     unsafe { syscall!(SYMLINKAT, os_old_path.as_ptr(), os_fd, os_new_path.as_ptr()) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_futimens)]
+#[requires(specs.capacity() >= 2)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_futimens(ctx: &VmCtx, fd: HostFd, specs: &Vec<libc::timespec>) -> usize {
+    effect!(trace, Effect::FdAccess);
+    os_futimens(fd, specs)
+}
+
 #[requires(specs.capacity() >= 2)]
 #[trusted]
 pub fn os_futimens(fd: HostFd, specs: &Vec<libc::timespec>) -> usize {
@@ -322,6 +486,23 @@ pub fn os_futimens(fd: HostFd, specs: &Vec<libc::timespec>) -> usize {
     // Linux impls futimens as UTIMENSAT with null path
     // source: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/futimens.c.html
     unsafe { syscall!(UTIMENSAT, os_fd, 0, specs.as_ptr(), 0) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_utimensat)]
+#[requires(specs.capacity() >= 2)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+pub fn trace_utimensat(
+    ctx: &VmCtx,
+    fd: HostFd,
+    pathname: SandboxedPath,
+    specs: &Vec<libc::timespec>,
+    flags: libc::c_int,
+) -> usize {
+    effect!(trace, Effect::PathAccess);
+    os_utimensat(fd, pathname, specs, flags)
 }
 
 #[requires(specs.capacity() >= 2)]
@@ -373,18 +554,18 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
     unsafe { syscall!(CLOCK_GETRES, clock_id, spec as *mut libc::timespec) }
 }
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_call(os_getrandom)]
-// #[requires(trace_safe(ctx, trace))]
-// #[requires(buf.capacity() >= cnt)]
-// #[ensures(buf.len() == result)]
-// #[ensures(buf.capacity() >= cnt)]
-// #[ensures(trace_safe(ctx, trace))]
-// // #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
-// pub fn trace_getrandom(ctx: &VmCtx, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
-//     effect!(trace, Effect::WriteN(cnt));
-//     os_getrandom(buf, cnt, flags)
-// }
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_getrandom)]
+#[requires(trace_safe(ctx, trace))]
+#[requires(buf.capacity() >= cnt)]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+#[ensures(trace_safe(ctx, trace))]
+// #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
+pub fn trace_getrandom(ctx: &VmCtx, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
+    //effect!(trace, Effect::WriteN(cnt));
+    os_getrandom(buf, cnt, flags)
+}
 
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
@@ -450,6 +631,15 @@ pub fn os_shutdown(fd: HostFd, how: libc::c_int) -> usize {
     unsafe { syscall!(SHUTDOWN, os_fd, how) }
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_nanosleep)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_nanosleep(ctx: &VmCtx, req: &libc::timespec, rem: &mut libc::timespec) -> usize {
+    os_nanosleep(req, rem)
+}
+
 #[trusted]
 pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {
     unsafe {
@@ -459,6 +649,15 @@ pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {
             rem as *mut libc::timespec
         )
     }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_poll)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_poll(ctx: &VmCtx, pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
+    os_poll(pollfd, timeout)
 }
 
 // can make more efficient using slice of pollfds

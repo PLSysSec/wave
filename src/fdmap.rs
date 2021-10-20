@@ -1,6 +1,9 @@
 use crate::types::*;
 #[cfg(feature = "verify")]
 use crate::verifier::external_specs::vec::*;
+#[cfg(feature = "verify")]
+use crate::verifier::*;
+use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::io::{stderr, stdin, stdout};
 use std::os::unix::io::AsRawFd;
@@ -24,6 +27,12 @@ impl FdMap {
         }
     }
 
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(stdin)]
+    #[external_call(stdout)]
+    #[external_call(stderr)]
+    #[external_method(as_raw_fd)]
+    #[external_method(into)]
     #[requires (self.counter == 0)] //should only be called on empty fdmap
     pub fn init_std_fds(&mut self) {
         let stdin_fd = stdin().as_raw_fd() as usize;
@@ -46,11 +55,17 @@ impl FdMap {
 
     #[pure]
     #[requires(index < MAX_SBOX_FDS)]
+    #[ensures(result == true ==> self.lookup(index).is_ok())]
     pub fn contains(&self, index: SboxFd) -> bool {
         matches!(self.lookup(index), Ok(_))
     }
 
     // #[trusted]
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(Ok)]
+    #[external_call(Err)]
+    #[external_method(pop)]
     fn pop_fd(&mut self) -> RuntimeResult<SboxFd> {
         match self.reserve.pop() {
             Some(fd) => Ok(fd),
@@ -69,6 +84,10 @@ impl FdMap {
     // #[ensures (self.lookup(k) == result)]
     // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
     //                 self.lookup(i) == old(self.lookup(i))))]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_call(Ok)]
+    // #[requires(trace_safe(ctx, trace))]
+    // #[ensures(trace_safe(ctx, trace))]
     pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {
         let s_fd = self.pop_fd()?;
         self.m[s_fd as usize] = Ok(k);
@@ -77,6 +96,12 @@ impl FdMap {
 
     // #[trusted]
     #[requires(k < MAX_SBOX_FDS)]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_call(Err)]
+    // #[external_call(init_std_fds)]
+    // #[external_method(push)]
+    // #[requires(trace_safe(ctx, trace))]
+    // #[ensures(trace_safe(ctx, trace))]
     // #[ensures (self.lookup(k).is_err())]
     // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
     //                 self.lookup(i) == old(self).lookup(i)))]
