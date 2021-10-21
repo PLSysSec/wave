@@ -13,69 +13,91 @@ use syscall::syscall;
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_open)]
+#[external_method(into)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
-pub fn trace_open(pathname: SandboxedPath, flags: i32) -> usize {
+pub fn trace_open(ctx: &VmCtx, pathname: SandboxedPath, flags: i32) -> usize {
     effect!(trace, Effect::PathAccess);
-    os_open(pathname, flags)
+    let os_path: Vec<u8> = pathname.into();
+    os_open(os_path, flags)
 }
 
 #[trusted]
-pub fn os_open(pathname: SandboxedPath, flags: i32) -> usize {
-    let os_path: Vec<u8> = pathname.into();
-    unsafe { syscall!(OPEN, os_path.as_ptr(), flags) }
+pub fn os_open(pathname: Vec<u8>, flags: i32) -> usize {
+    unsafe { syscall!(OPEN, pathname.as_ptr(), flags) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_close)]
+#[external_method(into)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
-pub fn trace_close(fd: HostFd) -> usize {
+pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_close(fd)
+    let os_fd: usize = fd.into();
+    os_close(os_fd)
 }
 
 #[trusted]
-pub fn os_close(fd: HostFd) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(CLOSE, os_fd) }
+pub fn os_close(fd: usize) -> usize {
+    unsafe { syscall!(CLOSE, fd) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_read)]
+#[external_method(into)]
 #[requires(buf.len() >= cnt)]
-// #[requires(trace_safe(ctx, trace))]
-// #[ensures(trace_safe(ctx, trace))]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
 #[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
-#[ensures(one_effect!(old(trace), trace, Effect::ReadN(count) if count == cnt ))]
+/// read writes `cnt` bytes to sandbox memory
+// #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt ))]
 pub fn trace_read(ctx: &VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
-    effect!(trace, Effect::ReadN(cnt));
-    os_read(fd, buf, cnt)
+    //effect!(trace, Effect::WriteN(cnt));
+    let os_fd: usize = fd.into();
+    os_read(os_fd, buf, cnt)
 }
 
 #[requires(buf.len() >= cnt)]
 #[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
 #[trusted]
-pub fn os_read(fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
+// TODO: this violates the safety requirements of set_len if result is an errno
+//       i.e. -4095 is probably > buf.capacity. Would need to also update
+//       post-conditions to reflect errno case.
+//       See: https://doc.rust-lang.org/std/vec/struct.Vec.html#method.set_len
+//result
+pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
+    unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_pread)]
+#[external_method(into)]
+#[requires(buf.capacity() >= cnt)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+#[ensures(buf.len() == result)]
+#[ensures(buf.capacity() >= cnt)]
+/// pread writes `cnt` bytes to sandbox memory
+// #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt ))]
+// #[trusted]
+pub fn trace_pread(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
     let os_fd: usize = fd.into();
-    unsafe {
-        let result = syscall!(READ, os_fd, buf.as_mut_ptr(), cnt);
-        // TODO: this violates the safety requirements of set_len if result is an errno
-        //       i.e. -4095 is probably > buf.capacity. Would need to also update
-        //       post-conditions to reflect errno case.
-        //       See: https://doc.rust-lang.org/std/vec/struct.Vec.html#method.set_len
-        result
-    }
+    //effect!(trace, Effect::WriteN(cnt));
+    os_pread(os_fd, buf, cnt)
 }
 
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
-    let os_fd: usize = fd.into();
+pub fn os_pread(fd: usize, buf: &mut Vec<u8>, cnt: usize) -> usize {
     unsafe {
-        let result = syscall!(PREAD64, os_fd, buf.as_mut_ptr(), cnt);
+        let result = syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt);
         buf.set_len(result);
         result
     }
@@ -83,126 +105,150 @@ pub fn os_pread(fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_write)]
+#[external_method(into)]
 #[requires(buf.len() >= cnt)]
-//#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt ))]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// write reads `cnt` bytes to the sandbox
+// #[ensures(one_effect!(old(trace), trace, Effect::ReadN(count) if count == cnt ))]
 pub fn trace_write(ctx: &VmCtx, fd: HostFd, buf: &[u8], cnt: usize) -> usize {
-    effect!(trace, Effect::WriteN(cnt));
-    os_write(fd, buf, cnt)
+    //effect!(trace, Effect::WriteN(cnt));
+    let os_fd: usize = fd.into();
+    os_write(os_fd, buf, cnt)
 }
 
 #[requires(buf.len() >= cnt)]
 #[trusted]
-pub fn os_write(fd: HostFd, buf: &[u8], cnt: usize) -> usize {
+pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> usize {
+    unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(os_pwrite)]
+#[external_method(into)]
+#[requires(buf.len() >= cnt)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// pwrite writes `cnt` bytes to the sandbox
+// #[ensures(one_effect!(old(trace), trace, Effect::ReadN(count) if count == cnt ))]
+pub fn trace_pwrite(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
+    //effect!(trace, Effect::WriteN(cnt));
     let os_fd: usize = fd.into();
-    unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
+    os_pwrite(os_fd, buf, cnt)
 }
 
 #[requires(buf.len() >= cnt)]
 #[trusted]
-pub fn os_pwrite(fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(WRITE, os_fd, buf.as_ptr(), cnt) }
-}
-
-// TODO: could be cleaner to do a typedef SyscallRet = usize or something for From traits
-#[trusted]
-pub fn os_seek(fd: HostFd, offset: i64, whence: i32) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(LSEEK, os_fd, offset, whence) }
+pub fn os_pwrite(fd: usize, buf: &Vec<u8>, cnt: usize) -> usize {
+    unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_seek)] // Do not add trace to os_seek
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_seek(fd, offset, whence)
+    let os_fd: usize = fd.into();
+    os_seek(os_fd, offset, whence)
+}
+
+// TODO: could be cleaner to do a typedef SyscallRet = usize or something for From traits
+#[trusted]
+pub fn os_seek(fd: usize, offset: i64, whence: i32) -> usize {
+    unsafe { syscall!(LSEEK, fd, offset, whence) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(os_advise)] // Do not add trace to os_advise
+#[external_call(os_advise)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_advise(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64, advice: i32) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_advise(fd, offset, len, advice)
+    let os_fd: usize = fd.into();
+    os_advise(os_fd, offset, len, advice)
 }
 
 #[trusted]
-pub fn os_advise(fd: HostFd, offset: i64, len: i64, advice: i32) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FADVISE64, os_fd, offset, len, advice) }
+pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> usize {
+    unsafe { syscall!(FADVISE64, fd, offset, len, advice) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(os_allocate)] // Do not add trace to os_allocate
+#[external_call(os_allocate)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_allocate(fd, offset, len)
+    let os_fd: usize = fd.into();
+    os_allocate(os_fd, offset, len)
 }
 
 #[trusted]
-pub fn os_allocate(fd: HostFd, offset: i64, len: i64) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FALLOCATE, os_fd, offset, len) }
+pub fn os_allocate(fd: usize, offset: i64, len: i64) -> usize {
+    unsafe { syscall!(FALLOCATE, fd, offset, len) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_sync)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_sync(ctx: &VmCtx, fd: HostFd) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_sync(fd)
+    let os_fd: usize = fd.into();
+    os_sync(os_fd)
 }
 
 #[trusted]
-pub fn os_sync(fd: HostFd) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FSYNC, os_fd) }
+pub fn os_sync(fd: usize) -> usize {
+    unsafe { syscall!(FSYNC, fd) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_datasync)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_datasync(ctx: &VmCtx, fd: HostFd) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_datasync(fd)
+    let os_fd: usize = fd.into();
+    os_datasync(os_fd)
 }
 
 #[trusted]
-pub fn os_datasync(fd: HostFd) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FDATASYNC, os_fd) }
+pub fn os_datasync(fd: usize) -> usize {
+    unsafe { syscall!(FDATASYNC, fd) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_fstat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_fstat(fd, stat)
+    let os_fd: usize = fd.into();
+    os_fstat(os_fd, stat)
 }
 
 #[trusted]
-pub fn os_fstat(fd: HostFd, stat: &mut libc::stat) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FSTAT, os_fd, stat as *mut libc::stat) }
+pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> usize {
+    unsafe { syscall!(FSTAT, fd, stat as *mut libc::stat) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_fstatat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
@@ -214,18 +260,18 @@ pub fn trace_fstatat(
     flags: i32,
 ) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_fstatat(fd, path, stat, flags)
+    let os_fd: usize = fd.into();
+    let os_path: Vec<u8> = path.into();
+    os_fstatat(os_fd, os_path, stat, flags)
 }
 
 #[trusted]
-pub fn os_fstatat(fd: HostFd, path: SandboxedPath, stat: &mut libc::stat, flags: i32) -> usize {
-    let os_fd: usize = fd.into();
-    let os_path: Vec<u8> = path.into();
+pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> usize {
     unsafe {
         syscall!(
             NEWFSTATAT,
-            os_fd,
-            os_path.as_ptr(),
+            fd,
+            path.as_ptr(),
             stat as *mut libc::stat,
             flags
         )
@@ -234,54 +280,58 @@ pub fn os_fstatat(fd: HostFd, path: SandboxedPath, stat: &mut libc::stat, flags:
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_fgetfl)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_fgetfl(fd)
+    let os_fd: usize = fd.into();
+    os_fgetfl(os_fd)
 }
 
 #[trusted]
-pub fn os_fgetfl(fd: HostFd) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FCNTL, os_fd, libc::F_GETFL, 0) }
+pub fn os_fgetfl(fd: usize) -> usize {
+    unsafe { syscall!(FCNTL, fd, libc::F_GETFL, 0) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_fsetfl)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_fsetfl(ctx: &VmCtx, fd: HostFd, flags: libc::c_int) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_fsetfl(fd, flags)
+    let os_fd: usize = fd.into();
+    os_fsetfl(os_fd, flags)
 }
 
 #[trusted]
-pub fn os_fsetfl(fd: HostFd, flags: libc::c_int) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FCNTL, os_fd, libc::F_SETFL, flags) }
+pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> usize {
+    unsafe { syscall!(FCNTL, fd, libc::F_SETFL, flags) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_ftruncate)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_ftruncate(fd, length)
+    let os_fd: usize = fd.into();
+    os_ftruncate(os_fd, length)
 }
 
 #[trusted]
-pub fn os_ftruncate(fd: HostFd, length: libc::off_t) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(FTRUNCATE, os_fd, length) }
+pub fn os_ftruncate(fd: usize, length: libc::off_t) -> usize {
+    unsafe { syscall!(FTRUNCATE, fd, length) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_linkat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -294,28 +344,28 @@ pub fn trace_linkat(
     flags: i32,
 ) -> usize {
     effect!(trace, Effect::PathAccess);
-    os_linkat(old_fd, old_path, new_fd, new_path, flags)
-}
-
-#[trusted]
-pub fn os_linkat(
-    old_fd: HostFd,
-    old_path: SandboxedPath,
-    new_fd: HostFd,
-    new_path: SandboxedPath,
-    flags: i32,
-) -> usize {
     let os_old_fd: usize = old_fd.into();
     let os_new_fd: usize = new_fd.into();
     let os_old_path: Vec<u8> = old_path.into();
     let os_new_path: Vec<u8> = new_path.into();
+    os_linkat(os_old_fd, os_old_path, os_new_fd, os_new_path, flags)
+}
+
+#[trusted]
+pub fn os_linkat(
+    old_fd: usize,
+    old_path: Vec<u8>,
+    new_fd: usize,
+    new_path: Vec<u8>,
+    flags: i32,
+) -> usize {
     unsafe {
         syscall!(
             LINKAT,
-            os_old_fd,
-            os_old_path.as_ptr(),
-            os_new_fd,
-            os_new_path.as_ptr(),
+            old_fd,
+            old_path.as_ptr(),
+            new_fd,
+            new_path.as_ptr(),
             flags
         )
     }
@@ -323,6 +373,7 @@ pub fn os_linkat(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_mkdirat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -332,19 +383,20 @@ pub fn trace_mkdirat(
     pathname: SandboxedPath,
     mode: libc::mode_t,
 ) -> usize {
+    let os_fd: usize = dir_fd.into();
+    let os_path: Vec<u8> = pathname.into();
     effect!(trace, Effect::PathAccess);
-    os_mkdirat(dir_fd, pathname, mode)
+    os_mkdirat(os_fd, os_path, mode)
 }
 
 #[trusted]
-pub fn os_mkdirat(dir_fd: HostFd, pathname: SandboxedPath, mode: libc::mode_t) -> usize {
-    let os_fd: usize = dir_fd.into();
-    let os_path: Vec<u8> = pathname.into();
-    unsafe { syscall!(MKDIRAT, os_fd, os_path.as_ptr(), mode) }
+pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> usize {
+    unsafe { syscall!(MKDIRAT, dir_fd, pathname.as_ptr(), mode) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_readlinkat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
@@ -359,23 +411,18 @@ pub fn trace_readlinkat(
     cnt: usize,
 ) -> usize {
     effect!(trace, Effect::PathAccess);
-    os_readlinkat(dir_fd, pathname, buf, cnt)
+    let os_fd: usize = dir_fd.into();
+    let os_path: Vec<u8> = pathname.into();
+    os_readlinkat(os_fd, os_path, buf, cnt)
 }
 
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-pub fn os_readlinkat(
-    dir_fd: HostFd,
-    pathname: SandboxedPath,
-    buf: &mut Vec<u8>,
-    cnt: usize,
-) -> usize {
-    let os_fd: usize = dir_fd.into();
-    let os_path: Vec<u8> = pathname.into();
+pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut Vec<u8>, cnt: usize) -> usize {
     unsafe {
-        let result = syscall!(READLINKAT, os_fd, os_path.as_ptr(), buf.as_mut_ptr(), cnt);
+        let result = syscall!(READLINKAT, dir_fd, pathname.as_ptr(), buf.as_mut_ptr(), cnt);
         buf.set_len(result);
         result
     }
@@ -383,6 +430,7 @@ pub fn os_readlinkat(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_unlinkat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -393,18 +441,19 @@ pub fn trace_unlinkat(
     flags: libc::c_int,
 ) -> usize {
     effect!(trace, Effect::PathAccess);
-    os_unlinkat(dir_fd, pathname, flags)
+    let os_fd: usize = dir_fd.into();
+    let os_path: Vec<u8> = pathname.into();
+    os_unlinkat(os_fd, os_path, flags)
 }
 
 #[trusted]
-pub fn os_unlinkat(dir_fd: HostFd, pathname: SandboxedPath, flags: libc::c_int) -> usize {
-    let os_fd: usize = dir_fd.into();
-    let os_path: Vec<u8> = pathname.into();
-    unsafe { syscall!(UNLINKAT, os_fd, os_path.as_ptr(), flags) }
+pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> usize {
+    unsafe { syscall!(UNLINKAT, dir_fd, pathname.as_ptr(), flags) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_renameat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -412,37 +461,38 @@ pub fn trace_renameat(
     ctx: &VmCtx,
     old_dir_fd: HostFd,
     old_pathname: SandboxedPath,
-    dir_fd: HostFd,
-    new_pathname: SandboxedPath,
-) -> usize {
-    effect!(trace, Effect::PathAccess);
-    os_renameat(old_dir_fd, old_pathname, dir_fd, new_pathname)
-}
-
-#[trusted]
-pub fn os_renameat(
-    old_dir_fd: HostFd,
-    old_pathname: SandboxedPath,
     new_dir_fd: HostFd,
     new_pathname: SandboxedPath,
 ) -> usize {
+    effect!(trace, Effect::PathAccess);
     let os_old_fd: usize = old_dir_fd.into();
     let os_old_path: Vec<u8> = old_pathname.into();
     let os_new_fd: usize = new_dir_fd.into();
     let os_new_path: Vec<u8> = new_pathname.into();
+    os_renameat(os_old_fd, os_old_path, os_new_fd, os_new_path)
+}
+
+#[trusted]
+pub fn os_renameat(
+    old_dir_fd: usize,
+    old_pathname: Vec<u8>,
+    new_dir_fd: usize,
+    new_pathname: Vec<u8>,
+) -> usize {
     unsafe {
         syscall!(
             RENAMEAT,
-            os_old_fd,
-            os_old_path.as_ptr(),
-            os_new_fd,
-            os_new_path.as_ptr()
+            old_dir_fd,
+            old_pathname.as_ptr(),
+            new_dir_fd,
+            new_pathname.as_ptr()
         )
     }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_symlinkat)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -453,43 +503,48 @@ pub fn trace_symlinkat(
     new_pathname: SandboxedPath,
 ) -> usize {
     effect!(trace, Effect::PathAccess);
-    os_symlinkat(old_pathname, dir_fd, new_pathname)
-}
-
-#[trusted]
-pub fn os_symlinkat(
-    old_pathname: SandboxedPath,
-    dir_fd: HostFd,
-    new_pathname: SandboxedPath,
-) -> usize {
     let os_fd: usize = dir_fd.into();
     let os_old_path: Vec<u8> = old_pathname.into();
     let os_new_path: Vec<u8> = new_pathname.into();
-    unsafe { syscall!(SYMLINKAT, os_old_path.as_ptr(), os_fd, os_new_path.as_ptr()) }
+    os_symlinkat(os_old_path, os_fd, os_new_path)
+}
+
+#[trusted]
+pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>) -> usize {
+    unsafe {
+        syscall!(
+            SYMLINKAT,
+            old_pathname.as_ptr(),
+            dir_fd,
+            new_pathname.as_ptr()
+        )
+    }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_futimens)]
+#[external_method(into)]
 #[requires(specs.capacity() >= 2)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_futimens(ctx: &VmCtx, fd: HostFd, specs: &Vec<libc::timespec>) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_futimens(fd, specs)
+    let os_fd: usize = fd.into();
+    os_futimens(os_fd, specs)
 }
 
 #[requires(specs.capacity() >= 2)]
 #[trusted]
-pub fn os_futimens(fd: HostFd, specs: &Vec<libc::timespec>) -> usize {
-    let os_fd: usize = fd.into();
+pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> usize {
     // Linux impls futimens as UTIMENSAT with null path
     // source: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/futimens.c.html
-    unsafe { syscall!(UTIMENSAT, os_fd, 0, specs.as_ptr(), 0) }
+    unsafe { syscall!(UTIMENSAT, fd, 0, specs.as_ptr(), 0) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_utimensat)]
+#[external_method(into)]
 #[requires(specs.capacity() >= 2)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
@@ -502,20 +557,20 @@ pub fn trace_utimensat(
     flags: libc::c_int,
 ) -> usize {
     effect!(trace, Effect::PathAccess);
-    os_utimensat(fd, pathname, specs, flags)
+    let os_fd: usize = fd.into();
+    let os_path: Vec<u8> = pathname.into();
+    os_utimensat(os_fd, os_path, specs, flags)
 }
 
 #[requires(specs.capacity() >= 2)]
 #[trusted]
 pub fn os_utimensat(
-    fd: HostFd,
-    pathname: SandboxedPath,
+    fd: usize,
+    pathname: Vec<u8>,
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> usize {
-    let os_fd: usize = fd.into();
-    let os_path: Vec<u8> = pathname.into();
-    unsafe { syscall!(UTIMENSAT, os_fd, os_path.as_ptr(), specs.as_ptr(), flags) }
+    unsafe { syscall!(UTIMENSAT, fd, pathname.as_ptr(), specs.as_ptr(), flags) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -563,7 +618,7 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 #[ensures(trace_safe(ctx, trace))]
 // #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
 pub fn trace_getrandom(ctx: &VmCtx, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
-    //effect!(trace, Effect::WriteN(cnt));
+    // effect!(trace, Effect::WriteN(cnt));
     os_getrandom(buf, cnt, flags)
 }
 
@@ -577,42 +632,44 @@ pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_recv)]
-#[requires(buf.capacity() >= cnt)]
+#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+#[requires(buf.capacity() >= cnt)]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 pub fn trace_recv(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_recv(fd, buf, cnt, flags)
+    let os_fd: usize = fd.into();
+    os_recv(os_fd, buf, cnt, flags)
 }
 
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-pub fn os_recv(fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(RECVFROM, os_fd, buf.as_mut_ptr(), cnt, flags, 0, 0) }
+pub fn os_recv(fd: usize, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
+    unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(os_send)]
+#[external_method(into)]
 #[requires(buf.len() >= cnt)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn trace_send(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
     effect!(trace, Effect::FdAccess);
-    os_send(fd, buf, cnt, flags)
+    let os_fd: usize = fd.into();
+    os_send(os_fd, buf, cnt, flags)
 }
 
 #[requires(buf.len() >= cnt)]
 #[trusted]
-pub fn os_send(fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
-    let os_fd: usize = fd.into();
-    unsafe { syscall!(SENDTO, os_fd, buf.as_ptr(), cnt, flags, 0, 0) }
+pub fn os_send(fd: usize, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
+    unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]

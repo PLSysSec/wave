@@ -16,43 +16,44 @@ use RuntimeError::*;
 
 // Modifies: fdmap
 // TODO: fdmap trace fix
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_call(Err)]
-// #[external_method(resolve_path)]
-// #[requires(trace_safe(ctx, trace))]
-// #[ensures(trace_safe(ctx, trace))]
-// pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResult<u32> {
-//     if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
-//         return Err(Ebadf);
-//     }
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Err)]
+#[external_method(resolve_path)]
+#[external_method(create)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResult<u32> {
+    if !ctx.fits_in_lin_mem(pathname, PATH_MAX) {
+        return Err(Ebadf);
+    }
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = trace_open(host_pathname, flags);
-//     ctx.fdmap.create(fd.into())
-// }
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, PATH_MAX);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = trace_open(ctx, host_pathname, flags);
+    ctx.fdmap.create(fd.into())
+}
 
 // // modifies: fdmap
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_call(Ok)]
-// #[external_call(Err)]
-// #[external_method(delete)]
-// #[requires(trace_safe(ctx, trace))]
-// #[ensures(trace_safe(ctx, trace))]
-// // if args are not valid, nothing happens
-// #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
-// //#[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.lookup(v_fd).is_err() ) ==> no_effect!(old(trace), trace))]
-// // if args are valid, we do invoke an effect
-// //#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::FdAccess) )]
-// pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     ctx.fdmap.delete(v_fd);
-//     let result = trace_close(fd);
-//     Ok(result as u32)
-// }
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(Err)]
+#[external_method(delete)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// if args are not valid, nothing happens
+//#[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
+//#[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.lookup(v_fd).is_err() ) ==> no_effect!(old(trace), trace))]
+// if args are valid, we do invoke an effect
+//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::FdAccess) )]
+pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    ctx.fdmap.delete(v_fd);
+    let result = trace_close(ctx, fd);
+    Ok(result as u32)
+}
 
 // // modifies: mem
 // #[with_ghost_var(trace: &mut Trace)]

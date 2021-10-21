@@ -27,12 +27,12 @@ impl FdMap {
         }
     }
 
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(stdin)]
-    #[external_call(stdout)]
-    #[external_call(stderr)]
-    #[external_method(as_raw_fd)]
-    #[external_method(into)]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_call(stdin)]
+    // #[external_call(stdout)]
+    // #[external_call(stderr)]
+    // #[external_method(as_raw_fd)]
+    // #[external_method(into)]
     #[requires (self.counter == 0)] //should only be called on empty fdmap
     pub fn init_std_fds(&mut self) {
         let stdin_fd = stdin().as_raw_fd() as usize;
@@ -62,10 +62,10 @@ impl FdMap {
 
     // #[trusted]
 
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(Ok)]
-    #[external_call(Err)]
-    #[external_method(pop)]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_call(Ok)]
+    // #[external_call(Err)]
+    // #[external_method(pop)]
     fn pop_fd(&mut self) -> RuntimeResult<SboxFd> {
         match self.reserve.pop() {
             Some(fd) => Ok(fd),
@@ -84,8 +84,8 @@ impl FdMap {
     // #[ensures (self.lookup(k) == result)]
     // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
     //                 self.lookup(i) == old(self.lookup(i))))]
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(Ok)]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_call(Ok)]
     // #[requires(trace_safe(ctx, trace))]
     // #[ensures(trace_safe(ctx, trace))]
     pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {

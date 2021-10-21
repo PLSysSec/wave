@@ -6,6 +6,8 @@
     unused_comparisons
 )]
 
+use extra_args::{external_call, external_method, with_ghost_var};
+
 extern crate prusti_contracts;
 
 // external specs mod will crash if we are compiling without the verifier
@@ -24,4 +26,5 @@ mod types;
 #[cfg(feature = "verify")]
 pub mod verifier;
 pub mod verifier_interface;
+// #[with_ghost_var(trace: &mut Trace)]
 mod wrappers;
