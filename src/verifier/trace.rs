@@ -13,6 +13,8 @@ use prusti_contracts::*;
 ///     1. make trace exist at runtime, just don't interact with it: ==> we have to do this
 ///     2. make trace global: ==> Rust does not allow this
 
+// TODO: combine into a single variadic macro
+
 #[macro_export]
 macro_rules! effect {
     ($trace:expr, $input:expr) => {
@@ -44,16 +46,38 @@ predicate! {
     }
 }
 
-// #[cfg(feature = "verify")]
-// predicate! {
-//     pub fn takes_two_steps(old_trace: &Trace, trace: &Trace) -> bool {
-//         // We added 1 more step
-//         trace.len() == old_trace.len() + 2 &&
-//         // But the other effects were not affected
-//         forall(|i: usize| (i < old_trace.len()) ==>
-//             trace.lookup(i) == old_trace.lookup(i))
-//     }
-// }
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn takes_two_steps(old_trace: &Trace, trace: &Trace) -> bool {
+        // We added 2 more steps
+        trace.len() == old_trace.len() + 2 &&
+        // But the other effects were not affected
+        forall(|i: usize| (i < old_trace.len()) ==>
+            trace.lookup(i) == old_trace.lookup(i))
+    }
+}
+
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn takes_three_steps(old_trace: &Trace, trace: &Trace) -> bool {
+        // We added 2 more steps
+        trace.len() == old_trace.len() + 3 &&
+        // But the other effects were not affected
+        forall(|i: usize| (i < old_trace.len()) ==>
+            trace.lookup(i) == old_trace.lookup(i))
+    }
+}
+
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn takes_four_steps(old_trace: &Trace, trace: &Trace) -> bool {
+        // We added 2 more steps
+        trace.len() == old_trace.len() + 4 &&
+        // But the other effects were not affected
+        forall(|i: usize| (i < old_trace.len()) ==>
+            trace.lookup(i) == old_trace.lookup(i))
+    }
+}
 
 /// Enforce that no effect occured
 #[macro_export]
@@ -63,6 +87,8 @@ macro_rules! no_effect {
     };
 }
 
+// TODO: combine into a single variadic macro
+
 /// Enforce that 1 effect occured, and that effect matches "pattern" and possible "guard"
 #[macro_export]
 macro_rules! one_effect {
@@ -71,15 +97,37 @@ macro_rules! one_effect {
     };
 }
 
-// /// Enforce that 1 effect occured, and that effect matches "pattern"
-// #[macro_export]
-// macro_rules! two_effects {
-//     ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
-//         takes_two_steps($old_trace, $trace)
-//             && matches!($trace.lookup($trace.len() - 2), $pattern1)
-//             && matches!($trace.lookup($trace.len() - 1), $pattern2)
-//     };
-// }
+/// Enforce that 2 effects occured, and that they match "pattern1" and "pattern2"
+#[macro_export]
+macro_rules! two_effects {
+    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
+        takes_two_steps($old_trace, $trace)
+            && matches!($trace.lookup($trace.len() - 2), $pattern1)
+            && matches!($trace.lookup($trace.len() - 1), $pattern2)
+    };
+}
+
+/// Enforce that 3 effects occured, and that they match the patterns specified
+#[macro_export]
+macro_rules! three_effects {
+    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat, $pattern3:pat) => {
+        takes_three_steps($old_trace, $trace)
+            && matches!($trace.lookup($trace.len() - 3), $pattern1)
+            && matches!($trace.lookup($trace.len() - 2), $pattern2)
+            && matches!($trace.lookup($trace.len() - 1), $pattern3)
+    };
+}
+
+#[macro_export]
+macro_rules! four_effects {
+    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat, $pattern3:pat, $pattern4:pat) => {
+        takes_four_steps($old_trace, $trace)
+            && matches!($trace.lookup($trace.len() - 4), $pattern1)
+            && matches!($trace.lookup($trace.len() - 3), $pattern2)
+            && matches!($trace.lookup($trace.len() - 2), $pattern3)
+            && matches!($trace.lookup($trace.len() - 1), $pattern4)
+    };
+}
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Effect {

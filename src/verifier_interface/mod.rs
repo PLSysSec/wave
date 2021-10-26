@@ -17,3 +17,21 @@ macro_rules! no_effect {
 macro_rules! one_effect {
     ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
 }
+
+#[cfg(not(feature = "verify"))]
+#[macro_export]
+macro_rules! two_effects {
+    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
+}
+
+#[cfg(not(feature = "verify"))]
+#[macro_export]
+macro_rules! three_effects {
+    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
+}
+
+#[cfg(not(feature = "verify"))]
+#[macro_export]
+macro_rules! four_effects {
+    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
+}
