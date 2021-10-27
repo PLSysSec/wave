@@ -12,6 +12,8 @@ use syscall::syscall;
 /// on a syscall
 
 #[with_ghost_var(trace: &mut Trace)]
+#[external_method(into)]
+#[external_call(os_open)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -46,6 +48,8 @@ pub fn os_close(fd: usize) -> usize {
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+#[external_method(into)]
+#[external_call(os_read)]
 #[requires(buf.len() >= cnt)]
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(ctx, trace))]
