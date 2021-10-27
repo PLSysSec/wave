@@ -15,9 +15,9 @@ libc = "0.2"
 trace = "*"
 extra_args = "0.1.63"
 
-#[dev-dependencies]
-quickcheck = "1.0.3"
+quickcheck="1.0.3"
 quickcheck_macros = "1.0.0"
+
 
 [features]
 verify = ["extra_args/enable"] # feature for when we're verifying

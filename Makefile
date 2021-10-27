@@ -46,4 +46,5 @@ wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
 	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
 
-
+fuzz_trusted:
+	RUST_LOG=quickcheck cargo test -- --nocapture
