@@ -12,8 +12,6 @@ use syscall::syscall;
 /// on a syscall
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(os_open)]
-#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
@@ -23,6 +21,7 @@ pub fn trace_open(ctx: &VmCtx, pathname: SandboxedPath, flags: i32) -> usize {
     os_open(os_path, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/open.2.html
 #[trusted]
 pub fn os_open(pathname: Vec<u8>, flags: i32) -> usize {
     unsafe { syscall!(OPEN, pathname.as_ptr(), flags) }
@@ -40,14 +39,13 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> usize {
     os_close(os_fd)
 }
 
+//https://man7.org/linux/man-pages/man2/close.2.html
 #[trusted]
 pub fn os_close(fd: usize) -> usize {
     unsafe { syscall!(CLOSE, fd) }
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(os_read)]
-#[external_method(into)]
 #[requires(buf.len() >= cnt)]
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(ctx, trace))]
@@ -63,15 +61,12 @@ pub fn trace_read(ctx: &VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize 
     os_read(os_fd, buf, cnt)
 }
 
+// https://man7.org/linux/man-pages/man2/read.2.html
 #[requires(buf.len() >= cnt)]
 #[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
 #[trusted]
-// TODO: this violates the safety requirements of set_len if result is an errno
-//       i.e. -4095 is probably > buf.capacity. Would need to also update
-//       post-conditions to reflect errno case.
-//       See: https://doc.rust-lang.org/std/vec/struct.Vec.html#method.set_len
-//result
+//TODO: fix the result handling
 pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
     unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) }
 }
@@ -95,6 +90,7 @@ pub fn trace_pread(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> us
     os_pread(os_fd, buf, cnt)
 }
 
+//https://man7.org/linux/man-pages/man2/pread.2.html
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
@@ -123,6 +119,7 @@ pub fn trace_write(ctx: &VmCtx, fd: HostFd, buf: &[u8], cnt: usize) -> usize {
     os_write(os_fd, buf, cnt)
 }
 
+//https://man7.org/linux/man-pages/man2/write.2.html
 #[requires(buf.len() >= cnt)]
 #[trusted]
 pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> usize {
@@ -145,6 +142,7 @@ pub fn trace_pwrite(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize
     os_pwrite(os_fd, buf, cnt)
 }
 
+//https://man7.org/linux/man-pages/man2/pwrite.2.html
 #[requires(buf.len() >= cnt)]
 #[trusted]
 pub fn os_pwrite(fd: usize, buf: &Vec<u8>, cnt: usize) -> usize {
@@ -163,6 +161,7 @@ pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> usize {
     os_seek(os_fd, offset, whence)
 }
 
+//https://man7.org/linux/man-pages/man2/lseek.2.html
 // TODO: could be cleaner to do a typedef SyscallRet = usize or something for From traits
 #[trusted]
 pub fn os_seek(fd: usize, offset: i64, whence: i32) -> usize {
@@ -181,6 +180,7 @@ pub fn trace_advise(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64, advice: i32)
     os_advise(os_fd, offset, len, advice)
 }
 
+//https://man7.org/linux/man-pages/man2/fadvise64.2.html
 #[trusted]
 pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> usize {
     unsafe { syscall!(FADVISE64, fd, offset, len, advice) }
@@ -198,6 +198,7 @@ pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> usize {
     os_allocate(os_fd, offset, len)
 }
 
+// https://man7.org/linux/man-pages/man2/fallocate.2.html
 #[trusted]
 pub fn os_allocate(fd: usize, offset: i64, len: i64) -> usize {
     unsafe { syscall!(FALLOCATE, fd, offset, len) }
@@ -215,6 +216,7 @@ pub fn trace_sync(ctx: &VmCtx, fd: HostFd) -> usize {
     os_sync(os_fd)
 }
 
+//https://man7.org/linux/man-pages/man2/fsync.2.html
 #[trusted]
 pub fn os_sync(fd: usize) -> usize {
     unsafe { syscall!(FSYNC, fd) }
@@ -232,6 +234,7 @@ pub fn trace_datasync(ctx: &VmCtx, fd: HostFd) -> usize {
     os_datasync(os_fd)
 }
 
+//https://man7.org/linux/man-pages/man2/fdatasync.2.html
 #[trusted]
 pub fn os_datasync(fd: usize) -> usize {
     unsafe { syscall!(FDATASYNC, fd) }
@@ -249,6 +252,7 @@ pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> usize {
     os_fstat(os_fd, stat)
 }
 
+//https://man7.org/linux/man-pages/man2/fstat.2.html
 #[trusted]
 pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> usize {
     unsafe { syscall!(FSTAT, fd, stat as *mut libc::stat) }
@@ -274,6 +278,7 @@ pub fn trace_fstatat(
     os_fstatat(os_fd, os_path, stat, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/fstatat.2.html
 #[trusted]
 pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> usize {
     unsafe {
@@ -299,6 +304,7 @@ pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> usize {
     os_fgetfl(os_fd)
 }
 
+//https://man7.org/linux/man-pages/man2/fcntl.2.html
 #[trusted]
 pub fn os_fgetfl(fd: usize) -> usize {
     unsafe { syscall!(FCNTL, fd, libc::F_GETFL, 0) }
@@ -316,6 +322,7 @@ pub fn trace_fsetfl(ctx: &VmCtx, fd: HostFd, flags: libc::c_int) -> usize {
     os_fsetfl(os_fd, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/fcntl.2.html
 #[trusted]
 pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> usize {
     unsafe { syscall!(FCNTL, fd, libc::F_SETFL, flags) }
@@ -333,6 +340,7 @@ pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> usize {
     os_ftruncate(os_fd, length)
 }
 
+//https://man7.org/linux/man-pages/man2/ftruncate.2.html
 #[trusted]
 pub fn os_ftruncate(fd: usize, length: libc::off_t) -> usize {
     unsafe { syscall!(FTRUNCATE, fd, length) }
@@ -363,6 +371,7 @@ pub fn trace_linkat(
     os_linkat(os_old_fd, os_old_path, os_new_fd, os_new_path, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/linkat.2.html
 #[trusted]
 pub fn os_linkat(
     old_fd: usize,
@@ -402,6 +411,7 @@ pub fn trace_mkdirat(
     os_mkdirat(os_fd, os_path, mode)
 }
 
+//https://man7.org/linux/man-pages/man2/mkdirat.2.html
 #[trusted]
 pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> usize {
     unsafe { syscall!(MKDIRAT, dir_fd, pathname.as_ptr(), mode) }
@@ -432,6 +442,7 @@ pub fn trace_readlinkat(
     os_readlinkat(os_fd, os_path, buf, cnt)
 }
 
+//https://man7.org/linux/man-pages/man2/readlinkat.2.html
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
@@ -463,6 +474,7 @@ pub fn trace_unlinkat(
     os_unlinkat(os_fd, os_path, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/unlinkat.2.html
 #[trusted]
 pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> usize {
     unsafe { syscall!(UNLINKAT, dir_fd, pathname.as_ptr(), flags) }
@@ -492,6 +504,7 @@ pub fn trace_renameat(
     os_renameat(os_old_fd, os_old_path, os_new_fd, os_new_path)
 }
 
+//https://man7.org/linux/man-pages/man2/renameat.2.html
 #[trusted]
 pub fn os_renameat(
     old_dir_fd: usize,
@@ -531,6 +544,7 @@ pub fn trace_symlinkat(
     os_symlinkat(os_old_path, os_fd, os_new_path)
 }
 
+//https://man7.org/linux/man-pages/man2/symlinkat.2.html
 #[trusted]
 pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>) -> usize {
     unsafe {
@@ -556,6 +570,7 @@ pub fn trace_futimens(ctx: &VmCtx, fd: HostFd, specs: &Vec<libc::timespec>) -> u
     os_futimens(os_fd, specs)
 }
 
+//https://man7.org/linux/man-pages/man2/utimensat.2.html
 #[requires(specs.capacity() >= 2)]
 #[trusted]
 pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> usize {
@@ -585,6 +600,7 @@ pub fn trace_utimensat(
     os_utimensat(os_fd, os_path, specs, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/utimensat.2.html
 #[requires(specs.capacity() >= 2)]
 #[trusted]
 pub fn os_utimensat(
@@ -609,6 +625,7 @@ pub fn trace_clock_get_time(
     os_clock_get_time(clock_id, spec)
 }
 
+//https://man7.org/linux/man-pages/man2/clock_gettime.2.html
 #[trusted]
 pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> usize {
     unsafe { syscall!(CLOCK_GETTIME, clock_id, spec as *mut libc::timespec) }
@@ -627,6 +644,7 @@ pub fn trace_clock_get_res(
     os_clock_get_res(clock_id, spec)
 }
 
+//https://man7.org/linux/man-pages/man2/clock_getres.2.html
 #[trusted]
 pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> usize {
     unsafe { syscall!(CLOCK_GETRES, clock_id, spec as *mut libc::timespec) }
@@ -653,6 +671,7 @@ pub fn trace_getrandom(ctx: &VmCtx, buf: &mut Vec<u8>, cnt: usize, flags: u32) -
     os_getrandom(buf, cnt, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/getrandom.2.html
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
@@ -678,6 +697,7 @@ pub fn trace_recv(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize, flags:
     os_recv(os_fd, buf, cnt, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/recvfrom.2.html
 #[requires(buf.capacity() >= cnt)]
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
@@ -701,6 +721,7 @@ pub fn trace_send(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize, flags: u32
     os_send(os_fd, buf, cnt, flags)
 }
 
+//https://man7.org/linux/man-pages/man2/sendto.2.html
 #[requires(buf.len() >= cnt)]
 #[trusted]
 pub fn os_send(fd: usize, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
@@ -718,6 +739,7 @@ pub fn trace_shutdown(ctx: &VmCtx, fd: HostFd, how: libc::c_int) -> usize {
     os_shutdown(fd, how)
 }
 
+//https://man7.org/linux/man-pages/man2/shutdown.2.html
 #[trusted]
 pub fn os_shutdown(fd: HostFd, how: libc::c_int) -> usize {
     let os_fd: usize = fd.into();
@@ -733,6 +755,7 @@ pub fn trace_nanosleep(ctx: &VmCtx, req: &libc::timespec, rem: &mut libc::timesp
     os_nanosleep(req, rem)
 }
 
+//https://man7.org/linux/man-pages/man2/nanosleep.2.html
 #[trusted]
 pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {
     unsafe {
@@ -754,6 +777,7 @@ pub fn trace_poll(ctx: &VmCtx, pollfd: &mut libc::pollfd, timeout: libc::c_int) 
     os_poll(pollfd, timeout)
 }
 
+//https://man7.org/linux/man-pages/man2/poll.2.html
 // can make more efficient using slice of pollfds
 #[trusted]
 pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
