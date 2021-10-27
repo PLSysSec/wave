@@ -41,8 +41,8 @@ pub fn wasi_path_open(ctx: &mut VmCtx, pathname: u32, flags: i32) -> RuntimeResu
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // if args are not valid, nothing happens
-//#[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
-//#[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.lookup(v_fd).is_err() ) ==> no_effect!(old(trace), trace))]
+#[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
+// #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> no_effect!(old(trace), trace))]
 // if args are valid, we do invoke an effect
 //#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::FdAccess) )]
 pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {

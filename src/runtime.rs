@@ -5,6 +5,7 @@ use crate::verifier::external_specs::option::*;
 use crate::types::*;
 #[cfg(feature = "verify")]
 use crate::verifier::*;
+use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::ffi::OsString;
@@ -313,8 +314,10 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_method(to_le_bytes)]
+    #[requires(self.memlen > 8)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
+    #[ensures(one_effect!(old(trace), trace, Effect::WriteN(8)))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -325,6 +328,7 @@ impl VmCtx {
         self.mem[start + 5] = bytes[5];
         self.mem[start + 6] = bytes[6];
         self.mem[start + 7] = bytes[7];
+        effect!(trace, Effect::WriteN(8));
     }
 }
 

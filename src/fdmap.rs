@@ -15,7 +15,6 @@ We will prove things about it's API as necessary.
 */
 
 impl FdMap {
-    // #[trusted]
     // #[ensures (result.m.len() == MAX_SBOX_FDS)]
     #[ensures (result.reserve.len() == 0)]
     #[ensures (result.counter == 0)]
@@ -60,8 +59,6 @@ impl FdMap {
         matches!(self.lookup(index), Ok(_))
     }
 
-    // #[trusted]
-
     // #[with_ghost_var(trace: &mut Trace)]
     // #[external_call(Ok)]
     // #[external_call(Err)]
@@ -79,7 +76,6 @@ impl FdMap {
         }
     }
 
-    // #[trusted]
     // #[requires(k < MAX_HOST_FDS)]
     // #[ensures (self.lookup(k) == result)]
     // #[ensures (forall(|i: usize| (i < MAX_SBOX_FDS && i != k) ==>
@@ -94,7 +90,6 @@ impl FdMap {
         Ok(s_fd)
     }
 
-    // #[trusted]
     #[requires(k < MAX_SBOX_FDS)]
     // #[with_ghost_var(trace: &mut Trace)]
     // #[external_call(Err)]
