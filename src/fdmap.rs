@@ -33,13 +33,17 @@ impl FdMap {
     // #[external_method(as_raw_fd)]
     // #[external_method(into)]
     #[requires (self.counter == 0)] //should only be called on empty fdmap
-    pub fn init_std_fds(&mut self) {
-        let stdin_fd = stdin().as_raw_fd() as usize;
-        let stdout_fd = stdout().as_raw_fd() as usize;
-        let stderr_fd = stderr().as_raw_fd() as usize;
-        self.create(stdin_fd.into());
-        self.create(stdout_fd.into());
-        self.create(stderr_fd.into());
+    pub fn init_std_fds(&mut self) -> RuntimeResult<()> {
+        let stdin_fd = stdin().as_raw_fd(); // upcasting i32 => usize
+        let stdout_fd = stdout().as_raw_fd();
+        let stderr_fd = stderr().as_raw_fd();
+        if (stdin_fd >= 0) && (stdout_fd >= 0) && (stderr_fd >= 0) {
+            self.create((stdin_fd as usize).into());
+            self.create((stdout_fd as usize).into());
+            self.create((stderr_fd as usize).into());
+            return Ok(());
+        }
+        Err(Emfile) // File descriptor failure
     }
 
     // Trusted because I can't get the verifier to understand that
