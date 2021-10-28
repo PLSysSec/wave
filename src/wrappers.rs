@@ -333,12 +333,15 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 }
 
 // modifies: none
+// Note: WASI API says that size should be u64.
+// but ftruncate, which filestat_set_size is supposed to call used i64
+// I'm keeping this as i64 since this does not cause any truncation
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(Ok)]
 #[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
-pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: u64) -> RuntimeResult<()> {
+pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -1036,6 +1039,8 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
     let mut cursor: usize = 0;
     while idx < ctx.arg_buffer.len() {
         body_invariant!(trace_safe(ctx, trace));
+        // body_invariant!(idx < ctx.arg_buffer.len());
+        //body_invariant!(idx * 4 < cursor);
         if ctx.arg_buffer[idx] == b'\0' {
             ctx.write_u32((argv as usize) + cursor, start);
             cursor += 4;
