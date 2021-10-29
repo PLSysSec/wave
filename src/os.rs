@@ -67,7 +67,6 @@ pub fn trace_read(ctx: &VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize 
 /// pread writes `cnt` bytes to sandbox memory
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
 // #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt ))]
-// #[trusted]
 pub fn trace_pread(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     effect!(trace, Effect::FdAccess);

@@ -54,9 +54,9 @@ impl VmCtx {
     // TODO: does this have to be trusted?
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len, trace))]
-    #[ensures(result.len() == (len as usize))]
-    #[after_expiry(
-        self.memlen == old(self.memlen))]
+    #[requires(trace_safe(self, trace))]
+    #[ensures(trace_safe(self, trace))]
+    #[ensures(result.len() == old(len as usize))]
     #[trusted]
     pub fn slice_mem(&self, ptr: SboxPtr, len: u32) -> &[u8] {
         let start = ptr as usize;
@@ -70,8 +70,6 @@ impl VmCtx {
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     #[ensures(result.len() == (len as usize))]
-    #[after_expiry(
-        self.memlen == old(self.memlen))]
     #[trusted]
     pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
         let start = ptr as usize;
@@ -228,7 +226,6 @@ impl VmCtx {
     //       they always have an associated Fd that they are relative to.
     //       See wasi_path_create_directory for an example
     /*pub fn ensure_relative_path(&self, in_path: Vec<u8>) -> RuntimeResult<RelativePath> {
-    #[trusted]
     pub fn ensure_relative_path(&self, in_path: Vec<u8>) -> RuntimeResult<RelativePath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
         if !path.is_relative() {
