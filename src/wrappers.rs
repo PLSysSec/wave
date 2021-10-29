@@ -1,10 +1,10 @@
 use crate::os::*;
 use crate::runtime::*;
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::external_specs::result::*;
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::*;
 use crate::types::*;
-#[cfg(feature = "verify")]
-use crate::verifier::external_specs::result::*;
-#[cfg(feature = "verify")]
-use crate::verifier::*;
 use crate::{effect, no_effect, one_effect};
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;

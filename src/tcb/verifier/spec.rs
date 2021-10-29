@@ -1,5 +1,5 @@
+use crate::tcb::verifier::trace::{Effect, Trace};
 use crate::types::{VmCtx, LINEAR_MEM_SIZE};
-use crate::verifier::trace::{Effect, Trace};
 use prusti_contracts::*;
 
 #[cfg(feature = "verify")]

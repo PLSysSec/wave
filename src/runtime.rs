@@ -1,10 +1,10 @@
 #[cfg(feature = "verify")]
-use crate::verifier::external_specs::option::*;
+use crate::tcb::verifier::external_specs::option::*;
 //use crate::spec::trace_safe;
 //use crate::trace::Trace;
-use crate::types::*;
 #[cfg(feature = "verify")]
-use crate::verifier::*;
+use crate::tcb::verifier::*;
+use crate::types::*;
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;

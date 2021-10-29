@@ -1,8 +1,8 @@
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::external_specs::vec::*;
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::*;
 use crate::types::*;
-#[cfg(feature = "verify")]
-use crate::verifier::external_specs::vec::*;
-#[cfg(feature = "verify")]
-use crate::verifier::*;
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::io::{stderr, stdin, stdout};

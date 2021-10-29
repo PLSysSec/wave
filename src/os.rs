@@ -1,5 +1,5 @@
 #[cfg(feature = "verify")]
-use crate::verifier::*;
+use crate::tcb::verifier::*;
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 //use crate::trace::*;
 use crate::types::*;

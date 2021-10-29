@@ -17,8 +17,9 @@ mod tests;
 mod types;
 //#[cfg(not(feature = "verify"))]
 //pub mod wasm2c_frontend;
-#[cfg(feature = "verify")]
-pub mod verifier;
+//#[cfg(feature = "verify")]
+//pub mod verifier;
+pub mod tcb;
 pub mod verifier_interface;
 // #[with_ghost_var(trace: &mut Trace)]
 mod wrappers;

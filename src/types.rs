@@ -1,6 +1,6 @@
 use crate::no_effect;
 #[cfg(feature = "verify")]
-use crate::verifier::*;
+use crate::tcb::verifier::*;
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::TryFrom;
