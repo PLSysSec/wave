@@ -51,7 +51,7 @@ impl VmCtx {
         (ptr as usize) < self.memlen
     }
 
-    // TODO: does this have to be trusted?
+    // TODO: Currently trusted because it causes a fold-unfold error
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len, trace))]
     #[requires(trace_safe(self, trace))]
@@ -64,7 +64,7 @@ impl VmCtx {
         &self.mem[start..end]
     }
 
-    // TODO: does this have to be trusted?
+    // TODO: Currently trusted because it causes a fold-unfold error
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len, trace))]
     #[requires(trace_safe(self, trace))]

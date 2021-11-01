@@ -1,3 +1,4 @@
+use crate::tcb::misc::vec_checked_lookup;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::vec::*;
 #[cfg(feature = "verify")]
@@ -46,14 +47,11 @@ impl FdMap {
         Err(Emfile) // File descriptor failure
     }
 
-    // Trusted because I can't get the verifier to understand that
-    // this can't ever err and it is pretty clear it is correct.
-    // Can be fixed with https://viperproject.github.io/prusti-dev/user-guide/verify/pledge.html
-    #[trusted]
     #[pure]
     #[requires (index < MAX_SBOX_FDS )]
     pub fn lookup(&self, index: SboxFd) -> RuntimeResult<HostFd> {
-        self.m[index as usize]
+        // self.m[index as usize]
+        vec_checked_lookup(&self.m, index)
     }
 
     #[pure]

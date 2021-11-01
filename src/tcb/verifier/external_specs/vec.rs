@@ -23,4 +23,12 @@ impl<T> Vec<T> {
     #[ensures(self.capacity() >= old(self.len() + additional))]
     #[ensures(self.len() == old(self.len()))]
     fn reserve_exact(&mut self, additional: usize);
+
+    // #[pure]
+    // #[requires (index < MAX_SBOX_FDS )]
+    // // #[requires(0 <= index && index < self.len())]
+    // // #[ensures(*result == old(self.lookup(index)))]
+    // pub fn get(&self, index: usize) -> &T {
+    //     self.get(index).unwrap()
+    // }
 }

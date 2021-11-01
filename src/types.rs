@@ -1,4 +1,5 @@
 use crate::no_effect;
+use crate::tcb::misc::nth_bit_set;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use extra_args::{external_call, external_method, with_ghost_var};
@@ -453,24 +454,24 @@ impl FstFlags {
     }
 
     // must impl flag checking as trusted due to bitwise ops not being supported by prusti
-    #[trusted]
     pub fn atim(&self) -> bool {
-        self.0 & (1 << 0) != 0
+        nth_bit_set(self.0, 0)
+        //self.0 & (1 << 0) != 0
     }
 
-    #[trusted]
     pub fn atim_now(&self) -> bool {
-        self.0 & (1 << 1) != 0
+        nth_bit_set(self.0, 1)
+        //self.0 & (1 << 1) != 0
     }
 
-    #[trusted]
     pub fn mtim(&self) -> bool {
-        self.0 & (1 << 2) != 0
+        nth_bit_set(self.0, 2)
+        //self.0 & (1 << 2) != 0
     }
 
-    #[trusted]
     pub fn mtim_now(&self) -> bool {
-        self.0 & (1 << 4) != 0
+        nth_bit_set(self.0, 0)
+        //self.0 & (1 << 4) != 0
     }
 }
 
@@ -481,14 +482,14 @@ impl SdFlags {
         SdFlags(num as u8)
     }
 
-    #[trusted]
     pub fn rd(&self) -> bool {
-        self.0 & (1 << 0) != 0
+        nth_bit_set(self.0.into(), 0)
+        //self.0 & (1 << 0) != 0
     }
 
-    #[trusted]
     pub fn wr(&self) -> bool {
-        self.0 & (1 << 1) != 0
+        nth_bit_set(self.0.into(), 1)
+        //self.0 & (1 << 1) != 0
     }
 }
 
@@ -558,9 +559,9 @@ pub struct SubscriptionFdReadWrite {
 pub struct SubClockFlags(u16);
 
 impl SubClockFlags {
-    #[trusted]
     pub fn subscription_clock_abstime(&self) -> bool {
-        self.0 & (1 << 0) != 0
+        nth_bit_set(self.0, 0)
+        //self.0 & (1 << 0) != 0
     }
 }
 
