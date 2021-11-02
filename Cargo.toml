@@ -10,10 +10,11 @@ crate_type = ["dylib", "rlib"]
 
 [dependencies]
 system-call = "0.1.3"
-prusti-contracts = { path = "prusti-dev/prusti-contracts" }
+#prusti-contracts = { path = "prusti-dev/prusti-contracts" }
+prusti-contracts = { package = "veriwasi-contracts", path = "./veriwasi-contracts" }
 libc = "0.2"
 trace = "*"
-extra_args = "0.1.63"
+extra_args = "0.1.64"
 
 quickcheck="1.0.3"
 quickcheck_macros = "1.0.0"
@@ -21,3 +22,5 @@ quickcheck_macros = "1.0.0"
 
 [features]
 verify = ["extra_args/enable"] # feature for when we're verifying
+#fuzzing = []
+fuzzing = ["prusti-contracts/fuzzing"]
