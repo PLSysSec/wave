@@ -1,5 +1,5 @@
 use crate::no_effect;
-use crate::tcb::misc::nth_bit_set;
+use crate::tcb::misc::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use extra_args::{external_call, external_method, with_ghost_var};
@@ -317,9 +317,9 @@ pub enum Filetype {
 
 impl From<libc::mode_t> for Filetype {
     // must be trusted, bitwise ops not supported in prusti...
-    #[trusted]
+    //#[trusted]
     fn from(filetype: libc::mode_t) -> Self {
-        match filetype & libc::S_IFMT {
+        match bitwise_and_u32(filetype, libc::S_IFMT) {
             libc::S_IFBLK => Filetype::BlockDevice,
             libc::S_IFCHR => Filetype::CharacterDevice,
             libc::S_IFDIR => Filetype::Directory,
@@ -347,23 +347,23 @@ impl FdFlags {
     }
 
     // trusted due to bitwise ops, can refactor later...
-    #[trusted]
+    //#[trusted]
     pub fn to_posix(&self) -> i32 {
         let mut flags = 0;
-        if self.0 & 1 << 0 != 0 {
-            flags |= libc::O_APPEND
+        if nth_bit_set(self.0, 0) {
+            flags = bitwise_or(flags, libc::O_APPEND)
         }
-        if self.0 & 1 << 1 != 0 {
-            flags |= libc::O_DSYNC
+        if nth_bit_set(self.0, 1) {
+            flags = bitwise_or(flags, libc::O_DSYNC)
         }
-        if self.0 & 1 << 2 != 0 {
-            flags |= libc::O_NONBLOCK
+        if nth_bit_set(self.0, 2) {
+            flags = bitwise_or(flags, libc::O_NONBLOCK)
         }
-        if self.0 & 1 << 3 != 0 {
-            flags |= libc::O_RSYNC
+        if nth_bit_set(self.0, 3) {
+            flags = bitwise_or(flags, libc::O_RSYNC)
         }
-        if self.0 & 1 << 4 != 0 {
-            flags |= libc::O_SYNC
+        if nth_bit_set(self.0, 4) {
+            flags = bitwise_or(flags, libc::O_SYNC)
         }
         flags
     }
@@ -371,23 +371,28 @@ impl FdFlags {
 
 impl From<libc::c_int> for FdFlags {
     // must be trusted, bitwise ops not supported in prusti...
-    #[trusted]
+    // #[trusted]
     fn from(flags: libc::c_int) -> Self {
         let mut result = FdFlags(0);
-        if flags & libc::O_APPEND != 0 {
-            result.0 |= 1 << 0;
+        if bitwise_and(flags, libc::O_APPEND) != 0 {
+            result.0 = with_nth_bit_set(result.0, 0);
+            //result.0 |= 1 << 0;
         }
-        if flags & libc::O_DSYNC != 0 {
-            result.0 |= 1 << 1;
+        if bitwise_and(flags, libc::O_DSYNC) != 0 {
+            result.0 = with_nth_bit_set(result.0, 1);
+            //result.0 |= 1 << 1;
         }
-        if flags & libc::O_NONBLOCK != 0 {
-            result.0 |= 1 << 2;
+        if bitwise_and(flags, libc::O_NONBLOCK) != 0 {
+            result.0 = with_nth_bit_set(result.0, 2);
+            //result.0 |= 1 << 2;
         }
-        if flags & libc::O_RSYNC != 0 {
-            result.0 |= 1 << 3;
+        if bitwise_and(flags, libc::O_RSYNC) != 0 {
+            result.0 = with_nth_bit_set(result.0, 3);
+            //result.0 |= 1 << 3;
         }
-        if flags & libc::O_SYNC != 0 {
-            result.0 |= 1 << 4;
+        if bitwise_and(flags, libc::O_SYNC) != 0 {
+            result.0 = with_nth_bit_set(result.0, 4);
+            //result.0 |= 1 << 4;
         }
         result
     }
