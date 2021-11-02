@@ -317,7 +317,6 @@ pub enum Filetype {
 
 impl From<libc::mode_t> for Filetype {
     // must be trusted, bitwise ops not supported in prusti...
-    //#[trusted]
     fn from(filetype: libc::mode_t) -> Self {
         match bitwise_and_u32(filetype, libc::S_IFMT) {
             libc::S_IFBLK => Filetype::BlockDevice,
@@ -346,8 +345,6 @@ impl FdFlags {
         FdFlags(0)
     }
 
-    // trusted due to bitwise ops, can refactor later...
-    //#[trusted]
     pub fn to_posix(&self) -> i32 {
         let mut flags = 0;
         if nth_bit_set(self.0, 0) {
@@ -370,29 +367,22 @@ impl FdFlags {
 }
 
 impl From<libc::c_int> for FdFlags {
-    // must be trusted, bitwise ops not supported in prusti...
-    // #[trusted]
     fn from(flags: libc::c_int) -> Self {
         let mut result = FdFlags(0);
         if bitwise_and(flags, libc::O_APPEND) != 0 {
             result.0 = with_nth_bit_set(result.0, 0);
-            //result.0 |= 1 << 0;
         }
         if bitwise_and(flags, libc::O_DSYNC) != 0 {
             result.0 = with_nth_bit_set(result.0, 1);
-            //result.0 |= 1 << 1;
         }
         if bitwise_and(flags, libc::O_NONBLOCK) != 0 {
             result.0 = with_nth_bit_set(result.0, 2);
-            //result.0 |= 1 << 2;
         }
         if bitwise_and(flags, libc::O_RSYNC) != 0 {
             result.0 = with_nth_bit_set(result.0, 3);
-            //result.0 |= 1 << 3;
         }
         if bitwise_and(flags, libc::O_SYNC) != 0 {
             result.0 = with_nth_bit_set(result.0, 4);
-            //result.0 |= 1 << 4;
         }
         result
     }
@@ -461,22 +451,18 @@ impl FstFlags {
     // must impl flag checking as trusted due to bitwise ops not being supported by prusti
     pub fn atim(&self) -> bool {
         nth_bit_set(self.0, 0)
-        //self.0 & (1 << 0) != 0
     }
 
     pub fn atim_now(&self) -> bool {
         nth_bit_set(self.0, 1)
-        //self.0 & (1 << 1) != 0
     }
 
     pub fn mtim(&self) -> bool {
         nth_bit_set(self.0, 2)
-        //self.0 & (1 << 2) != 0
     }
 
     pub fn mtim_now(&self) -> bool {
         nth_bit_set(self.0, 0)
-        //self.0 & (1 << 4) != 0
     }
 }
 
@@ -489,12 +475,10 @@ impl SdFlags {
 
     pub fn rd(&self) -> bool {
         nth_bit_set(self.0.into(), 0)
-        //self.0 & (1 << 0) != 0
     }
 
     pub fn wr(&self) -> bool {
         nth_bit_set(self.0.into(), 1)
-        //self.0 & (1 << 1) != 0
     }
 }
 
@@ -566,7 +550,6 @@ pub struct SubClockFlags(u16);
 impl SubClockFlags {
     pub fn subscription_clock_abstime(&self) -> bool {
         nth_bit_set(self.0, 0)
-        //self.0 & (1 << 0) != 0
     }
 }
 
