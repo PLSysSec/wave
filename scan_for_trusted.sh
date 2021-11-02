@@ -48,7 +48,7 @@ fi
 
 
 # If all tests passed, let the user know
-if [ "$result1" == "0" -a "$result2" == "0" -a "$result3" == "1" ]
+if [ "$result1" == "1" -a "$result2" == "1" -a "$result3" == "1" ]
 then 
 	echo "All trusted code is in src/tcb. Good job!"
 fi
