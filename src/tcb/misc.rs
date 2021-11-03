@@ -16,11 +16,11 @@ pub fn vec_checked_lookup(
     vec[index as usize]
 }
 
-/// The nth bit from the lsb is set (0 is lsb)
-// #[trusted]
-// pub fn u8_nth_bit_set(bv: u8, n: i32) -> bool {
-//     nth_bit_set(bv.into(), n)
-// }
+///////////////////////////////// Bitwise Ops /////////////////////////////////
+/// These operations are currently trusted because prusti does not handle
+/// bitwise operations. However, they have no #[ensures] annotations, so they
+/// cannot introduce unsoundness into our proof and so I don't expect any of  
+/// these functions to cause any trouble.
 
 /// Check if The nth bit from the lsb is set (0 is lsb)
 #[trusted]
@@ -28,6 +28,7 @@ pub fn nth_bit_set(bv: u16, n: i32) -> bool {
     bv & (1 << n) != 0
 }
 
+/// return bv with the nth bit from the lsb set (0 is lsb)
 #[trusted]
 pub fn with_nth_bit_set(bv: u16, n: i32) -> u16 {
     bv & (1 << n)

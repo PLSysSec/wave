@@ -27,7 +27,7 @@ pub fn os_close(fd: usize) -> usize {
 #[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
 //TODO: fix the result handling
 pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
     unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) }
@@ -40,7 +40,7 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
 pub fn os_pread(fd: usize, buf: &mut Vec<u8>, cnt: usize) -> usize {
     unsafe {
         let result = syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt);
@@ -53,7 +53,7 @@ pub fn os_pread(fd: usize, buf: &mut Vec<u8>, cnt: usize) -> usize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
 pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> usize {
     unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) }
 }
@@ -62,7 +62,7 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> usize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
 pub fn os_pwrite(fd: usize, buf: &Vec<u8>, cnt: usize) -> usize {
     unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) }
 }
@@ -194,7 +194,7 @@ pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> usize
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-#[ensures(three_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::WriteN(count)))]
+#[ensures(three_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::WriteN(count) if count == cnt))]
 pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut Vec<u8>, cnt: usize) -> usize {
     unsafe {
         let result = syscall!(READLINKAT, dir_fd, pathname.as_ptr(), buf.as_mut_ptr(), cnt);
@@ -293,7 +293,7 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count)))]
+#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
 pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) }
 }
@@ -304,7 +304,7 @@ pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
 #[ensures(buf.len() == result)]
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
 pub fn os_recv(fd: usize, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) }
 }
@@ -313,7 +313,7 @@ pub fn os_recv(fd: usize, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> usize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
 pub fn os_send(fd: usize, buf: &Vec<u8>, cnt: usize, flags: u32) -> usize {
     unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) }
 }

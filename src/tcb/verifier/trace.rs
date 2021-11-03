@@ -24,6 +24,7 @@ macro_rules! effect {
     };
 }
 
+//TODO: wrap into a single variadic macro / predicate?
 #[cfg(feature = "verify")]
 predicate! {
     pub fn takes_no_steps(old_trace: &Trace, trace: &Trace) -> bool {
@@ -89,43 +90,95 @@ macro_rules! no_effect {
 
 // TODO: combine into a single variadic macro
 
+//#[macro_export]
+// macro_rules! matches_with_guard {
+//     ($expression:expr, $( $pattern:pat_param )|+ $( if $guard: expr )?) => {
+//         match $expression {
+//             $( $pattern )|+ => $($guard &&)? true,
+//             _ => false
+//         }
+//     }
+// }
+
 /// Enforce that 1 effect occured, and that effect matches "pattern" and possible "guard"
 #[macro_export]
 macro_rules! one_effect {
-    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {
-        takes_one_step($old_trace, $trace) && matches!($trace.lookup($trace.len() - 1), $( $pattern )|+ $( if $guard )?)
+    ($old_trace:expr, $trace:expr, $( $pattern: pat_param )|+ $( if $guard: expr )? ) => {
+        takes_one_step($old_trace, $trace) //&&
+        //matches_with_guard!(trace.lookup($trace.len() - 1), $( $pattern:pat_param )|+ $( if $guard: expr )?)
+        //matches!($trace.lookup($trace.len() - 1), $( $pattern )|+ $( if $guard )?)
+        && match $trace.lookup($trace.len() - 1) {
+            $( $pattern )|+ => $($guard &&)? true,
+            _ => false,
+        }
     };
 }
 
 /// Enforce that 2 effects occured, and that they match "pattern1" and "pattern2"
 #[macro_export]
 macro_rules! two_effects {
-    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat) => {
+    ($old_trace:expr, $trace:expr, $( $pattern1: pat_param )|+ $( if $guard1: expr )?, $( $pattern2: pat_param )|+ $( if $guard2: expr )?) => {
         takes_two_steps($old_trace, $trace)
-            && matches!($trace.lookup($trace.len() - 2), $pattern1)
-            && matches!($trace.lookup($trace.len() - 1), $pattern2)
+        && match $trace.lookup($trace.len() - 2) {
+            $( $pattern1 )|+ => $($guard1 &&)? true,
+            _ => false,
+        }
+        && match $trace.lookup($trace.len() - 1) {
+            $( $pattern2 )|+ => $($guard2 &&)? true,
+            _ => false,
+        }
+            // && matches!($trace.lookup($trace.len() - 2), $pattern1)
+            // && matches!($trace.lookup($trace.len() - 1), $pattern2)
     };
 }
 
 /// Enforce that 3 effects occured, and that they match the patterns specified
 #[macro_export]
 macro_rules! three_effects {
-    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat, $pattern3:pat) => {
+    ($old_trace:expr, $trace:expr, $( $pattern1: pat_param )|+ $( if $guard1: expr )?, $( $pattern2: pat_param )|+ $( if $guard2: expr )?, $( $pattern3: pat_param )|+ $( if $guard3: expr )?) => {
         takes_three_steps($old_trace, $trace)
-            && matches!($trace.lookup($trace.len() - 3), $pattern1)
-            && matches!($trace.lookup($trace.len() - 2), $pattern2)
-            && matches!($trace.lookup($trace.len() - 1), $pattern3)
+        && match $trace.lookup($trace.len() - 3) {
+            $( $pattern1 )|+ => $($guard1 &&)? true,
+            _ => false,
+        }
+        && match $trace.lookup($trace.len() - 2) {
+            $( $pattern2 )|+ => $($guard2 &&)? true,
+            _ => false,
+        }
+        && match $trace.lookup($trace.len() - 1) {
+            $( $pattern3 )|+ => $($guard3 &&)? true,
+            _ => false,
+        }
+            // && matches!($trace.lookup($trace.len() - 3), $pattern1)
+            // && matches!($trace.lookup($trace.len() - 2), $pattern2)
+            // && matches!($trace.lookup($trace.len() - 1), $pattern3)
     };
 }
 
 #[macro_export]
 macro_rules! four_effects {
-    ($old_trace:expr, $trace:expr, $pattern1:pat, $pattern2:pat, $pattern3:pat, $pattern4:pat) => {
+    ($old_trace:expr, $trace:expr,  $( $pattern1: pat_param )|+ $( if $guard1: expr )?, $( $pattern2: pat_param )|+ $( if $guard2: expr )?, $( $pattern3: pat_param )|+ $( if $guard3: expr )?,  $( $pattern4: pat_param )|+ $( if $guard4: expr )?) => {
         takes_four_steps($old_trace, $trace)
-            && matches!($trace.lookup($trace.len() - 4), $pattern1)
-            && matches!($trace.lookup($trace.len() - 3), $pattern2)
-            && matches!($trace.lookup($trace.len() - 2), $pattern3)
-            && matches!($trace.lookup($trace.len() - 1), $pattern4)
+        && match $trace.lookup($trace.len() - 4) {
+            $( $pattern1 )|+ => $($guard1 &&)? true,
+            _ => false,
+        }
+        && match $trace.lookup($trace.len() - 3) {
+            $( $pattern2 )|+ => $($guard2 &&)? true,
+            _ => false,
+        }
+        && match $trace.lookup($trace.len() - 2) {
+            $( $pattern3 )|+ => $($guard3 &&)? true,
+            _ => false,
+        }
+        && match $trace.lookup($trace.len() - 1) {
+            $( $pattern4 )|+ => $($guard4 &&)? true,
+            _ => false,
+        }
+            // && matches!($trace.lookup($trace.len() - 4), $pattern1)
+            // && matches!($trace.lookup($trace.len() - 3), $pattern2)
+            // && matches!($trace.lookup($trace.len() - 2), $pattern3)
+            // && matches!($trace.lookup($trace.len() - 1), $pattern4)
     };
 }
 
