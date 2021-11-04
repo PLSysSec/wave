@@ -90,23 +90,12 @@ macro_rules! no_effect {
 
 // TODO: combine into a single variadic macro
 
-//#[macro_export]
-// macro_rules! matches_with_guard {
-//     ($expression:expr, $( $pattern:pat_param )|+ $( if $guard: expr )?) => {
-//         match $expression {
-//             $( $pattern )|+ => $($guard &&)? true,
-//             _ => false
-//         }
-//     }
-// }
-
 /// Enforce that 1 effect occured, and that effect matches "pattern" and possible "guard"
 #[macro_export]
 macro_rules! one_effect {
     ($old_trace:expr, $trace:expr, $( $pattern: pat_param )|+ $( if $guard: expr )? ) => {
         takes_one_step($old_trace, $trace) //&&
-        //matches_with_guard!(trace.lookup($trace.len() - 1), $( $pattern:pat_param )|+ $( if $guard: expr )?)
-        //matches!($trace.lookup($trace.len() - 1), $( $pattern )|+ $( if $guard )?)
+
         && match $trace.lookup($trace.len() - 1) {
             $( $pattern )|+ => $($guard &&)? true,
             _ => false,
@@ -149,9 +138,6 @@ macro_rules! three_effects {
             $( $pattern3 )|+ => $($guard3 &&)? true,
             _ => false,
         }
-            // && matches!($trace.lookup($trace.len() - 3), $pattern1)
-            // && matches!($trace.lookup($trace.len() - 2), $pattern2)
-            // && matches!($trace.lookup($trace.len() - 1), $pattern3)
     };
 }
 
@@ -175,10 +161,6 @@ macro_rules! four_effects {
             $( $pattern4 )|+ => $($guard4 &&)? true,
             _ => false,
         }
-            // && matches!($trace.lookup($trace.len() - 4), $pattern1)
-            // && matches!($trace.lookup($trace.len() - 3), $pattern2)
-            // && matches!($trace.lookup($trace.len() - 2), $pattern3)
-            // && matches!($trace.lookup($trace.len() - 1), $pattern4)
     };
 }
 
@@ -227,11 +209,6 @@ impl Trace {
         self.v.push(value);
     }
 }
-
-// struct ServerCtx {
-//     pub read_addr: u32,  // ip to read from
-//     pub write_addr: u32, // ip to write from
-// }
 
 /*SafePtr --> newtype around pointer
 Track length and is safe
