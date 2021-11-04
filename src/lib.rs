@@ -17,13 +17,11 @@ extern crate prusti_contracts;
 mod fdmap;
 mod os;
 mod runtime;
+pub mod tcb;
 mod tests;
 mod types;
+pub mod verifier_interface;
 //#[cfg(not(feature = "verify"))]
 //pub mod wasm2c_frontend;
-//#[cfg(feature = "verify")]
-//pub mod verifier;
-pub mod tcb;
-pub mod verifier_interface;
 // #[with_ghost_var(trace: &mut Trace)]
 mod wrappers;
