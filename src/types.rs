@@ -316,7 +316,6 @@ pub enum Filetype {
 }
 
 impl From<libc::mode_t> for Filetype {
-    // must be trusted, bitwise ops not supported in prusti...
     fn from(filetype: libc::mode_t) -> Self {
         match bitwise_and_u32(filetype, libc::S_IFMT) {
             libc::S_IFBLK => Filetype::BlockDevice,
@@ -328,6 +327,22 @@ impl From<libc::mode_t> for Filetype {
             libc::S_IFSOCK => Filetype::Unknown,
             libc::S_IFLNK => Filetype::SymbolicLink,
             _ => Filetype::Unknown,
+        }
+    }
+}
+
+impl From<Filetype> for libc::mode_t {
+    // TODO: returns 0 on unknown, is that correct?
+    fn from(filetype: Filetype) -> Self {
+        match filetype {
+            Filetype::Unknown => 0,
+            Filetype::BlockDevice => libc::S_IFBLK,
+            Filetype::CharacterDevice => libc::S_IFCHR,
+            Filetype::Directory => libc::S_IFDIR,
+            Filetype::RegularFile => libc::S_IFREG,
+            Filetype::SocketDgram => libc::S_IFSOCK,
+            Filetype::SocketStream => libc::S_IFSOCK,
+            Filetype::SymbolicLink => libc::S_IFLNK,
         }
     }
 }
@@ -399,14 +414,14 @@ pub struct FdStat {
 }
 
 pub struct FileStat {
-    dev: u64,
-    ino: u64,
-    filetype: Filetype,
-    nlink: u64,
-    size: u64,
-    atim: Timestamp,
-    mtim: Timestamp,
-    ctim: Timestamp,
+    pub dev: u64,
+    pub ino: u64,
+    pub filetype: Filetype,
+    pub nlink: u64,
+    pub size: u64,
+    pub atim: Timestamp,
+    pub mtim: Timestamp,
+    pub ctim: Timestamp,
 }
 
 impl From<libc::stat> for FileStat {
