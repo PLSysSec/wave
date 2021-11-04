@@ -38,9 +38,12 @@ verify-debug:
 	PRUSTI_CHECK_OVERFLOWS=false PRUSTI_DUMP_VIPER_PROGRAM=true PRUSTI_LOG=trace PRUSTI_DUMP_DEBUG_INFO_DURING_FOLD=true ../prusti-dev/target/debug/cargo-prusti --features verify
 
 # Generate C/Cpp bindings for veriwasi
+# wasm2c expects to pass a void pointer instead of a VmCtx pointer 
+# (which cbindgen generates), so I just use a sed command to replace it :)
 bindings:
 	mkdir -p bindings
 	cbindgen --config cbindgen.toml --crate veriwasi --lang c --output bindings/veriwasi.h
+	sed -i 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/veriwasi.h
 
 wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
