@@ -323,7 +323,7 @@ Wasi API that is not currently supported by wasm2c
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     offset: u64,
@@ -337,7 +337,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     offset: u64,
@@ -350,7 +350,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(
     ctx: *const *mut VmCtx,
     v_fd: u32,
 ) -> u32 {
@@ -361,7 +361,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     out: u32,
@@ -372,7 +372,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(
 }
 
 #[no_mangle]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     flags: u32,
@@ -391,7 +391,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     out: u32,
@@ -403,7 +403,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     size: u64,
@@ -415,7 +415,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(
     ctx: *const *mut VmCtx,
     v_fd: u32,
     atim: u64,
@@ -429,7 +429,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(
     ctx: *const *mut VmCtx,
     fd: u32,
     iovs: u32,
@@ -442,7 +442,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     path: u32,
@@ -455,7 +455,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(
     ctx: *const *mut VmCtx,
     fd: u32,
     iovs: u32,
@@ -468,7 +468,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(
     ctx: *const *mut VmCtx,
     fd: u32,
     buf: u32,
@@ -481,7 +481,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(
     ctx: *const *mut VmCtx,
     from: u32,
     to: u32,
@@ -493,7 +493,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_syncZ_ii(ctx: *const *mut VmCtx, fd: u32) -> u32 {
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_syncZ_ii(ctx: *const *mut VmCtx, fd: u32) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_sync(ctx_ref, fd);
     wasm2c_marshal(r)
@@ -501,7 +501,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_syncZ_ii(ctx: *const *mut VmCtx,
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_tellZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_tellZ_iii(
     ctx: *const *mut VmCtx,
     fd: u32,
     out: u32,
@@ -513,7 +513,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_tellZ_iii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     pathname: u32,
@@ -526,7 +526,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
 // wasi libc truncates result to 16 bits ???
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     flags: u32,
@@ -542,7 +542,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(
 //should pass through path_len probably
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
     ctx: *const *mut VmCtx,
     fd: u32,
     flags: u32,
@@ -567,7 +567,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
     ctx: *const *mut VmCtx,
     old_fd: u32,
     old_flags: u32,
@@ -589,7 +589,7 @@ fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rig
 #[no_mangle]
 #[trace]
 // TODO: we are not using almost any of these args
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     ctx: *const *mut VmCtx,
     fd: u32,
     dirflags: u32,
@@ -610,7 +610,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
 //TODO: pass through path_len
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     path: u32,
@@ -627,7 +627,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(
 #[no_mangle]
 #[trace]
 // Pass through path_len
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     path: u32,
@@ -641,7 +641,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
 #[no_mangle]
 #[trace]
 // TODO: pass through path_len
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
     ctx: *const *mut VmCtx,
     old_fd: u32,
     old_path: u32,
@@ -657,7 +657,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(
     ctx: *const *mut VmCtx,
     old_path: u32,
     old_path_len: u32,
@@ -672,7 +672,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     path: u32,
@@ -685,7 +685,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(
     ctx: *const *mut VmCtx,
     in_ptr: u32,
     out_ptr: u32,
@@ -699,7 +699,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
     ctx: *const *mut VmCtx,
     signal: u32,
 ) -> u32 {
@@ -710,7 +710,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_random_getZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_random_getZ_iii(
     ctx: *const *mut VmCtx,
     buf: u32,
     buf_len: u32,
@@ -722,7 +722,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_random_getZ_iii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmCtx) -> u32 {
+pub extern "C" fn Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmCtx) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sched_yield(ctx_ref);
     wasm2c_marshal(r)
@@ -730,7 +730,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmC
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     ri_data: u32,
@@ -746,7 +746,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     si_data: u32,
@@ -761,7 +761,7 @@ pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(
+pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(
     ctx: *const *mut VmCtx,
     fd: u32,
     how: u32,

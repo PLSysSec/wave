@@ -80,185 +80,185 @@ uint32_t Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(void *ctx,
                                                       uint32_t clock_id,
                                                       uint32_t out);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(void *ctx,
+                                                    uint32_t v_fd,
+                                                    uint64_t offset,
+                                                    uint64_t len,
+                                                    uint32_t advice);
+
+uint32_t Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(void *ctx,
                                                      uint32_t v_fd,
                                                      uint64_t offset,
-                                                     uint64_t len,
-                                                     uint32_t advice);
+                                                     uint64_t len);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(void *ctx,
+                                                   uint32_t v_fd);
+
+uint32_t Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(void *ctx,
                                                       uint32_t v_fd,
-                                                      uint64_t offset,
-                                                      uint64_t len);
+                                                      uint32_t out);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(void *ctx,
-                                                    uint32_t v_fd);
+uint32_t Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(void *ctx,
+                                                            uint32_t v_fd,
+                                                            uint32_t flags);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(void *ctx,
-                                                       uint32_t v_fd,
-                                                       uint32_t out);
+uint32_t Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(void *ctx,
+                                                        uint32_t v_fd,
+                                                        uint32_t out);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(void *ctx,
                                                              uint32_t v_fd,
-                                                             uint32_t flags);
+                                                             uint64_t size);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(void *ctx,
-                                                         uint32_t v_fd,
-                                                         uint32_t out);
+uint32_t Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(void *ctx,
+                                                                uint32_t v_fd,
+                                                                uint64_t atim,
+                                                                uint64_t mtim,
+                                                                uint32_t fst_flags);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(void *ctx,
-                                                              uint32_t v_fd,
-                                                              uint64_t size);
+uint32_t Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(void *ctx,
+                                                    uint32_t fd,
+                                                    uint32_t iovs,
+                                                    uint32_t iov_len,
+                                                    uint64_t offset,
+                                                    uint32_t out);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(void *ctx,
-                                                                 uint32_t v_fd,
-                                                                 uint64_t atim,
-                                                                 uint64_t mtim,
-                                                                 uint32_t fst_flags);
+uint32_t Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(void *ctx,
+                                                             uint32_t fd,
+                                                             uint32_t path,
+                                                             uint32_t path_len);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(void *ctx,
                                                      uint32_t fd,
                                                      uint32_t iovs,
                                                      uint32_t iov_len,
                                                      uint64_t offset,
-                                                     uint32_t out);
+                                                     uint32_t retptr);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(void *ctx,
-                                                              uint32_t fd,
-                                                              uint32_t path,
-                                                              uint32_t path_len);
-
-uint32_t _Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(void *ctx,
                                                       uint32_t fd,
-                                                      uint32_t iovs,
-                                                      uint32_t iov_len,
-                                                      uint64_t offset,
+                                                      uint32_t buf,
+                                                      uint32_t buf_len,
+                                                      uint64_t cookie,
                                                       uint32_t retptr);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(void *ctx,
-                                                       uint32_t fd,
-                                                       uint32_t buf,
-                                                       uint32_t buf_len,
-                                                       uint64_t cookie,
-                                                       uint32_t retptr);
+uint32_t Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(void *ctx,
+                                                    uint32_t from,
+                                                    uint32_t to);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(void *ctx,
-                                                     uint32_t from,
-                                                     uint32_t to);
+uint32_t Z_wasi_snapshot_preview1Z_fd_syncZ_ii(void *ctx,
+                                               uint32_t fd);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_syncZ_ii(void *ctx,
-                                                uint32_t fd);
+uint32_t Z_wasi_snapshot_preview1Z_fd_tellZ_iii(void *ctx,
+                                                uint32_t fd,
+                                                uint32_t out);
 
-uint32_t _Z_wasi_snapshot_preview1Z_fd_tellZ_iii(void *ctx,
-                                                 uint32_t fd,
-                                                 uint32_t out);
+uint32_t Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(void *ctx,
+                                                               uint32_t fd,
+                                                               uint32_t pathname);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(void *ctx,
-                                                                uint32_t fd,
-                                                                uint32_t pathname);
+uint32_t Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(void *ctx,
+                                                             uint32_t fd,
+                                                             uint32_t flags,
+                                                             uint32_t path,
+                                                             uint32_t path_len,
+                                                             uint32_t out);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(void *ctx,
-                                                              uint32_t fd,
-                                                              uint32_t flags,
-                                                              uint32_t path,
-                                                              uint32_t path_len,
-                                                              uint32_t out);
+uint32_t Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(void *ctx,
+                                                                     uint32_t fd,
+                                                                     uint32_t flags,
+                                                                     uint32_t path,
+                                                                     uint32_t path_len,
+                                                                     uint64_t atim,
+                                                                     uint64_t mtim,
+                                                                     uint32_t fst_flags);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(void *ctx,
-                                                                      uint32_t fd,
-                                                                      uint32_t flags,
-                                                                      uint32_t path,
-                                                                      uint32_t path_len,
-                                                                      uint64_t atim,
-                                                                      uint64_t mtim,
-                                                                      uint32_t fst_flags);
+uint32_t Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(void *ctx,
+                                                       uint32_t old_fd,
+                                                       uint32_t old_flags,
+                                                       uint32_t old_path,
+                                                       uint32_t old_path_len,
+                                                       uint32_t new_fd,
+                                                       uint32_t new_path,
+                                                       uint32_t new_path_len);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(void *ctx,
+                                                         uint32_t fd,
+                                                         uint32_t dirflags,
+                                                         uint32_t path,
+                                                         uint32_t path_len,
+                                                         uint32_t oflags,
+                                                         uint64_t _fs_rights_base,
+                                                         uint64_t _fs_rights_inheriting,
+                                                         uint32_t fdflags,
+                                                         uint32_t out);
+
+uint32_t Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(void *ctx,
+                                                          uint32_t fd,
+                                                          uint32_t path,
+                                                          uint32_t path_len,
+                                                          uint32_t buf,
+                                                          uint32_t buf_len,
+                                                          uint32_t out);
+
+uint32_t Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(void *ctx,
+                                                               uint32_t fd,
+                                                               uint32_t path,
+                                                               uint32_t path_len);
+
+uint32_t Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(void *ctx,
                                                         uint32_t old_fd,
-                                                        uint32_t old_flags,
                                                         uint32_t old_path,
                                                         uint32_t old_path_len,
                                                         uint32_t new_fd,
                                                         uint32_t new_path,
                                                         uint32_t new_path_len);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(void *ctx,
+                                                        uint32_t old_path,
+                                                        uint32_t old_path_len,
+                                                        uint32_t fd,
+                                                        uint32_t path,
+                                                        uint32_t path_len);
+
+uint32_t Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(void *ctx,
                                                           uint32_t fd,
-                                                          uint32_t dirflags,
                                                           uint32_t path,
-                                                          uint32_t path_len,
-                                                          uint32_t oflags,
-                                                          uint64_t _fs_rights_base,
-                                                          uint64_t _fs_rights_inheriting,
-                                                          uint32_t fdflags,
-                                                          uint32_t out);
+                                                          uint32_t path_len);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(void *ctx,
-                                                           uint32_t fd,
-                                                           uint32_t path,
-                                                           uint32_t path_len,
-                                                           uint32_t buf,
-                                                           uint32_t buf_len,
-                                                           uint32_t out);
+uint32_t Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(void *ctx,
+                                                      uint32_t in_ptr,
+                                                      uint32_t out_ptr,
+                                                      uint32_t nsubscriptions,
+                                                      uint32_t retptr);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(void *ctx,
-                                                                uint32_t fd,
-                                                                uint32_t path,
-                                                                uint32_t path_len);
+uint32_t Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(void *ctx,
+                                                  uint32_t signal);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(void *ctx,
-                                                         uint32_t old_fd,
-                                                         uint32_t old_path,
-                                                         uint32_t old_path_len,
-                                                         uint32_t new_fd,
-                                                         uint32_t new_path,
-                                                         uint32_t new_path_len);
+uint32_t Z_wasi_snapshot_preview1Z_random_getZ_iii(void *ctx,
+                                                   uint32_t buf,
+                                                   uint32_t buf_len);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(void *ctx,
-                                                         uint32_t old_path,
-                                                         uint32_t old_path_len,
-                                                         uint32_t fd,
-                                                         uint32_t path,
-                                                         uint32_t path_len);
+uint32_t Z_wasi_snapshot_preview1Z_sched_yieldZ_i(void *ctx);
 
-uint32_t _Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(void *ctx,
-                                                           uint32_t fd,
-                                                           uint32_t path,
-                                                           uint32_t path_len);
-
-uint32_t _Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(void *ctx,
-                                                       uint32_t in_ptr,
-                                                       uint32_t out_ptr,
-                                                       uint32_t nsubscriptions,
-                                                       uint32_t retptr);
-
-uint32_t _Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(void *ctx,
-                                                   uint32_t signal);
-
-uint32_t _Z_wasi_snapshot_preview1Z_random_getZ_iii(void *ctx,
-                                                    uint32_t buf,
-                                                    uint32_t buf_len);
-
-uint32_t _Z_wasi_snapshot_preview1Z_sched_yieldZ_i(void *ctx);
-
-uint32_t _Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(void *ctx,
-                                                       uint32_t fd,
-                                                       uint32_t ri_data,
-                                                       uint32_t ri_data_count,
-                                                       uint32_t ri_flags,
-                                                       uint32_t out0,
-                                                       uint32_t out1);
-
-uint32_t _Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(void *ctx,
+uint32_t Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(void *ctx,
                                                       uint32_t fd,
-                                                      uint32_t si_data,
-                                                      uint32_t si_data_count,
-                                                      uint32_t si_flags,
-                                                      uint32_t out);
+                                                      uint32_t ri_data,
+                                                      uint32_t ri_data_count,
+                                                      uint32_t ri_flags,
+                                                      uint32_t out0,
+                                                      uint32_t out1);
 
-uint32_t _Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(void *ctx,
-                                                       uint32_t fd,
-                                                       uint32_t how);
+uint32_t Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(void *ctx,
+                                                     uint32_t fd,
+                                                     uint32_t si_data,
+                                                     uint32_t si_data_count,
+                                                     uint32_t si_flags,
+                                                     uint32_t out);
+
+uint32_t Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(void *ctx,
+                                                      uint32_t fd,
+                                                      uint32_t how);
 
 #ifdef __cplusplus
 } // extern "C"
