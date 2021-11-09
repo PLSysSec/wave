@@ -37,7 +37,7 @@ uint32_t Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii(void *ctx,
                                                        uint32_t pargv_buf_size);
 
 void Z_wasi_snapshot_preview1Z_proc_exitZ_vi(void *ctx,
-                                             uint32_t x);
+                                             int32_t x);
 
 uint32_t Z_wasi_snapshot_preview1Z_environ_sizes_getZ_iii(void *ctx,
                                                           uint32_t pcount,
