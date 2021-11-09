@@ -194,8 +194,8 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii(
 
 #[no_mangle]
 #[trace]
-pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx: *const *mut VmCtx, x: i32) {
-    std::process::exit(x);
+pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx: *const *mut VmCtx, x: u32) {
+    std::process::exit(x as i32);
     // let ctx_ref = ptr_to_ref(ctx);
     // wasi_proc_exit(ctx_ref, x);
 }
