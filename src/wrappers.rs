@@ -477,7 +477,9 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     Ok(num)
 }
 
-// modifies: ????
+// modifies: mem
+// If v_fd refers to a preopened directory (fd == 3), write the name to path
+
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(Ok)]
 #[external_call(Err)]
@@ -485,6 +487,8 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 #[external_method(ok_or)]
 #[external_method(push)]
 #[external_method(len)]
+#[external_method(as_bytes)]
+#[external_method(to_vec)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_prestat_dirname(
@@ -497,8 +501,9 @@ pub fn wasi_prestat_dirname(
         return Err(Ebadf);
     }
 
-    let mut dirname: Vec<u8> = Vec::new();
-    dirname.push(b'/');
+    //let mut dirname: Vec<u8> = Vec::new();
+    //dirname.push((&ctx.homedir).as_bytes().to_vec());
+    let dirname = (&ctx.homedir).as_bytes().to_vec();
     let dirname_len = dirname.len() as u32;
     if !ctx.fits_in_lin_mem(path, dirname_len) {
         return Err(Efault);
@@ -512,15 +517,25 @@ pub fn wasi_prestat_dirname(
 
 /// Currently we use the same implementation as wasm2c, which is to not do very mucb at all
 /// TODO: real implementation for this, most likely following wasi-common's implementation
+/// fd_presat_get returns the length of the preopened directory corresponding to v_fd
+/// since we are currently hardcoded to 1 preopened directory at fd==3, this is pretty simple.
+///
+/// must return ebadf if the file doesn't exist:
+/// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(Err)]
+#[external_call(Ok)]
+#[external_method(len)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
-pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
+pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    // if v_fd >= MAX_SBOX_FDS {
+    //     return Err(Ebadf);
+    // }
+    if v_fd == HOMEDIR_FD {
+        return Ok(ctx.homedir.len() as u32);
     }
-    return Err(Emfile);
+    return Err(Ebadf);
 }
 
 // TODO: refactor write and pwrite into common impl

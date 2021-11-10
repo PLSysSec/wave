@@ -78,6 +78,21 @@ fn wasm2c_marshal_and_writeback_u32(
     }
 }
 
+fn wasm2c_marshal_and_writeback_prestat(
+    ctx_ref: &mut VmCtx,
+    addr: usize,
+    result: RuntimeResult<u32>,
+) -> u32 {
+    match result {
+        Ok(r) => {
+            ctx_ref.write_u32(addr, 0);
+            ctx_ref.write_u64(addr + 4, r as u64); // writeback result
+            0
+        }
+        Err(err) => err.into(),
+    }
+}
+
 fn wasm2c_marshal_and_writeback_u64(
     ctx_ref: &mut VmCtx,
     addr: usize,
@@ -232,11 +247,9 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_prestat_getZ_iii(
     prestat: u32,
 ) -> u32 {
     // Wasm2c implementation
-    // TODO: Should probably replace with a real implementation based
-    // on wasi-common's
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_prestat_get(ctx_ref, fd);
-    wasm2c_marshal(r)
+    wasm2c_marshal_and_writeback_prestat(ctx_ref, prestat as usize, r)
 }
 
 #[no_mangle]
@@ -517,6 +530,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
     ctx: *const *mut VmCtx,
     fd: u32,
     pathname: u32,
+    path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_sync(ctx_ref, fd);

@@ -10,20 +10,32 @@ use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
+use std::os::unix::io::AsRawFd;
 use std::path::{Component, Path, PathBuf};
 use std::ptr::{copy, copy_nonoverlapping};
 
 use RuntimeError::*;
 
+// Exit codes for wasi-libc: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-top-half/musl/include/sysexits.h
+
 //#[ensures(safe(&result))]
 #[with_ghost_var(trace: &mut Trace)]
 #[external_call(new)]
 #[external_method(init_std_fds)]
+#[external_method(unwrap)]
+#[external_call(open)]
+#[external_method(as_raw_fd)]
+#[external_method(create)]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
+    let homedir_fd = std::fs::File::open(&homedir).unwrap().as_raw_fd();
+    if homedir_fd > 0 {
+        fdmap.create((homedir_fd as usize).into());
+    }
+
     let arg_buffer = Vec::new();
     let argc = 0;
     let env_buffer = Vec::new();

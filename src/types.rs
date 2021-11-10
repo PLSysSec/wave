@@ -15,6 +15,8 @@ pub const PATH_MAX: u32 = 1024;
 pub const PAGE_SIZE: usize = 4096;
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
 
+pub const HOMEDIR_FD: SboxFd = 3; //4GB
+
 #[cfg(feature = "verify")]
 predicate! {
     fn safe(ctx: &VmCtx) -> bool {
@@ -61,11 +63,13 @@ pub enum RuntimeError {
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
+// Apparently wasi errors are not actually the same numbers as posix errors :(
+// TODO: make all of these align to https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
 impl From<RuntimeError> for u32 {
     fn from(item: RuntimeError) -> Self {
         let result = match item {
             RuntimeError::Success => 0,
-            RuntimeError::Ebadf => libc::EBADF,
+            RuntimeError::Ebadf => 8, // see above libc::EBADF,
             RuntimeError::Emfile => libc::EMFILE,
             RuntimeError::Efault => libc::EFAULT,
             RuntimeError::Einval => libc::EINVAL,

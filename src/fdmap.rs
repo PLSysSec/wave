@@ -15,6 +15,9 @@ Data structure to map sandbox file descriptors to host file descriptors.
 We will prove things about it's API as necessary.
 */
 
+//TODO: should not be able to close stdin,stdout,stderr,homedir
+// homedir is hardcoded to 3.
+
 impl FdMap {
     // #[ensures (result.m.len() == MAX_SBOX_FDS)]
     #[ensures (result.reserve.len() == 0)]
