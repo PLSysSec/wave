@@ -80,7 +80,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
         let start = (iovs + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
-        if !ctx.fits_in_lin_mem(ptr, len) {
+        /*if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
         //let slice = ctx.slice_mem_mut(ptr, len);
@@ -88,13 +88,13 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
         // let end = ptr as usize + len as usize;
 
         let mut buf: Vec<u8> = Vec::new();
-        buf.reserve_exact(len as usize);
-        let result = trace_read(ctx, fd, &mut buf, len as usize);
+        buf.reserve_exact(len as usize);*/
+        let result = trace_read(ctx, fd, ptr, len as usize);
         RuntimeError::from_syscall_ret(result)?;
         let result = result as u32;
-        let copy_ok = ctx
+        /*let copy_ok = ctx
             .copy_buf_to_sandbox(ptr, &buf, result as u32)
-            .ok_or(Efault)?;
+            .ok_or(Efault)?;*/
 
         // let slice = &mut ctx.mem[ptr as usize..ptr as usize + len as usize];
 
@@ -132,10 +132,10 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        //let slice = ctx.slice_mem(ptr, len);
+        let slice = ctx.slice_mem(ptr, len);
         let start = ptr as usize;
         let end = (ptr + len) as usize;
-        let slice = &ctx.mem[start..end];
+        //let slice = &ctx.mem[start..end];
         let result = trace_write(ctx, fd, slice, len as usize);
         RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
@@ -437,7 +437,7 @@ pub fn wasi_fd_filestat_set_times(
 
 // TODO: refactor read and pread into common impl
 // modifies: mem
-#[with_ghost_var(trace: &mut Trace)]
+/*#[with_ghost_var(trace: &mut Trace)]
 #[external_call(Ok)]
 #[external_call(Err)]
 #[external_call(new)]
@@ -475,7 +475,7 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
         i += 1;
     }
     Ok(num)
-}
+}*/
 
 // modifies: ????
 #[with_ghost_var(trace: &mut Trace)]

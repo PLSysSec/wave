@@ -31,7 +31,7 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> usize {
     os_close(os_fd)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
+/*#[with_ghost_var(trace: &mut Trace)]
 #[external_method(into)]
 #[requires(buf.len() >= cnt)]
 #[requires(cnt < ctx.memlen)]
@@ -41,9 +41,30 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> usize {
 #[ensures(result <= cnt)]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
 /// read writes `cnt` bytes to sandbox memory
-pub fn trace_read(ctx: &VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
+pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize {
     let os_fd: usize = fd.into();
     os_read(os_fd, buf, cnt)
+}*/
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_method(into)]
+//#[requires(buf.len() >= cnt)]
+#[requires(cnt < ctx.memlen)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+//#[ensures(buf.len() >= cnt)]
+#[ensures(result <= cnt)]
+#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+/// read writes `cnt` bytes to sandbox memory
+pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> usize {
+    if !ctx.fits_in_lin_mem(ptr, cnt as u32) {
+        return 0;
+    }
+    //let slice = ctx.slice_mem_mut(ptr, cnt as u32);
+    //let mut slice = vec![0u8];
+    let os_fd: usize = fd.into();
+    //os_read(os_fd, slice, cnt)
+    return 0;
 }
 
 #[with_ghost_var(trace: &mut Trace)]
