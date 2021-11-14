@@ -38,10 +38,12 @@ impl FdMap {
     // #[external_method(into)]
     #[requires (self.counter == 0)] //should only be called on empty fdmap
     pub fn init_std_fds(&mut self) -> RuntimeResult<()> {
-        let stdin_fd = stdin().as_raw_fd(); // upcasting i32 => usize
+        let stdin_fd = stdin().as_raw_fd();
         let stdout_fd = stdout().as_raw_fd();
         let stderr_fd = stderr().as_raw_fd();
         if (stdin_fd >= 0) && (stdout_fd >= 0) && (stderr_fd >= 0) {
+            // upcasting i32 => usize is safe since we checked that it is positive
+            // viper overflow checker would yell at us if this was not the case
             self.create((stdin_fd as usize).into());
             self.create((stdout_fd as usize).into());
             self.create((stderr_fd as usize).into());
@@ -90,6 +92,7 @@ impl FdMap {
     // #[requires(trace_safe(ctx, trace))]
     // #[ensures(trace_safe(ctx, trace))]
     pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {
+        println!("Fdmap.create({:?})", k);
         let s_fd = self.pop_fd()?;
         self.m[s_fd as usize] = Ok(k);
         Ok(s_fd)

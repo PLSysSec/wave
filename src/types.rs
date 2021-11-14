@@ -29,7 +29,7 @@ predicate! {
 pub type SboxPtr = u32;
 
 // pub type HostFd = usize;
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct HostFd(usize);
 impl From<HostFd> for usize {
     fn from(w: HostFd) -> usize {
@@ -45,7 +45,7 @@ impl From<usize> for HostFd {
 
 pub type SboxFd = u32;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[cfg_attr(test, derive(Debug))] // needed for assert_eq!
 pub enum RuntimeError {
     Success,
@@ -458,7 +458,48 @@ impl Default for FileStat {
     }
 }
 
-pub type LookupFlags = u32;
+pub struct LookupFlags(u32);
+impl LookupFlags {
+    pub fn new(flags: u32) -> Self {
+        LookupFlags(flags)
+    }
+
+    pub fn to_posix(&self) -> i32 {
+        let mut flags = 0;
+        if !nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::O_NOFOLLOW)
+        }
+        flags
+    }
+}
+
+pub struct OFlags(u32);
+impl OFlags {
+    pub fn new(flags: u32) -> Self {
+        OFlags(flags)
+    }
+
+    pub fn to_posix(&self) -> i32 {
+        let mut flags = 0;
+        if nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::O_CREAT)
+        }
+        if nth_bit_set_u32(self.0, 1) {
+            flags = bitwise_or(flags, libc::O_DIRECTORY)
+        }
+        if nth_bit_set_u32(self.0, 2) {
+            flags = bitwise_or(flags, libc::O_EXCL)
+        }
+        if nth_bit_set_u32(self.0, 3) {
+            flags = bitwise_or(flags, libc::O_TRUNC)
+        }
+        // For now, just make all files read write since wasi-libc stashes
+        // read and write permissions in the rights struct for some reason.
+        // TODO: allow read-only files
+        flags = bitwise_or(flags, libc::O_RDWR);
+        flags
+    }
+}
 
 pub struct FstFlags(u16);
 

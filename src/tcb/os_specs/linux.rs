@@ -41,9 +41,9 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
 #[ensures(buf.capacity() >= cnt)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
-pub fn os_pread(fd: usize, buf: &mut Vec<u8>, cnt: usize) -> usize {
+pub fn os_pread(fd: usize, buf: &mut Vec<u8>, cnt: usize, offset: usize) -> usize {
     unsafe {
-        let result = syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt);
+        let result = syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt, offset);
         buf.set_len(result);
         result
     }
@@ -63,8 +63,8 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> usize {
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
-pub fn os_pwrite(fd: usize, buf: &Vec<u8>, cnt: usize) -> usize {
-    unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) }
+pub fn os_pwrite(fd: usize, buf: &Vec<u8>, cnt: usize, offset: usize) -> usize {
+    unsafe { syscall!(PWRITE64, fd, buf.as_ptr(), cnt, offset) }
 }
 
 //https://man7.org/linux/man-pages/man2/lseek.2.html
@@ -85,11 +85,12 @@ pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> usize {
 }
 
 // https://man7.org/linux/man-pages/man2/fallocate.2.html
+// hardcode mode to 0 to behave more like posix_fallocate
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
 pub fn os_allocate(fd: usize, offset: i64, len: i64) -> usize {
-    unsafe { syscall!(FALLOCATE, fd, offset, len) }
+    unsafe { syscall!(FALLOCATE, fd, 0, offset, len) }
 }
 
 //https://man7.org/linux/man-pages/man2/fsync.2.html

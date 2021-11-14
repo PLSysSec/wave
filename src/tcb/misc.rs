@@ -28,6 +28,11 @@ pub fn nth_bit_set(bv: u16, n: i32) -> bool {
     bv & (1 << n) != 0
 }
 
+#[trusted]
+pub fn nth_bit_set_u32(bv: u32, n: u32) -> bool {
+    bv & (1 << n) != 0
+}
+
 /// return bv with the nth bit from the lsb set (0 is lsb)
 #[trusted]
 pub fn with_nth_bit_set(bv: u16, n: i32) -> u16 {
@@ -48,3 +53,8 @@ pub fn bitwise_and_u32(bv1: u32, bv2: u32) -> u32 {
 pub fn bitwise_or(bv1: i32, bv2: i32) -> i32 {
     bv1 | bv2
 }
+
+// #[trusted]
+// pub fn bitwise_or_u32(bv1: u32, bv2: u32) -> u32 {
+//     bv1 | bv2
+// }

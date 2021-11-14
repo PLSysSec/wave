@@ -1,5 +1,6 @@
 use crate::types::*;
 use crate::wrappers::*;
+use std::os::unix::io::AsRawFd;
 use trace::trace;
 use RuntimeError::*;
 
@@ -22,12 +23,22 @@ trace::init_depth_var!();
 
 /// Used for FFI. (wasm2c frontend)
 /// Initialize a vmctx with a memory that points to memptr
+/// TODO: depulicate with fresh_ctx()
 fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     //let mem = vec![0; memlen];
     let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
+    // let homedir_fd = std::fs::File::open(&homedir).unwrap().as_raw_fd();
+    let homedir_file = std::fs::File::open(&homedir).unwrap();
+    let homedir_fd = homedir_file.as_raw_fd();
+    if homedir_fd > 0 {
+        fdmap.create((homedir_fd as usize).into());
+    }
+    // Need to forget file to make sure it does not get auto-closed
+    // when it gets out of scope
+    std::mem::forget(homedir_file);
     let arg_buffer = vec![b'\0'];
     let argc = 0;
     let env_buffer = vec![b'\0'];
@@ -175,10 +186,11 @@ fn wasm2c_marshal_and_writeback_u32_pair(
     }
 }
 
+// TODO: let us pass through what the homedir is from the cmdline
 #[no_mangle]
 #[trace]
 pub extern "C" fn veriwasi_init(memptr: *mut u8, memsize: isize) -> *mut VmCtx {
-    let ctx = ctx_from_memptr(memptr, memsize, "/".to_string());
+    let ctx = ctx_from_memptr(memptr, memsize, ".".to_string());
     let result = Box::into_raw(Box::new(ctx));
     result
 }
@@ -302,11 +314,14 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(
     wasm2c_marshal_and_writeback_u32(ctx_ref, new_offset as usize, r)
 }
 
+// TODO: what is the purpose of precision here?
+// TODO: this might be off by a factor of 1000
 #[no_mangle]
 #[trace]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(
     ctx: *const *mut VmCtx,
     clock_id: u32,
+    precision: u64,
     out: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
@@ -385,6 +400,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(
 }
 
 #[no_mangle]
+#[trace]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
     ctx: *const *mut VmCtx,
     v_fd: u32,
@@ -450,7 +466,9 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(
     offset: u64,
     out: u32,
 ) -> u32 {
-    unimplemented!()
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_fd_pread(ctx_ref, fd, iovs, iov_len, offset);
+    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
 }
 
 #[no_mangle]
@@ -476,7 +494,9 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(
     offset: u64,
     retptr: u32,
 ) -> u32 {
-    unimplemented!()
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_fd_pwrite(ctx_ref, fd, iovs, iov_len, offset);
+    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
 }
 
 #[no_mangle]
@@ -533,7 +553,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
     path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_fd_sync(ctx_ref, fd);
+    let r = wasi_path_create_directory(ctx_ref, fd, pathname, path_len);
     wasm2c_marshal(r)
 }
 
@@ -549,11 +569,10 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(
     out: u32, // wasm2c and wasi-libc disagree about 4 vs 5 arguments
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_filestat_get(ctx_ref, fd, flags, path);
+    let r = wasi_path_filestat_get(ctx_ref, fd, flags, path, path_len);
     wasm2c_marshal_and_writeback_filestat(ctx_ref, out as usize, r)
 }
 
-//should pass through path_len probably
 #[no_mangle]
 #[trace]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
@@ -572,6 +591,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
         fd,
         flags,
         path,
+        path_len,
         atim,
         mtim,
         FstFlags::new(fst_flags as u16),
@@ -592,7 +612,16 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
     new_path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_link(ctx_ref, old_fd, old_flags, old_path, new_fd, new_path);
+    let r = wasi_path_link(
+        ctx_ref,
+        old_fd,
+        old_flags,
+        old_path,
+        old_path_len,
+        new_fd,
+        new_path,
+        new_path_len,
+    );
     wasm2c_marshal(r)
 }
 
@@ -616,12 +645,10 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     out: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_open(ctx_ref, path, fdflags as i32);
+    let r = wasi_path_open(ctx_ref, dirflags, path, path_len, oflags, fdflags as i32);
     wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
-    //wasi_path_open(ctx, a, b, c, d, e, f, g, h, i)
 }
 
-//TODO: pass through path_len
 #[no_mangle]
 #[trace]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(
@@ -634,7 +661,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(
     out: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_readlink(ctx_ref, fd, path, buf, buf_len);
+    let r = wasi_path_readlink(ctx_ref, fd, path, path_len, buf, buf_len);
     wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
 }
 
@@ -648,7 +675,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
     path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_remove_directory(ctx_ref, fd, path);
+    let r = wasi_path_remove_directory(ctx_ref, fd, path, path_len);
     wasm2c_marshal(r)
 }
 
@@ -665,7 +692,15 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
     new_path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_rename(ctx_ref, old_fd, old_path, new_fd, new_path);
+    let r = wasi_path_rename(
+        ctx_ref,
+        old_fd,
+        old_path,
+        old_path_len,
+        new_fd,
+        new_path,
+        new_path_len,
+    );
     wasm2c_marshal(r)
 }
 
@@ -680,7 +715,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(
     path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_symlink(ctx_ref, old_path, fd, path);
+    let r = wasi_path_symlink(ctx_ref, old_path, old_path_len, fd, path, path_len);
     wasm2c_marshal(r)
 }
 
@@ -693,7 +728,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(
     path_len: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_unlink_file(ctx_ref, fd, path);
+    let r = wasi_path_unlink_file(ctx_ref, fd, path, path_len);
     wasm2c_marshal(r)
 }
 

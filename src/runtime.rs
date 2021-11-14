@@ -31,16 +31,19 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
-    let homedir_fd = std::fs::File::open(&homedir).unwrap().as_raw_fd();
+    let homedir_file = std::fs::File::open(&homedir).unwrap();
+    let homedir_fd = homedir_file.as_raw_fd();
     if homedir_fd > 0 {
         fdmap.create((homedir_fd as usize).into());
     }
+    // Need to forget file to make sure it does not get auto-closed
+    // when it gets out of scope
+    std::mem::forget(homedir_file);
 
     let arg_buffer = Vec::new();
     let argc = 0;
     let env_buffer = Vec::new();
     let envc = 0;
-
     VmCtx {
         mem,
         memlen,
@@ -222,10 +225,14 @@ impl VmCtx {
     // #[ensures(trace_safe(self, trace))]
     pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
-        let safe_path = normalize_path(&path);
+        println!("resolve_path: path = {:?}", path);
+        let safe_path = PathBuf::from(self.homedir.clone()).join(normalize_path(&path));
+        println!("safe_path: safe_path = {:?}", safe_path);
         let path_str = safe_path.into_os_string();
+        //println!("path_str = {:?}, into_string = ", path_str, path_str.into_string());
         if let Ok(s) = path_str.into_string() {
-            if self.homedir.starts_with(&s) {
+            println!("Checking prefix of s = {:?}", s);
+            if s.starts_with(&self.homedir) {
                 return Ok(SandboxedPath::from(s.into_bytes()));
             }
         }
@@ -349,6 +356,7 @@ impl VmCtx {
 /// Used to check that that paths are sandboxed
 // TODO: verify this
 // Prusti does not like this function at all
+
 #[trusted]
 pub fn normalize_path(path: &PathBuf) -> PathBuf {
     let mut components = path.components().peekable();

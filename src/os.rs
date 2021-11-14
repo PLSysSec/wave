@@ -56,9 +56,9 @@ pub fn trace_read(ctx: &VmCtx, fd: HostFd, buf: &mut [u8], cnt: usize) -> usize 
 #[ensures(buf.capacity() >= cnt)]
 /// pread writes `cnt` bytes to sandbox memory
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
-pub fn trace_pread(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize) -> usize {
+pub fn trace_pread(ctx: &VmCtx, fd: HostFd, buf: &mut Vec<u8>, cnt: usize, offset: usize) -> usize {
     let os_fd: usize = fd.into();
-    os_pread(os_fd, buf, cnt)
+    os_pread(os_fd, buf, cnt, offset)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -82,9 +82,9 @@ pub fn trace_write(ctx: &VmCtx, fd: HostFd, buf: &[u8], cnt: usize) -> usize {
 #[ensures(trace_safe(ctx, trace))]
 // pwrite writes `cnt` bytes to the sandbox
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
-pub fn trace_pwrite(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize) -> usize {
+pub fn trace_pwrite(ctx: &VmCtx, fd: HostFd, buf: &Vec<u8>, cnt: usize, offset: usize) -> usize {
     let os_fd: usize = fd.into();
-    os_pwrite(os_fd, buf, cnt)
+    os_pwrite(os_fd, buf, cnt, offset)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
