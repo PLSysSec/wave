@@ -22,6 +22,10 @@
 
 typedef struct VmCtx VmCtx;
 
+typedef uint32_t SboxFd;
+
+#define HOMEDIR_FD 3
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -74,6 +78,7 @@ uint32_t Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(void *ctx,
 
 uint32_t Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(void *ctx,
                                                         uint32_t clock_id,
+                                                        uint64_t precision,
                                                         uint32_t out);
 
 uint32_t Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(void *ctx,
@@ -155,7 +160,8 @@ uint32_t Z_wasi_snapshot_preview1Z_fd_tellZ_iii(void *ctx,
 
 uint32_t Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(void *ctx,
                                                                uint32_t fd,
-                                                               uint32_t pathname);
+                                                               uint32_t pathname,
+                                                               uint32_t path_len);
 
 uint32_t Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(void *ctx,
                                                              uint32_t fd,
