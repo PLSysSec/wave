@@ -6,6 +6,7 @@
 int main(int argc, char *argv[]) {
   FILE *file;
   int chr;
+  /*
   int count;
  
   for(count = 1; count < argc; count++) {
@@ -17,7 +18,18 @@ int main(int argc, char *argv[]) {
     while((chr = getc(file)) != EOF)
       fprintf(stdout, "%c", chr);
     fclose(file);
-  }
+  }*/
+
+    // For now, just hardcode the path
+    file = fopen("./data/tmp.txt", "r");
+    if (file == NULL) {
+    	printf("fopen result: %s\n", strerror(errno));
+    }
+    //printf("file = %d", file);
+    while((chr = getc(file)) != EOF)
+      fprintf(stdout, "%c", chr);
+    fclose(file);
+
   exit(0);
 }
 

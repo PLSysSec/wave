@@ -26,6 +26,28 @@ int main(int argc, char **argv)
     while ((count = read(files[0], buffer, sizeof(buffer))) != 0)
         write(files[1], buffer, count);
 
+    // will invoke fd_tell (all lseeks of the form lseek(x,0,SEEK_CUR) do)
+    int position = lseek(files[1], 0, SEEK_CUR); 
+    printf("position for lseek1 = %d\n", position);
+
+    lseek(files[1], 0, SEEK_SET); //get back to the beginning
+
+    position = lseek(files[1], 0, SEEK_CUR); 
+    printf("position for lseek2 = %d\n", position);
+
+    // Change
+    // This is the contents of the file!
+    // to
+    // This is the contents in the file!
+    pwrite(files[1], "in", 2, 21);
+       
+    // read the word file from ./output/tmp.txt   
+    char buf[4];
+    pread(files[1], buf, 4, 28);
+    printf("results of pread = %s\n", buf); 
+
+
+    printf("Done!\n");
     return 0;
 }
 
