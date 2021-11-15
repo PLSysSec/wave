@@ -410,9 +410,9 @@ pub fn wasi_fd_filestat_set_times(
     let mtim = Timestamp::new(v_mtim);
     let fst_flags = FstFlags::new(v_fst_flags as u16);
 
-    if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-        return Err(Einval);
-    }
+    // if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
+    //     return Err(Einval);
+    // }
 
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
