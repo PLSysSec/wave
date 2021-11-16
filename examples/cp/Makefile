@@ -1,12 +1,13 @@
 RLBOX_ROOT = ../../rlbox_wasm2c_sandbox
 WASM2C_SRC_ROOT = $(RLBOX_ROOT)/build/_deps/mod_wasm2c-src/wasm2c
 WASM2C_BIN_ROOT = $(RLBOX_ROOT)/build/_deps/mod_wasm2c-src/bin
-CC = $(RLBOX_ROOT)/build/_deps/wasiclang-src/bin/clang                        
-CXX = $(RLBOX_ROOT)/build/_deps/wasiclang-src/bin/clang++                   
-CFLAGS = --sysroot  $(RLBOX_ROOT)/build/_deps/wasiclang-src/share/wasi-sysroot/ 
-LD = $(RLBOX_ROOT)/build/_deps/wasiclang-src/bin/wasm-ld
-LDFLAGS = -Wl,--export-all -Wl,--growable-table
 
+WASICLANG_ROOT = $(RLBOX_ROOT)/build/_deps/wasiclang-src/build/install/opt/wasi-sdk
+CC = $(WASICLANG_ROOT)/bin/clang                        
+CXX = $(WASICLANG_ROOT)/bin/clang++                   
+CFLAGS = --sysroot  $(WASICLANG_ROOT)/share/wasi-sysroot/ 
+LD = $(WASICLANG_ROOT)/bin/wasm-ld
+LDFLAGS = -Wl,--export-all -Wl,--growable-table
 build: cp
 
 .PHONY: clean

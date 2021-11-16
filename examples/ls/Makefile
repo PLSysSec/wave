@@ -9,23 +9,23 @@ CFLAGS = --sysroot  $(WASICLANG_ROOT)/share/wasi-sysroot/
 LD = $(WASICLANG_ROOT)/bin/wasm-ld
 LDFLAGS = -Wl,--export-all -Wl,--growable-table
 
-build: cat
+build: ls
 
 .PHONY: clean
 clean:
-	$(RM) cat.wasm
-	$(RM) cat.wasm.c
-	$(RM) cat.wasm.h
-	$(RM) cat
+	$(RM) ls.wasm
+	$(RM) ls.wasm.c
+	$(RM) ls.wasm.h
+	$(RM) ls
 
-cat.wasm: cat.c
-	$(CC) $(CFLAGS) cat.c -o cat.wasm $(LDFLAGS)
+ls.wasm: ls.c
+	$(CC) $(CFLAGS) ls.c -o ls.wasm $(LDFLAGS)
 
-cat.wasm.c: cat.wasm
-	$(WASM2C_BIN_ROOT)/wasm2c -o cat.wasm.c cat.wasm
+ls.wasm.c: ls.wasm
+	$(WASM2C_BIN_ROOT)/wasm2c -o ls.wasm.c ls.wasm
 
-cat: cat.wasm.c
-	gcc -shared -fPIC -O0 -o cat cat.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
+ls: ls.wasm.c
+	gcc -shared -fPIC -O3 -o ls ls.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
 
-run: cat 
-	$(WASM2C_BIN_ROOT)/wasm2c-runner ./cat 
+run: ls 
+	$(WASM2C_BIN_ROOT)/wasm2c-runner ./ls
