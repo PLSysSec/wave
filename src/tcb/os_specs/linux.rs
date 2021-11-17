@@ -349,3 +349,13 @@ pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> usize {
 pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
     unsafe { syscall!(POLL, pollfd as *const libc::pollfd, 1, timeout) }
 }
+
+//https://man7.org/linux/man-pages/man2/getdents64.2.html
+//  long syscall(SYS_getdents, unsigned int fd, struct linux_dirent *dirp, unsigned int count);
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+// TODO: what effect should this have?
+//#[ensures(no_effect!(old(trace), trace))]
+pub fn os_getdents(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
+    unsafe { syscall!(GETDENTS, fd, dirp as *mut libc::dirent, count) }
+}

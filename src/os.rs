@@ -421,3 +421,13 @@ pub fn trace_nanosleep(ctx: &VmCtx, req: &libc::timespec, rem: &mut libc::timesp
 pub fn trace_poll(ctx: &VmCtx, pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
     os_poll(pollfd, timeout)
 }
+
+//TODO: not sure what the spec for this is yet.
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+//#[ensures(no_effect!(old(trace), trace))]
+// pub fn os_getdents64(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
+pub fn trace_getdents(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
+    os_getdents(fd, dirp, count)
+}
