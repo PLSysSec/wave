@@ -313,8 +313,8 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let result = FdStat {
         fs_filetype: (filetype as libc::mode_t).into(),
         fs_flags: (mode_flags as libc::c_int).into(),
-        fs_rights_base: 0,
-        fs_rights_inheriting: 0,
+        fs_rights_base: 0, // TODO: convert read and write from mode flags to the proper masks?
+        fs_rights_inheriting: u64::MAX, //TODO: let us pass in homedir rights
     };
     Ok(result)
 }

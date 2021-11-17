@@ -625,13 +625,20 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
     wasm2c_marshal(r)
 }
 
-/*
-fd: fd, dirflags: lookupflags, path: string, oflags: oflags, fs_rights_base: rights, fs_rights_inheriting: rights, fdflags: fdflags
-*/
+fn adjust_oflags(oflags: u32, fs_rights_base: u64) -> u32 {
+    if fs_rights_base & (1 << 6) != 0 {
+        // can_write
+        if fs_rights_base & (1 << 1) != 0 {
+            // can read
+            return oflags | (1 << 5); // O_RDWR
+        }
+        return oflags | (1 << 4); // O_WRONLY
+    }
+    return oflags;
+}
 
 #[no_mangle]
 #[trace]
-// TODO: we are not using almost any of these args
 pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     ctx: *const *mut VmCtx,
     fd: u32,
@@ -639,13 +646,26 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     path: u32,
     path_len: u32,
     oflags: u32,
-    _fs_rights_base: u64,
+    fs_rights_base: u64,
     _fs_rights_inheriting: u64,
     fdflags: u32,
     out: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_path_open(ctx_ref, dirflags, path, path_len, oflags, fdflags as i32);
+    // adjust oflags by adding O_WRONLY & O_RDWR as bits 4 and 5
+    // after wasi-libc put them in fs_rights_base
+    // let new_flags =
+    // if fs_rights_base & (1 << 6) != 0 { // can_write
+    //     if fs_rights_base & (1 << 1) != 0 { // can read
+    //         oflags | (1 << 5) // O_RDWR
+    //     }
+    //     else{
+    //         oflags | (1 << 4) // O_WRONLY
+    //     }
+    // }
+    // else {oflags};
+    let new_flags = adjust_oflags(oflags, fs_rights_base);
+    let r = wasi_path_open(ctx_ref, dirflags, path, path_len, new_flags, fdflags as i32);
     wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
 }
 

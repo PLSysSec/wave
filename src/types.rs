@@ -493,10 +493,16 @@ impl OFlags {
         if nth_bit_set_u32(self.0, 3) {
             flags = bitwise_or(flags, libc::O_TRUNC)
         }
-        // For now, just make all files read write since wasi-libc stashes
-        // read and write permissions in the rights struct for some reason.
-        // TODO: allow read-only files
-        flags = bitwise_or(flags, libc::O_RDWR);
+        // musl definitions of these flags
+        // #define O_RDONLY  00
+        // #define O_WRONLY  01
+        // #define O_RDWR    02
+        if nth_bit_set_u32(self.0, 4) {
+            flags = bitwise_or(flags, libc::O_WRONLY)
+        }
+        if nth_bit_set_u32(self.0, 5) {
+            flags = bitwise_or(flags, libc::O_RDWR)
+        }
         flags
     }
 }

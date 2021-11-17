@@ -36,7 +36,7 @@ pub fn nth_bit_set_u32(bv: u32, n: u32) -> bool {
 /// return bv with the nth bit from the lsb set (0 is lsb)
 #[trusted]
 pub fn with_nth_bit_set(bv: u16, n: i32) -> u16 {
-    bv & (1 << n)
+    bv | (1 << n)
 }
 
 #[trusted]
