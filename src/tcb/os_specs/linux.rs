@@ -356,6 +356,10 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
 #[trusted]
 // TODO: what effect should this have?
 //#[ensures(no_effect!(old(trace), trace))]
-pub fn os_getdents(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
-    unsafe { syscall!(GETDENTS, fd, dirp as *mut libc::dirent, count) }
+pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> usize {
+    unsafe {
+        let result = syscall!(GETDENTS64, fd, dirp.as_mut_ptr(), count);
+        dirp.set_len(result);
+        result
+    }
 }

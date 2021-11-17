@@ -356,6 +356,8 @@ impl From<Filetype> for libc::mode_t {
 //       hmm instead we could have a lame struct full of bools....
 type Rights = u64;
 
+// internal representation is the wasi representation
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct FdFlags(u16);
 
@@ -383,10 +385,10 @@ impl FdFlags {
         }
         flags
     }
-}
 
-impl From<libc::c_int> for FdFlags {
-    fn from(flags: libc::c_int) -> Self {
+    pub fn from_posix(flags: i32) -> Self {
+        // FdFlags(flags as u16)
+        //let mut result = FdFlags(0);
         let mut result = FdFlags(0);
         if bitwise_and(flags, libc::O_APPEND) != 0 {
             result.0 = with_nth_bit_set(result.0, 0);
@@ -404,6 +406,29 @@ impl From<libc::c_int> for FdFlags {
             result.0 = with_nth_bit_set(result.0, 4);
         }
         result
+    }
+}
+// create transparent wrapper around wasi
+impl From<libc::c_int> for FdFlags {
+    fn from(flags: libc::c_int) -> Self {
+        FdFlags(flags as u16)
+        // let mut result = FdFlags(0);
+        // if bitwise_and(flags, libc::O_APPEND) != 0 {
+        //     result.0 = with_nth_bit_set(result.0, 0);
+        // }
+        // if bitwise_and(flags, libc::O_DSYNC) != 0 {
+        //     result.0 = with_nth_bit_set(result.0, 1);
+        // }
+        // if bitwise_and(flags, libc::O_NONBLOCK) != 0 {
+        //     result.0 = with_nth_bit_set(result.0, 2);
+        // }
+        // if bitwise_and(flags, libc::O_RSYNC) != 0 {
+        //     result.0 = with_nth_bit_set(result.0, 3);
+        // }
+        // if bitwise_and(flags, libc::O_SYNC) != 0 {
+        //     result.0 = with_nth_bit_set(result.0, 4);
+        // }
+        // result
     }
 }
 

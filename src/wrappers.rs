@@ -312,9 +312,9 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     // TODO: put rights in once those are implemented
     let result = FdStat {
         fs_filetype: (filetype as libc::mode_t).into(),
-        fs_flags: (mode_flags as libc::c_int).into(),
+        fs_flags: FdFlags::from_posix(mode_flags as i32), //(mode_flags as libc::c_int).into(),
         fs_rights_base: 0, // TODO: convert read and write from mode flags to the proper masks?
-        fs_rights_inheriting: u64::MAX, //TODO: let us pass in homedir rights
+        fs_rights_inheriting: u64::MAX, //TODO: we should pass in homedir rights
     };
     Ok(result)
 }
@@ -327,6 +327,7 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 #[external_method(to_posix)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+// can only adjust Fdflags using set_flags, not O_flags or any other flags
 pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
     let flags = FdFlags::from(v_flags as i32);
 
@@ -336,7 +337,10 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let posix_flags = flags.to_posix();
-
+    println!(
+        "v_flags = {:x} flags = {:?} posix_flags = {:x}",
+        v_flags, flags, posix_flags
+    );
     let ret = trace_fsetfl(ctx, fd, posix_flags);
     RuntimeError::from_syscall_ret(ret)?;
     Ok(())
@@ -1455,4 +1459,65 @@ pub fn wasi_poll_oneoff(
     }
 
     Ok(0)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(Err)]
+#[external_call(new)]
+#[external_method(into)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// TODO: currently ignoring cookie
+// TODO: alignment of getdents result might be different from wasi dirp
+pub fn wasi_fd_readdir(
+    ctx: &mut VmCtx,
+    v_fd: SboxFd,
+    buf: SboxFd,
+    buf_len: usize,
+    cookie: u64,
+) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let mut host_buf: Vec<u8> = Vec::new();
+    host_buf.reserve_exact(buf_len as usize);
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+
+    let res = trace_getdents64(ctx, fd, &mut host_buf, buf_len);
+    RuntimeError::from_syscall_ret(res)?;
+
+    let d_next = u64::from_le_bytes([
+        host_buf[0],
+        host_buf[1],
+        host_buf[2],
+        host_buf[3],
+        host_buf[4],
+        host_buf[5],
+        host_buf[6],
+        host_buf[7],
+    ]);
+    let d_ino = u64::from_le_bytes([
+        host_buf[8],
+        host_buf[9],
+        host_buf[10],
+        host_buf[11],
+        host_buf[12],
+        host_buf[13],
+        host_buf[14],
+        host_buf[15],
+    ]);
+    let d_namlen = u32::from_le_bytes([host_buf[16], host_buf[17], host_buf[18], host_buf[19]]);
+    let d_type = u32::from_le_bytes([host_buf[20], host_buf[21], host_buf[22], host_buf[23]]);
+    println!(
+        "d_next = {:?} d_ino = {:?} d_namlen = {:?} d_type = {:?}",
+        d_next, d_ino, d_namlen, d_type
+    );
+
+    let copy_ok = ctx
+        .copy_buf_to_sandbox(buf, &host_buf, res as u32)
+        .ok_or(Efault)?;
+
+    Ok(res as u32)
 }

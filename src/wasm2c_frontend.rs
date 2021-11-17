@@ -509,7 +509,9 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(
     cookie: u64, // ???
     retptr: u32,
 ) -> u32 {
-    unimplemented!()
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_fd_readdir(ctx_ref, fd, buf, buf_len as usize, cookie);
+    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
 }
 
 #[no_mangle]

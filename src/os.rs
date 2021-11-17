@@ -428,6 +428,8 @@ pub fn trace_poll(ctx: &VmCtx, pollfd: &mut libc::pollfd, timeout: libc::c_int) 
 #[ensures(trace_safe(ctx, trace))]
 //#[ensures(no_effect!(old(trace), trace))]
 // pub fn os_getdents64(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
-pub fn trace_getdents(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
-    os_getdents(fd, dirp, count)
+//buf: &mut Vec<u8>
+pub fn trace_getdents64(ctx: &VmCtx, fd: HostFd, dirp: &mut Vec<u8>, count: usize) -> usize {
+    let os_fd: usize = fd.into();
+    os_getdents64(os_fd, dirp, count)
 }
