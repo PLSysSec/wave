@@ -40,7 +40,9 @@ int main()
     // socket create and varification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
-        printf("socket creation failed...\n");
+        printf("socket creation failed... ");
+	perror("socket creation error");
+	printf("\n");
         exit(0);
     }
     else
