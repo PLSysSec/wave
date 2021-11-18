@@ -1,5 +1,7 @@
 use crate::types::*;
 use crate::wrappers::*;
+use libc::{c_char, strlen};
+use std::ffi::CStr;
 use std::os::unix::io::AsRawFd;
 use trace::trace;
 use RuntimeError::*;
@@ -24,14 +26,28 @@ trace::init_depth_var!();
 /// Used for FFI. (wasm2c frontend)
 /// Initialize a vmctx with a memory that points to memptr
 /// TODO: depulicate with fresh_ctx()
-fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
+/// TODO: clean up this function, make some helpers, etc
+/// scary
+fn ctx_from_memptr(
+    memptr: *mut u8,
+    memsize: isize,
+    homedir: *const c_char,
+    args: *mut u8,
+    argc: usize,
+    env: *mut u8,
+    envc: usize,
+    log_path: *mut c_char,
+) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     //let mem = vec![0; memlen];
     let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
     // let homedir_fd = std::fs::File::open(&homedir).unwrap().as_raw_fd();
-    let homedir_file = std::fs::File::open(&homedir).unwrap();
+    let log_path = unsafe { CStr::from_ptr(log_path).to_str().unwrap().to_owned() };
+
+    let homedir = unsafe { CStr::from_ptr(homedir).to_str().unwrap() };
+    let homedir_file = std::fs::File::open(homedir).unwrap();
     let homedir_fd = homedir_file.as_raw_fd();
     if homedir_fd > 0 {
         fdmap.create((homedir_fd as usize).into());
@@ -39,21 +55,24 @@ fn ctx_from_memptr(memptr: *mut u8, memsize: isize, homedir: String) -> VmCtx {
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
     std::mem::forget(homedir_file);
-    let arg_buffer = vec![b'\0'];
-    let argc = 0;
-    let env_buffer = vec![b'\0'];
-    let envc = 0;
+
+    let arg_len = unsafe { strlen(args as *const i8) };
+    let arg_buffer = unsafe { Vec::from_raw_parts(args, arg_len, arg_len) };
+
+    let env_len = unsafe { strlen(env as *const i8) };
+    let env_buffer = unsafe { Vec::from_raw_parts(env, env_len, env_len) };
 
     VmCtx {
         mem,
         memlen,
         fdmap,
-        homedir,
+        homedir: homedir.to_owned(),
         errno: Success,
         arg_buffer,
         argc,
         env_buffer,
         envc,
+        log_path,
     }
 }
 
@@ -189,8 +208,17 @@ fn wasm2c_marshal_and_writeback_u32_pair(
 // TODO: let us pass through what the homedir is from the cmdline
 #[no_mangle]
 #[trace]
-pub extern "C" fn veriwasi_init(memptr: *mut u8, memsize: isize) -> *mut VmCtx {
-    let ctx = ctx_from_memptr(memptr, memsize, ".".to_string());
+pub extern "C" fn veriwasi_init(
+    memptr: *mut u8,
+    memsize: isize,
+    homedir: *const c_char,
+    args: *mut u8,
+    argc: usize,
+    env: *mut u8,
+    envc: usize,
+    log_path: *mut c_char,
+) -> *mut VmCtx {
+    let ctx = ctx_from_memptr(memptr, memsize, homedir, args, argc, env, envc, log_path);
     let result = Box::into_raw(Box::new(ctx));
     result
 }

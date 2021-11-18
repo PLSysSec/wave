@@ -30,7 +30,14 @@ typedef uint32_t SboxFd;
 extern "C" {
 #endif // __cplusplus
 
-struct VmCtx *veriwasi_init(uint8_t *memptr, intptr_t memsize);
+struct VmCtx *veriwasi_init(uint8_t *memptr,
+                            intptr_t memsize,
+                            const char *homedir,
+                            uint8_t *args,
+                            uintptr_t argc,
+                            uint8_t *env,
+                            uintptr_t envc,
+                            char *log_path);
 
 uint32_t Z_wasi_snapshot_preview1Z_args_getZ_iii(void *ctx,
                                                  uint32_t argv,
@@ -194,7 +201,7 @@ uint32_t Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(void *ctx,
                                                          uint32_t path,
                                                          uint32_t path_len,
                                                          uint32_t oflags,
-                                                         uint64_t _fs_rights_base,
+                                                         uint64_t fs_rights_base,
                                                          uint64_t _fs_rights_inheriting,
                                                          uint32_t fdflags,
                                                          uint32_t out);

@@ -39,6 +39,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
     std::mem::forget(homedir_file);
+    let log_path = "".to_owned();
 
     let arg_buffer = Vec::new();
     let argc = 0;
@@ -54,6 +55,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         argc,
         env_buffer,
         envc,
+        log_path,
     }
 }
 

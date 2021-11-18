@@ -17,12 +17,12 @@ pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
 
 pub const HOMEDIR_FD: SboxFd = 3; //4GB
 
-#[cfg(feature = "verify")]
-predicate! {
-    fn safe(ctx: &VmCtx) -> bool {
-        true
-    }
-}
+// #[cfg(feature = "verify")]
+// predicate! {
+//     fn safe(ctx: &VmCtx) -> bool {
+//         true
+//     }
+// }
 
 //typedef char* hostptr;
 // pub type HostPtr = usize;
@@ -134,6 +134,7 @@ pub struct VmCtx {
     pub argc: usize,
     pub env_buffer: Vec<u8>,
     pub envc: usize,
+    pub log_path: String,
 }
 
 pub struct SandboxedPath(Vec<u8>);
