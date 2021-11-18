@@ -1134,6 +1134,7 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
 #[ensures(trace_safe(ctx, trace))]
 // #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
+    println!("arg_buffer = {:?}", ctx.arg_buffer);
     // 1. copy argv_buffer
     let argv_buf_len = ctx.arg_buffer.len() as u32;
     ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
@@ -1146,12 +1147,21 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
         body_invariant!(trace_safe(ctx, trace));
         // body_invariant!(idx < ctx.arg_buffer.len());
         //body_invariant!(idx * 4 < cursor);
+        // We have found an argument either when we find a trailing space, or if we started an arg
+        // and ran out of space
         if ctx.arg_buffer[idx] == b'\0' {
-            ctx.write_u32((argv as usize) + cursor, start);
+            while ctx.arg_buffer[idx] == b'\0' {
+                idx += 1;
+            } // scan past multiple spaces
+            ctx.write_u32((argv as usize) + cursor, argv_buf + start);
             cursor += 4;
-            start = (idx as u32) + 1;
+            start = idx as u32;
         }
         idx += 1;
+        // we reached the end, so record the final arg
+        if idx >= ctx.arg_buffer.len() {
+            ctx.write_u32((argv as usize) + cursor, argv_buf + start);
+        }
     }
     Ok(())
 }
@@ -1175,11 +1185,17 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
     while idx < ctx.env_buffer.len() {
         body_invariant!(trace_safe(ctx, trace));
         if ctx.env_buffer[idx] == b'\0' {
-            ctx.write_u32((env as usize) + cursor, start);
+            while ctx.env_buffer[idx] == b'\0' {
+                idx += 1;
+            } // scan past multiple spaces
+            ctx.write_u32((env as usize) + cursor, env_buf + start);
             cursor += 4;
-            start = (idx as u32) + 1;
+            start = idx as u32;
         }
         idx += 1;
+        if idx >= ctx.arg_buffer.len() {
+            ctx.write_u32((env as usize) + cursor, env_buf + start);
+        }
     }
     Ok(())
 }

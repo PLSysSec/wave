@@ -38,15 +38,19 @@ fn ctx_from_memptr(
     envc: usize,
     log_path: *mut c_char,
 ) -> VmCtx {
+    println!(
+        "homedir = {:?} args = {:?} env = {:?} log_path = {:?}",
+        homedir, args, env, log_path
+    );
     let memlen = LINEAR_MEM_SIZE;
     //let mem = vec![0; memlen];
     let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
     // let homedir_fd = std::fs::File::open(&homedir).unwrap().as_raw_fd();
-    let log_path = unsafe { CStr::from_ptr(log_path).to_str().unwrap().to_owned() };
+    let log_path = unsafe { CStr::from_ptr(log_path).to_str().unwrap().to_owned() }.clone();
 
-    let homedir = unsafe { CStr::from_ptr(homedir).to_str().unwrap() };
+    let homedir = unsafe { CStr::from_ptr(homedir).to_str().unwrap() }.clone();
     let homedir_file = std::fs::File::open(homedir).unwrap();
     let homedir_fd = homedir_file.as_raw_fd();
     if homedir_fd > 0 {
@@ -57,10 +61,24 @@ fn ctx_from_memptr(
     std::mem::forget(homedir_file);
 
     let arg_len = unsafe { strlen(args as *const i8) };
-    let arg_buffer = unsafe { Vec::from_raw_parts(args, arg_len, arg_len) };
+    let mut arg_buffer = unsafe { Vec::from_raw_parts(args, arg_len, arg_len) }.clone();
+    // replace all space with null.
+    // This makes it easy to return the arg_buffer later
+    for i in 0..arg_len {
+        if arg_buffer[i] == b' ' {
+            arg_buffer[i] = b'\0';
+        }
+    }
 
     let env_len = unsafe { strlen(env as *const i8) };
-    let env_buffer = unsafe { Vec::from_raw_parts(env, env_len, env_len) };
+    let mut env_buffer = unsafe { Vec::from_raw_parts(env, env_len, env_len) }.clone();
+    // replace all space with null.
+    // This makes it easy to return the env_buffer later
+    for i in 0..env_len {
+        if env_buffer[i] == b' ' {
+            env_buffer[i] = b'\0';
+        }
+    }
 
     VmCtx {
         mem,
