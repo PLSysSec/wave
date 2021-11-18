@@ -3,9 +3,10 @@ WASM2C_SRC_ROOT = $(RLBOX_ROOT)/build/_deps/mod_wasm2c-src/wasm2c
 WASM2C_BIN_ROOT = $(RLBOX_ROOT)/build/_deps/mod_wasm2c-src/bin
 
 WASICLANG_ROOT = $(RLBOX_ROOT)/build/_deps/wasiclang-src/build/install/opt/wasi-sdk
+WASILIBC_ROOT =  $(RLBOX_ROOT)/build/_deps/wasiclang-src/src/wasi-libc
 CC = $(WASICLANG_ROOT)/bin/clang                        
 CXX = $(WASICLANG_ROOT)/bin/clang++                   
-CFLAGS = --sysroot  $(WASICLANG_ROOT)/share/wasi-sysroot/ 
+CFLAGS = --sysroot  $(WASILIBC_ROOT)/sysroot/ 
 LD = $(WASICLANG_ROOT)/bin/wasm-ld
 LDFLAGS = -Wl,--export-all -Wl,--growable-table
 
