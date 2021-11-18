@@ -887,3 +887,34 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(
     let r = wasi_sock_shutdown(ctx_ref, fd, how);
     wasm2c_marshal(r)
 }
+
+/*
+ New Calls
+*/
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_socketZ_iiiii(
+    ctx: *const *mut VmCtx,
+    domain: u32,
+    ty: u32,
+    protocol: u32,
+    retptr: u32,
+) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_socket(ctx_ref, domain, ty, protocol);
+    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
+}
+
+#[no_mangle]
+#[trace]
+pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_connectZ_iiii(
+    ctx: *const *mut VmCtx,
+    sockfd: u32,
+    addr: u32,
+    addrlen: u32,
+) -> u32 {
+    let ctx_ref = ptr_to_ref(ctx);
+    let r = wasi_sock_connect(ctx_ref, sockfd, addr, addrlen);
+    wasm2c_marshal(r)
+}

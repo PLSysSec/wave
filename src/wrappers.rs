@@ -1537,3 +1537,22 @@ pub fn wasi_fd_readdir(
 
     Ok(res as u32)
 }
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
+    unimplemented!()
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+pub fn wasi_sock_connect(
+    ctx: &mut VmCtx,
+    sockfd: u32,
+    addr: u32,
+    addrlen: u32,
+) -> RuntimeResult<()> {
+    unimplemented!()
+}
