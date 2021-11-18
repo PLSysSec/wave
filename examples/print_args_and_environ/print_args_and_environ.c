@@ -5,11 +5,12 @@ extern char **environ;
 
 int main(int argc, char* argv[]){
    //1. print commandline args
-   for(int counter=0;counter<argc;counter++){
-      printf("\nargv[%d]: %s",counter,argv[counter]);
-      printf("\nNumber Of Arguments Passed: %d",argc);
-      printf("\n----Following Are The Command Line Arguments Passed----");
+  printf("Number of arguments passed: %d\n", argc); 
+
+  for(int counter=0;counter<argc;counter++){
+      printf("argv[%d]: %s\n",counter,argv[counter]);
    }
+
 
    //2. print environment variables
    while (*environ){
