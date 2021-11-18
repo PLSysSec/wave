@@ -433,3 +433,21 @@ pub fn trace_getdents64(ctx: &VmCtx, fd: HostFd, dirp: &mut Vec<u8>, count: usiz
     let os_fd: usize = fd.into();
     os_getdents64(os_fd, dirp, count)
 }
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// TODO: finish spec
+//#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_socket(ctx: &VmCtx, domain: u32, ty: u32, protocol: u32) -> usize {
+    os_socket(domain, ty, protocol)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(ctx, trace))]
+#[ensures(trace_safe(ctx, trace))]
+// TODO: finish spec
+//#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_connect(ctx: &VmCtx, sockfd: u32, addr: u32, addrlen: u32) -> usize {
+    os_connect(sockfd, addr, addrlen)
+}

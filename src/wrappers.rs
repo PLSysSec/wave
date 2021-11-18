@@ -1542,7 +1542,10 @@ pub fn wasi_fd_readdir(
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
-    unimplemented!()
+    // TODO: safety checks
+    let res = trace_socket(ctx, domain, ty, protocol);
+    RuntimeError::from_syscall_ret(res)?;
+    return Ok(res as u32);
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -1554,5 +1557,8 @@ pub fn wasi_sock_connect(
     addr: u32,
     addrlen: u32,
 ) -> RuntimeResult<()> {
-    unimplemented!()
+    // TODO: safety checks
+    let res = trace_connect(ctx, sockfd, addr, addrlen);
+    RuntimeError::from_syscall_ret(res)?;
+    return Ok(());
 }

@@ -363,3 +363,21 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> usize {
         result
     }
 }
+
+//https://man7.org/linux/man-pages/man2/socket.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+// TODO: finish spec
+//#[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
+pub fn os_socket(domain: u32, ty: u32, protocol: u32) -> usize {
+    unsafe { syscall!(SOCKET, domain, ty, protocol) }
+}
+
+//https://man7.org/linux/man-pages/man2/connect.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+// TODO: finish spec
+// #[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
+pub fn os_connect(sockfd: u32, addr: u32, addrlen: u32) -> usize {
+    unsafe { syscall!(CONNECT, sockfd, addr, addrlen) }
+}
