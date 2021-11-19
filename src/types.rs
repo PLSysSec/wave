@@ -59,6 +59,7 @@ pub enum RuntimeError {
     Eacces,
     Eexist,
     Enotempty,
+    Enotsup,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -79,6 +80,7 @@ impl From<RuntimeError> for u32 {
             RuntimeError::Eacces => libc::EACCES,
             RuntimeError::Eexist => libc::EEXIST,
             RuntimeError::Enotempty => libc::ENOTEMPTY,
+            RuntimeError::Enotsup => libc::ENOTSUP,
         };
         result as u32
     }
@@ -677,4 +679,21 @@ impl From<EventType> for u16 {
 pub struct EventFdReadWrite {
     nbytes: u64,
     flags: u16,
+}
+
+pub fn sock_domain_to_posix(domain: u32) -> RuntimeResult<i32> {
+    if domain == 1 {
+        return Ok(libc::AF_INET);
+    }
+    return Err(RuntimeError::Enotsup);
+}
+
+pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
+    if ty == 6 {
+        return Ok(libc::SOCK_STREAM);
+    }
+    if ty == 5 {
+        return Ok(libc::SOCK_DGRAM);
+    }
+    return Err(RuntimeError::Enotsup);
 }

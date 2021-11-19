@@ -439,7 +439,7 @@ pub fn trace_getdents64(ctx: &VmCtx, fd: HostFd, dirp: &mut Vec<u8>, count: usiz
 #[ensures(trace_safe(ctx, trace))]
 // TODO: finish spec
 //#[ensures(no_effect!(old(trace), trace))]
-pub fn trace_socket(ctx: &VmCtx, domain: u32, ty: u32, protocol: u32) -> usize {
+pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> usize {
     os_socket(domain, ty, protocol)
 }
 

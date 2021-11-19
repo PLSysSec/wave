@@ -1544,7 +1544,19 @@ pub fn wasi_fd_readdir(
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
     // TODO: safety checks
     // Should we keep socket fd and file fd seperate?
-    let res = trace_socket(ctx, domain, ty, protocol);
+    // convert from wasi constants to posix constants
+    println!("domain = {:?} libc::AF_INET = {:?}", domain, libc::AF_INET);
+    let domain = sock_domain_to_posix(domain)?;
+    let ty = sock_type_to_posix(ty)?;
+    println!(
+        "ty = {:?} libc::SOCK_STREAM = {:?} libc::SOCK_DGRAM = {:?}",
+        ty,
+        libc::SOCK_STREAM,
+        libc::SOCK_DGRAM
+    );
+    let res = trace_socket(ctx, domain, ty, protocol as i32);
+    // check domain == AF_INET
+    // check ty == SOCK_STREAM || ty == SOCK_DGRAM
     RuntimeError::from_syscall_ret(res)?;
     ctx.fdmap.create(res.into())
 }

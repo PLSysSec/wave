@@ -369,7 +369,7 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> usize {
 #[trusted]
 // TODO: finish spec
 //#[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
-pub fn os_socket(domain: u32, ty: u32, protocol: u32) -> usize {
+pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> usize {
     unsafe { syscall!(SOCKET, domain, ty, protocol) }
 }
 
