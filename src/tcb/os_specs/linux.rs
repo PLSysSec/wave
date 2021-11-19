@@ -378,6 +378,6 @@ pub fn os_socket(domain: u32, ty: u32, protocol: u32) -> usize {
 #[trusted]
 // TODO: finish spec
 // #[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
-pub fn os_connect(sockfd: u32, addr: u32, addrlen: u32) -> usize {
-    unsafe { syscall!(CONNECT, sockfd, addr, addrlen) }
+pub fn os_connect(sockfd: usize, addr: &Vec<u8>, addrlen: u32) -> usize {
+    unsafe { syscall!(CONNECT, sockfd, addr.as_ptr(), addrlen) }
 }

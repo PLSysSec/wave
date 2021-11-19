@@ -15,6 +15,9 @@ prusti-contracts = { package = "veriwasi-contracts", path = "./veriwasi-contract
 libc = "0.2"
 trace = "*"
 extra_args = "0.1.64"
+log = "0.4.14"
+env_logger = "0.8.0"
+
 
 quickcheck="1.0.3"
 quickcheck_macros = "1.0.0"

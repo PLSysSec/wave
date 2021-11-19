@@ -448,6 +448,7 @@ pub fn trace_socket(ctx: &VmCtx, domain: u32, ty: u32, protocol: u32) -> usize {
 #[ensures(trace_safe(ctx, trace))]
 // TODO: finish spec
 //#[ensures(no_effect!(old(trace), trace))]
-pub fn trace_connect(ctx: &VmCtx, sockfd: u32, addr: u32, addrlen: u32) -> usize {
-    os_connect(sockfd, addr, addrlen)
+pub fn trace_connect(ctx: &VmCtx, sockfd: HostFd, addr: &Vec<u8>, addrlen: u32) -> usize {
+    let os_fd: usize = sockfd.into();
+    os_connect(os_fd, addr, addrlen)
 }

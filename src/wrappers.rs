@@ -1543,9 +1543,10 @@ pub fn wasi_fd_readdir(
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
     // TODO: safety checks
+    // Should we keep socket fd and file fd seperate?
     let res = trace_socket(ctx, domain, ty, protocol);
     RuntimeError::from_syscall_ret(res)?;
-    return Ok(res as u32);
+    ctx.fdmap.create(res.into())
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -1558,7 +1559,18 @@ pub fn wasi_sock_connect(
     addrlen: u32,
 ) -> RuntimeResult<()> {
     // TODO: safety checks
-    let res = trace_connect(ctx, sockfd, addr, addrlen);
+    if sockfd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    let fd = ctx.fdmap.m[sockfd as usize]?;
+
+    if !ctx.fits_in_lin_mem(addr, addrlen) {
+        return Err(Eoverflow);
+    }
+
+    let host_buffer = ctx.copy_buf_from_sandbox(addr, addrlen);
+
+    let res = trace_connect(ctx, fd, &host_buffer, addrlen);
     RuntimeError::from_syscall_ret(res)?;
     return Ok(());
 }
