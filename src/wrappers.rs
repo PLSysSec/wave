@@ -1580,9 +1580,20 @@ pub fn wasi_sock_connect(
         return Err(Eoverflow);
     }
 
-    let host_buffer = ctx.copy_buf_from_sandbox(addr, addrlen);
+    
+    //let host_buffer = ctx.copy_buf_from_sandbox(addr, addrlen);
+    //println!("host_buffer = {:?}", host_buffer);
+    let sin_family = ctx.read_u16(addr as usize);
+    let sin_port = ctx.read_u16(addr as usize + 2);
+    let sin_addr = ctx.read_u32(addr as usize + 4);
+    let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
+    // We can directly use sockaddr_in since we already know all socks are inet
+    let sin_addr = libc::in_addr{s_addr: sin_addr};
+    let saddr = libc::sockaddr_in {sin_family, sin_port, sin_addr, sin_zero: [0; 8]};
+    // I need to actually parse this buffer since it is different in 
 
-    let res = trace_connect(ctx, fd, &host_buffer, addrlen);
+
+    let res = trace_connect(ctx, fd, &saddr, addrlen);
     RuntimeError::from_syscall_ret(res)?;
     return Ok(());
 }
