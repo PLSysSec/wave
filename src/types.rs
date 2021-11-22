@@ -311,6 +311,7 @@ impl TryFrom<i32> for Advice {
     }
 }
 
+#[derive(Debug)]
 pub enum Filetype {
     Unknown,
     BlockDevice,
@@ -320,6 +321,21 @@ pub enum Filetype {
     SocketDgram,
     SocketStream,
     SymbolicLink,
+}
+
+impl Filetype {
+    pub fn to_wasi(&self) -> u8 {
+        match self {
+            Filetype::Unknown => 0,
+            Filetype::BlockDevice => 1,
+            Filetype::CharacterDevice => 2,
+            Filetype::Directory => 3,
+            Filetype::RegularFile => 4,
+            Filetype::SocketDgram => 5,
+            Filetype::SocketStream => 6,
+            Filetype::SymbolicLink => 7,
+        }
+    }
 }
 
 impl From<libc::mode_t> for Filetype {

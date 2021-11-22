@@ -1485,7 +1485,9 @@ pub fn wasi_poll_oneoff(
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // TODO: currently ignoring cookie
-// TODO: alignment of getdents result might be different from wasi dirp
+// TODO: need to map posix filetypes to wasi filetypes
+// TODO: I'm not confident this works for multiple consecutive readdir calls to the same dir
+// Correct behavior: truncate final entry
 pub fn wasi_fd_readdir(
     ctx: &mut VmCtx,
     v_fd: SboxFd,
@@ -1493,6 +1495,8 @@ pub fn wasi_fd_readdir(
     buf_len: usize,
     cookie: u64,
 ) -> RuntimeResult<u32> {
+    // TODO: use the cookie properly
+    assert!(cookie == 0);
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -1504,38 +1508,130 @@ pub fn wasi_fd_readdir(
     let res = trace_getdents64(ctx, fd, &mut host_buf, buf_len);
     RuntimeError::from_syscall_ret(res)?;
 
-    let d_next = u64::from_le_bytes([
-        host_buf[0],
-        host_buf[1],
-        host_buf[2],
-        host_buf[3],
-        host_buf[4],
-        host_buf[5],
-        host_buf[6],
-        host_buf[7],
-    ]);
-    let d_ino = u64::from_le_bytes([
-        host_buf[8],
-        host_buf[9],
-        host_buf[10],
-        host_buf[11],
-        host_buf[12],
-        host_buf[13],
-        host_buf[14],
-        host_buf[15],
-    ]);
-    let d_namlen = u32::from_le_bytes([host_buf[16], host_buf[17], host_buf[18], host_buf[19]]);
-    let d_type = u32::from_le_bytes([host_buf[20], host_buf[21], host_buf[22], host_buf[23]]);
-    println!(
-        "d_next = {:?} d_ino = {:?} d_namlen = {:?} d_type = {:?}",
-        d_next, d_ino, d_namlen, d_type
-    );
+    let mut in_idx = 0;
+    let mut out_idx = 0;
 
+    let mut out_buf: Vec<u8> = Vec::new();
+
+    while in_idx < host_buf.len() && out_idx < host_buf.len() {
+        // Inode number
+        let d_ino = u64::from_le_bytes([
+            host_buf[in_idx + 0],
+            host_buf[in_idx + 1],
+            host_buf[in_idx + 2],
+            host_buf[in_idx + 3],
+            host_buf[in_idx + 4],
+            host_buf[in_idx + 5],
+            host_buf[in_idx + 6],
+            host_buf[in_idx + 7],
+        ]);
+
+        // Offset to next linux_dirent
+        let d_offset = u64::from_le_bytes([
+            host_buf[in_idx + 8],
+            host_buf[in_idx + 9],
+            host_buf[in_idx + 10],
+            host_buf[in_idx + 11],
+            host_buf[in_idx + 12],
+            host_buf[in_idx + 13],
+            host_buf[in_idx + 14],
+            host_buf[in_idx + 15],
+        ]);
+
+        // Length of this linux_dirent
+        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
+        // File type
+        let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
+
+        println!(
+            "d_ino = {:x} d_offset = {:x} d_reclen = {:?} d_type = {:?} name = {:?}",
+            d_ino,
+            d_offset,
+            d_reclen,
+            d_type,
+            String::from_utf8_lossy(&host_buf[in_idx + 19..in_idx + d_reclen as usize]),
+        );
+
+        //let out_namlen = d_reclen - 19;
+        // find first null character
+        let out_namlen = host_buf[in_idx + 19..in_idx + d_reclen as usize]
+            .iter()
+            .position(|x| x == &0)
+            .unwrap();
+        let out_next = in_idx + 24 + out_namlen as usize;
+
+        println!(
+            "d_ino = {:x} out_next = {:?} out_namlen = {:?}",
+            d_ino, out_next, out_namlen
+        );
+
+        // If we would overflow - don't :)
+        if out_next > buf_len {
+            break;
+        }
+
+        // Copy in next offset verbatim
+        let out_next_bytes: [u8; 8] = out_next.to_le_bytes();
+        out_buf.extend_from_slice(&out_next_bytes);
+
+        // Copy in Inode verbatim
+        let d_ino_bytes: [u8; 8] = d_ino.to_le_bytes();
+        out_buf.extend_from_slice(&d_ino_bytes);
+
+        // Copy namlen
+        let out_namlen_bytes: [u8; 4] = (out_namlen as u32).to_le_bytes();
+        out_buf.extend_from_slice(&out_namlen_bytes);
+
+        // Copy type
+        let d_type = Filetype::from(d_type as u32);
+        let out_type_bytes: [u8; 4] = (d_type.to_wasi() as u32).to_le_bytes();
+        out_buf.extend_from_slice(&out_type_bytes);
+
+        // Copy name
+        out_buf.extend_from_slice(&host_buf[in_idx + 19..in_idx + 19 + out_namlen as usize]);
+
+        in_idx += d_reclen as usize;
+        out_idx += (24 + out_namlen) as usize
+    }
+
+    // let d_next = u64::from_le_bytes([
+    //     host_buf[0],
+    //     host_buf[1],
+    //     host_buf[2],
+    //     host_buf[3],
+    //     host_buf[4],
+    //     host_buf[5],
+    //     host_buf[6],
+    //     host_buf[7],
+    // ]);
+    // let d_ino = u64::from_le_bytes([
+    //     host_buf[8],
+    //     host_buf[9],
+    //     host_buf[10],
+    //     host_buf[11],
+    //     host_buf[12],
+    //     host_buf[13],
+    //     host_buf[14],
+    //     host_buf[15],
+    // ]);
+    // let d_namlen = u32::from_le_bytes([host_buf[16], host_buf[17], host_buf[18], host_buf[19]]);
+    // let d_type = u32::from_le_bytes([host_buf[20], host_buf[21], host_buf[22], host_buf[23]]);
+    // println!(
+    //     "d_next = {:?} d_ino = {:?} d_namlen = {:?} d_type = {:?}",
+    //     d_next, d_ino, d_namlen, d_type
+    // );
+
+    assert!(out_buf.len() < buf_len);
     let copy_ok = ctx
-        .copy_buf_to_sandbox(buf, &host_buf, res as u32)
+        .copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)
         .ok_or(Efault)?;
 
-    Ok(res as u32)
+    println!(
+        "Returning ok! buffer_used = {:?} out of {:?}",
+        out_buf.len(),
+        buf_len
+    );
+    Ok(out_buf.len() as u32)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -1580,7 +1676,6 @@ pub fn wasi_sock_connect(
         return Err(Eoverflow);
     }
 
-    
     //let host_buffer = ctx.copy_buf_from_sandbox(addr, addrlen);
     //println!("host_buffer = {:?}", host_buffer);
     let sin_family = ctx.read_u16(addr as usize);
@@ -1588,10 +1683,14 @@ pub fn wasi_sock_connect(
     let sin_addr = ctx.read_u32(addr as usize + 4);
     let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
     // We can directly use sockaddr_in since we already know all socks are inet
-    let sin_addr = libc::in_addr{s_addr: sin_addr};
-    let saddr = libc::sockaddr_in {sin_family, sin_port, sin_addr, sin_zero: [0; 8]};
-    // I need to actually parse this buffer since it is different in 
-
+    let sin_addr = libc::in_addr { s_addr: sin_addr };
+    let saddr = libc::sockaddr_in {
+        sin_family,
+        sin_port,
+        sin_addr,
+        sin_zero: [0; 8],
+    };
+    // I need to actually parse this buffer since it is different in
 
     let res = trace_connect(ctx, fd, &saddr, addrlen);
     RuntimeError::from_syscall_ret(res)?;
