@@ -7,20 +7,21 @@
 #define MAX 80
 #define PORT 8080
 #define SA struct sockaddr
-void func(int sockfd)
+void sock_func(int sockfd)
 {
     char buff[MAX];
     int n;
     for (;;) {
         bzero(buff, sizeof(buff));
-        printf("Enter the string : ");
+        // write(1,"Enter the string : \n", 20);
+        printf("Enter the string: \n");
         n = 0;
         while ((buff[n++] = getchar()) != '\n')
             ;
         write(sockfd, buff, sizeof(buff));
         bzero(buff, sizeof(buff));
         read(sockfd, buff, sizeof(buff));
-        printf("From Server : %s", buff);
+        printf("From Server : %s\n", buff);
         if ((strncmp(buff, "exit", 4)) == 0) {
             printf("Client Exit...\n");
             break;
@@ -36,19 +37,20 @@ int main()
     struct sockaddr_in servaddr, cli;
     struct in_addr addr;
 
-   
+
+
     // socket create and varification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
         printf("socket creation failed... ");
-	perror("socket creation error");
-	printf("\n");
+	    perror("socket creation error");
+	    printf("\n");
         exit(0);
     }
-    else
+    else{
         printf("Socket successfully created..\n");
+    }
     bzero(&servaddr, sizeof(servaddr));
-   
     inet_aton("127.0.0.1", &addr);
 
     //assign IP, PORT
@@ -62,10 +64,10 @@ int main()
         exit(0);
     }
     else
-        printf("connected to the server..\n");
+        write(1, "connected to the server..\n", 26);
    
     // function for chat
-    func(sockfd);
+    sock_func(sockfd);
    
     // close the socket
     close(sockfd);
