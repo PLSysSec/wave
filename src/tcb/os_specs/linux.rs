@@ -353,6 +353,7 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
 //https://man7.org/linux/man-pages/man2/getdents64.2.html
 //  long syscall(SYS_getdents, unsigned int fd, struct linux_dirent *dirp, unsigned int count);
 #[with_ghost_var(trace: &mut Trace)]
+#[external_method(set_len)]
 #[trusted]
 // TODO: what effect should this have?
 //#[ensures(no_effect!(old(trace), trace))]

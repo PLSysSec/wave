@@ -6,7 +6,7 @@ use crate::tcb::verifier::external_specs::option::*;
 use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
-use extra_args::{external_call, external_method, with_ghost_var};
+use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
@@ -20,12 +20,8 @@ use RuntimeError::*;
 
 //#[ensures(safe(&result))]
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(new)]
-#[external_method(init_std_fds)]
-#[external_method(unwrap)]
-#[external_call(open)]
-#[external_method(as_raw_fd)]
-#[external_method(create)]
+#[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned)]
+#[external_calls(open, forget)]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
@@ -108,8 +104,7 @@ impl VmCtx {
 
     /// Copy buffer from sandbox to host
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(new)]
-    #[external_method(reserve_exact)]
+    #[external_methods(reserve_exact)]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
@@ -123,7 +118,7 @@ impl VmCtx {
 
     /// Copy buffer from from host to sandbox
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(Some)]
+    #[external_calls(Some)]
     #[requires(src.len() == (n as usize) )]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
@@ -140,7 +135,7 @@ impl VmCtx {
     /// TODO: make this not trusted
     /// (its only trusted because clone breaks viper for some reason)
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(Some)]
+    #[external_calls(Some)]
     #[trusted]
     #[requires(self.arg_buffer.len() == (n as usize) )]
     #[requires(trace_safe(self, trace))]
@@ -157,7 +152,7 @@ impl VmCtx {
     /// TODO: make this not trusted
     /// (its only trusted because clone breaks viper for some reason)
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(Some)]
+    #[external_calls(Some)]
     #[trusted]
     #[requires(self.env_buffer.len() == (n as usize) )]
     #[requires(trace_safe(self, trace))]
@@ -175,8 +170,8 @@ impl VmCtx {
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(copy)]
-    #[external_method(set_len)]
+    #[external_calls(copy)]
+    #[external_methods(set_len)]
     #[trusted]
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
@@ -199,7 +194,7 @@ impl VmCtx {
     /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: verify that regions do not overlap so that we can use copy_non_overlapping
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(copy)]
+    #[external_calls(copy)]
     #[trusted]
     #[requires(src.len() == (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n, trace))]
@@ -262,7 +257,7 @@ impl VmCtx {
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(from_le_bytes)]
+    #[external_calls(from_le_bytes)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     pub fn read_u16(&self, start: usize) -> u16 {
@@ -273,7 +268,7 @@ impl VmCtx {
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(from_le_bytes)]
+    #[external_calls(from_le_bytes)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     pub fn read_u32(&self, start: usize) -> u32 {
@@ -289,7 +284,7 @@ impl VmCtx {
     /// read u64 from wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(from_le_bytes)]
+    #[external_calls(from_le_bytes)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     pub fn read_u64(&self, start: usize) -> u64 {
@@ -309,7 +304,7 @@ impl VmCtx {
     /// write u16 to wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_method(to_le_bytes)]
+    #[external_methods(to_le_bytes)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
@@ -321,7 +316,7 @@ impl VmCtx {
     /// write u32 to wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_method(to_le_bytes)]
+    #[external_methods(to_le_bytes)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
@@ -335,7 +330,7 @@ impl VmCtx {
     /// write u64 to wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_method(to_le_bytes)]
+    #[external_methods(to_le_bytes)]
     // #[requires(self.memlen > 8)]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]

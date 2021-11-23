@@ -7,7 +7,7 @@ use crate::tcb::verifier::external_specs::result::*;
 use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, no_effect, one_effect};
-use extra_args::{external_call, external_method, with_ghost_var};
+use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::{TryFrom, TryInto};
 use std::mem;
@@ -18,9 +18,8 @@ use RuntimeError::*;
 // Modifies: fdmap
 // TODO: fdmap trace fix
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Err)]
-#[external_method(resolve_path)]
-#[external_method(create)]
+#[external_methods(resolve_path, create, to_posix)]
+#[external_calls(from, bitwise_or)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_open(
@@ -49,10 +48,6 @@ pub fn wasi_path_open(
         fdflags.to_posix(),
     );
 
-    println!(
-        "dirflags_posix = {:x}, oflags_posix = {:x}, fdflags_posix = {:x}, flags = {:x}",
-        dirflags_posix, oflags_posix, fdflags_posix, flags
-    );
     let fd = trace_open(ctx, host_pathname, flags);
     RuntimeError::from_syscall_ret(fd)?; // check result TODO: do this in trace_open
     ctx.fdmap.create(fd.into())
@@ -60,9 +55,7 @@ pub fn wasi_path_open(
 
 // // modifies: fdmap
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(delete)]
+#[external_methods(delete)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // if args are not valid, nothing happens
@@ -82,11 +75,7 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
-#[external_method(ok_or)]
-#[external_method(reserve_exact)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
+#[external_methods(reserve_exact)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[trusted] // TODO: remove, only present for testing frontend right now
@@ -134,8 +123,6 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[trusted] // TODO: remove, only present for testing frontend right now
@@ -171,10 +158,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_method(ok_or)]
-#[external_call(from_u32)]
-#[external_call(Ok)]
-#[external_call(Err)]
+#[external_calls(from_u32)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> one_effect!(old(trace), trace, Effect::FdAccess))]
@@ -202,9 +186,7 @@ pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(try_from)]
-#[external_call(Ok)]
-#[external_call(Err)]
+#[external_calls(try_from)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_advise(
@@ -230,8 +212,6 @@ pub fn wasi_fd_advise(
 
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
@@ -250,8 +230,6 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 // // modifies: none
 // // TODO: should not return u32 at all?
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
@@ -267,8 +245,6 @@ pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 // // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
@@ -282,12 +258,9 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
-// // //modifies: none
+//modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(zeroed)]
-#[external_method(into)]
+#[external_calls(zeroed, from_posix)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
@@ -306,7 +279,6 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let result = trace_fstat(ctx, fd, &mut stat);
     RuntimeError::from_syscall_ret(result)?;
     let filetype = stat.st_mode;
-    println!("filetype = {:?}", filetype);
 
     let mode_flags = trace_fgetfl(ctx, fd);
     RuntimeError::from_syscall_ret(mode_flags)?;
@@ -323,10 +295,8 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 
 //TODO: need wasm layout for FdFlags to read from ptr
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(from)]
-#[external_method(to_posix)]
+#[external_calls(from)]
+#[external_methods(to_posix)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // can only adjust Fdflags using set_flags, not O_flags or any other flags
@@ -339,10 +309,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let posix_flags = flags.to_posix();
-    println!(
-        "v_flags = {:x} flags = {:?} posix_flags = {:x}",
-        v_flags, flags, posix_flags
-    );
+
     let ret = trace_fsetfl(ctx, fd, posix_flags);
     RuntimeError::from_syscall_ret(ret)?;
     Ok(())
@@ -350,10 +317,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 
 // // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(zeroed)]
-#[external_method(into)]
+#[external_calls(zeroed)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
@@ -377,8 +341,6 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 // but ftruncate, which filestat_set_size is supposed to call used i64
 // I'm keeping this as i64 since this does not cause any truncation
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
@@ -393,16 +355,8 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(atim_now)]
-#[external_method(atim)]
-#[external_method(mtim)]
-#[external_method(mtim_now)]
-#[external_method(reserve_exact)]
-#[external_method(nsec)]
-#[external_method(push)]
+#[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
+#[external_methods(reserve_exact, push)] // Vec methods
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_filestat_set_times(
@@ -469,13 +423,7 @@ pub fn wasi_fd_filestat_set_times(
 // TODO: refactor read and pread into common impl
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(ok_or)]
-#[external_method(reserve_exact)]
-#[external_method(push)]
-#[external_method(resolve_path)]
+#[external_methods(reserve_exact, push, resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[trusted] // TODO: remove, only present for testing frontend right now
@@ -518,14 +466,7 @@ pub fn wasi_fd_pread(
 // modifies: mem
 // If v_fd refers to a preopened directory (fd == 3), write the name to path
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(ok_or)]
-#[external_method(push)]
-#[external_method(len)]
-#[external_method(as_bytes)]
-#[external_method(to_vec)]
+#[external_methods(push, as_bytes, to_vec)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_prestat_dirname(
@@ -560,9 +501,6 @@ pub fn wasi_prestat_dirname(
 /// must return ebadf if the file doesn't exist:
 /// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Err)]
-#[external_call(Ok)]
-#[external_method(len)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
@@ -578,12 +516,7 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 // TODO: refactor write and pwrite into common impl
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(ok_or)]
-#[external_method(push)]
-#[external_method(resolve_path)]
+#[external_methods(push, resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[trusted] // TODO: remove, only present for testing frontend right now
@@ -620,12 +553,7 @@ pub fn wasi_fd_pwrite(
 //TODO: should create fd for directory
 // modifies: adds hostfd for directory created
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(ok_or)]
-#[external_method(push)]
-#[external_method(resolve_path)]
+#[external_methods(push, resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_create_directory(
@@ -641,16 +569,12 @@ pub fn wasi_path_create_directory(
     if !ctx.fits_in_lin_mem(pathname, path_len) {
         return Err(Eoverflow);
     }
-    println!("mkdir: Passed the checks!");
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    println!("I'm going to try to resolve the path!");
     let host_pathname = ctx.resolve_path(host_buffer)?;
-    println!("fdmap = {:#?}", ctx.fdmap.m);
     let fd = ctx.fdmap.m[v_fd as usize]?;
     // TODO: wasi doesn't seem so specify what permissions should be?
     //       I will use rw------- cause it seems sane.
     let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
-    println!("mkdir: Making the mkdirat call!");
     let res = trace_mkdirat(ctx, fd, host_pathname, mode);
     RuntimeError::from_syscall_ret(res)?;
     Ok(())
@@ -661,12 +585,8 @@ pub fn wasi_path_create_directory(
 // // //       respect the fd.
 // // // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(ok_or)]
-#[external_method(push)]
-#[external_method(resolve_path)]
-#[external_call(zeroed)]
+#[external_methods(push, resolve_path)]
+#[external_calls(zeroed)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_filestat_get(
@@ -700,17 +620,9 @@ pub fn wasi_path_filestat_get(
 
 // // // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(atim_now)]
-#[external_method(atim)]
-#[external_method(mtim)]
-#[external_method(mtim_now)]
-#[external_method(reserve_exact)]
-#[external_method(nsec)]
-#[external_method(push)]
-#[external_method(resolve_path)]
+#[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
+#[external_methods(reserve_exact, push)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_filestat_set_times(
@@ -781,15 +693,12 @@ pub fn wasi_path_filestat_set_times(
     Ok(())
 }
 
-// // TODO: Pass through the path lengths
-// // TODO: handle LookupFlags
-// // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
-// // modifies: none
+// TODO: Pass through the path lengths
+// TODO: handle LookupFlags
+// TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
+// modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(resolve_path)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_link(
@@ -829,15 +738,10 @@ pub fn wasi_path_link(
     Ok(())
 }
 
-// // modifies: mem
+// modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(reserve_exact)]
-#[external_method(push)]
-#[external_method(resolve_path)]
-#[external_method(ok_or)]
+#[external_methods(reserve_exact, push)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_readlink(
@@ -875,9 +779,7 @@ pub fn wasi_path_readlink(
 //TODO: should remove fd from map?
 //modifies: removes directory from fdmap
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(resolve_path)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_remove_directory(
@@ -910,9 +812,7 @@ pub fn wasi_path_remove_directory(
 
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(resolve_path)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_rename(
@@ -951,9 +851,7 @@ pub fn wasi_path_rename(
 
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(resolve_path)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_symlink(
@@ -986,9 +884,7 @@ pub fn wasi_path_symlink(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(resolve_path)]
+#[external_methods(resolve_path)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_path_unlink_file(
@@ -1015,9 +911,7 @@ pub fn wasi_path_unlink_file(
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(from_u32)]
-#[external_method(ok_or)]
+#[external_calls(from_u32)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
@@ -1035,9 +929,7 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(from_u32)]
-#[external_method(ok_or)]
+#[external_calls(from_u32)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_clock_time_get(
@@ -1058,7 +950,6 @@ pub fn wasi_clock_time_get(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(no_effect!(old(trace), trace))]
@@ -1067,7 +958,6 @@ pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(no_effect!(old(trace), trace))]
@@ -1076,7 +966,6 @@ pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(no_effect!(old(trace), trace))]
@@ -1086,11 +975,7 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
 
 // modifies: memory
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(reserve_exact)]
-#[external_method(ok_or)]
+#[external_methods(reserve_exact)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
@@ -1108,9 +993,7 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_method(shift)]
+#[external_methods(shift)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(no_effect!(old(trace), trace))]
@@ -1129,14 +1012,10 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_method(ok_or)]
-#[external_method(len)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
-    println!("arg_buffer = {:?}", ctx.arg_buffer);
     // 1. copy argv_buffer
     let argv_buf_len = ctx.arg_buffer.len() as u32;
     ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
@@ -1169,9 +1048,6 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_method(ok_or)]
-#[external_method(len)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // #[ensures(no_effect!(old(trace), trace))]
@@ -1204,7 +1080,6 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(no_effect!(old(trace), trace))]
@@ -1214,7 +1089,6 @@ pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 #[ensures(no_effect!(old(trace), trace))]
@@ -1223,11 +1097,7 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(ok_or)]
-#[external_method(reserve_exact)]
+#[external_methods(reserve_exact)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_sock_recv(
@@ -1270,8 +1140,6 @@ pub fn wasi_sock_recv(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_sock_send(
@@ -1309,10 +1177,6 @@ pub fn wasi_sock_send(
 
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(into)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // If sandbox does not own fd, no effects take place
@@ -1335,11 +1199,7 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
 // TODO: Do we need to check alignment on the pointers?
 // TODO: clean this up, pretty gross
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(into)]
-#[external_method(subscription_clock_abstime)]
+#[external_methods(subscription_clock_abstime)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 pub fn wasi_poll_oneoff(
@@ -1480,12 +1340,12 @@ pub fn wasi_poll_oneoff(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
-#[external_call(new)]
-#[external_method(into)]
+#[external_methods(extend_from_slice, reserve_exact)]
+#[external_methods(to_le_bytes, iter, position, unwrap, to_wasi)]
+#[external_calls(from_le_bytes, from)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+#[trusted]
 // TODO: currently ignoring cookie
 // TODO: need to map posix filetypes to wasi filetypes
 // TODO: I'm not confident this works for multiple consecutive readdir calls to the same dir
@@ -1545,15 +1405,6 @@ pub fn wasi_fd_readdir(
         // File type
         let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
 
-        println!(
-            "d_ino = {:x} d_offset = {:x} d_reclen = {:?} d_type = {:?} name = {:?}",
-            d_ino,
-            d_offset,
-            d_reclen,
-            d_type,
-            String::from_utf8_lossy(&host_buf[in_idx + 19..in_idx + d_reclen as usize]),
-        );
-
         //let out_namlen = d_reclen - 19;
         // find first null character
         let out_namlen = host_buf[in_idx + 19..in_idx + d_reclen as usize]
@@ -1561,11 +1412,6 @@ pub fn wasi_fd_readdir(
             .position(|x| x == &0)
             .unwrap();
         let out_next = in_idx + 24 + out_namlen as usize;
-
-        println!(
-            "d_ino = {:x} out_next = {:?} out_namlen = {:?}",
-            d_ino, out_next, out_namlen
-        );
 
         // If we would overflow - don't :)
         if out_next > buf_len {
@@ -1596,62 +1442,25 @@ pub fn wasi_fd_readdir(
         out_idx += (24 + out_namlen) as usize
     }
 
-    // let d_next = u64::from_le_bytes([
-    //     host_buf[0],
-    //     host_buf[1],
-    //     host_buf[2],
-    //     host_buf[3],
-    //     host_buf[4],
-    //     host_buf[5],
-    //     host_buf[6],
-    //     host_buf[7],
-    // ]);
-    // let d_ino = u64::from_le_bytes([
-    //     host_buf[8],
-    //     host_buf[9],
-    //     host_buf[10],
-    //     host_buf[11],
-    //     host_buf[12],
-    //     host_buf[13],
-    //     host_buf[14],
-    //     host_buf[15],
-    // ]);
-    // let d_namlen = u32::from_le_bytes([host_buf[16], host_buf[17], host_buf[18], host_buf[19]]);
-    // let d_type = u32::from_le_bytes([host_buf[20], host_buf[21], host_buf[22], host_buf[23]]);
-    // println!(
-    //     "d_next = {:?} d_ino = {:?} d_namlen = {:?} d_type = {:?}",
-    //     d_next, d_ino, d_namlen, d_type
-    // );
-
-    assert!(out_buf.len() < buf_len);
     let copy_ok = ctx
         .copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)
         .ok_or(Efault)?;
 
-    println!(
-        "Returning ok! buffer_used = {:?} out of {:?}",
-        out_buf.len(),
-        buf_len
-    );
     Ok(out_buf.len() as u32)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+#[external_methods(create)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+#[trusted]
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
     // TODO: safety checks
     // Should we keep socket fd and file fd seperate?
     // convert from wasi constants to posix constants
-    println!("domain = {:?} libc::AF_INET = {:?}", domain, libc::AF_INET);
     let domain = sock_domain_to_posix(domain)?;
     let ty = sock_type_to_posix(ty)?;
-    println!(
-        "ty = {:?} libc::SOCK_STREAM = {:?} libc::SOCK_DGRAM = {:?}",
-        ty,
-        libc::SOCK_STREAM,
-        libc::SOCK_DGRAM
-    );
+
     let res = trace_socket(ctx, domain, ty, protocol as i32);
     // check domain == AF_INET
     // check ty == SOCK_STREAM || ty == SOCK_DGRAM
@@ -1662,6 +1471,7 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+#[trusted]
 pub fn wasi_sock_connect(
     ctx: &mut VmCtx,
     sockfd: u32,
@@ -1678,8 +1488,6 @@ pub fn wasi_sock_connect(
         return Err(Eoverflow);
     }
 
-    //let host_buffer = ctx.copy_buf_from_sandbox(addr, addrlen);
-    //println!("host_buffer = {:?}", host_buffer);
     let sin_family = ctx.read_u16(addr as usize);
     let sin_port = ctx.read_u16(addr as usize + 2);
     let sin_addr = ctx.read_u32(addr as usize + 4);

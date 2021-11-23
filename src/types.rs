@@ -699,6 +699,9 @@ pub struct EventFdReadWrite {
     flags: u16,
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(Err)]
 pub fn sock_domain_to_posix(domain: u32) -> RuntimeResult<i32> {
     if domain == 1 {
         return Ok(libc::AF_INET);
@@ -706,6 +709,9 @@ pub fn sock_domain_to_posix(domain: u32) -> RuntimeResult<i32> {
     return Err(RuntimeError::Enotsup);
 }
 
+#[with_ghost_var(trace: &mut Trace)]
+#[external_call(Ok)]
+#[external_call(Err)]
 pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
     if ty == 6 {
         return Ok(libc::SOCK_STREAM);
