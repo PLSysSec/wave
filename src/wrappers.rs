@@ -74,8 +74,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
-        body_invariant!(trace_safe(trace, ctx.memlen));
-        body_invariant!(ctx_safe(ctx));
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (iovs + i * 8) as usize;
         let ptr = ctx.read_u32(start);
@@ -97,8 +96,6 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 #[external_call(Err)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-//#[trusted] // TODO: remove, only present for testing frontend right now
-           // TODO: fold-unfold error
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -431,7 +428,6 @@ pub fn wasi_fd_filestat_set_times(
 #[external_method(resolve_path)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[trusted] // TODO: remove, only present for testing frontend right now
 pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -441,19 +437,16 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
         let start = (iovs + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        //let mut buf: Vec<u8> = Vec::new();
-        //buf.reserve_exact(len as usize);
         let result = trace_read(ctx, fd, ptr, len as usize);
         RuntimeError::from_syscall_ret(result)?;
-        /*let copy_ok = ctx
-            .copy_buf_to_sandbox(ptr, &buf, result as u32)
-            .ok_or(Efault)?;*/
         num += result as u32;
         i += 1;
     }
@@ -517,7 +510,6 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<()> {
 #[external_method(resolve_path)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[trusted] // TODO: remove, only present for testing frontend right now
 pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -527,13 +519,14 @@ pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Run
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
         let start = (iovs + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        //let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
         let result = trace_write(ctx, fd, ptr, len as usize);
         RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
@@ -1120,6 +1113,7 @@ pub fn wasi_sock_recv(
     let mut i = 0;
     while i < ri_data_count {
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
         let start = (ri_data + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
@@ -1164,6 +1158,7 @@ pub fn wasi_sock_send(
     let mut i = 0;
     while i < si_data_count {
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
         let start = (si_data + i * 8) as usize;
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
