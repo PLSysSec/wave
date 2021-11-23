@@ -426,7 +426,7 @@ pub fn trace_poll(ctx: &VmCtx, pollfd: &mut libc::pollfd, timeout: libc::c_int) 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
-//#[ensures(no_effect!(old(trace), trace))]
+#[ensures(no_effect!(old(trace), trace))]
 // pub fn os_getdents64(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
 //buf: &mut Vec<u8>
 pub fn trace_getdents64(ctx: &VmCtx, fd: HostFd, dirp: &mut Vec<u8>, count: usize) -> usize {
@@ -438,7 +438,7 @@ pub fn trace_getdents64(ctx: &VmCtx, fd: HostFd, dirp: &mut Vec<u8>, count: usiz
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // TODO: finish spec
-//#[ensures(no_effect!(old(trace), trace))]
+#[ensures(no_effect!(old(trace), trace))]
 pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> usize {
     os_socket(domain, ty, protocol)
 }
@@ -447,7 +447,7 @@ pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> usize {
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
 // TODO: finish spec
-//#[ensures(no_effect!(old(trace), trace))]
+#[ensures(no_effect!(old(trace), trace))]
 pub fn trace_connect(ctx: &VmCtx, sockfd: HostFd, addr: &libc::sockaddr_in, addrlen: u32) -> usize {
     let os_fd: usize = sockfd.into();
     os_connect(os_fd, addr, addrlen)

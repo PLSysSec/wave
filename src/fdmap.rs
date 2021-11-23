@@ -92,7 +92,6 @@ impl FdMap {
     // #[requires(trace_safe(ctx, trace))]
     // #[ensures(trace_safe(ctx, trace))]
     pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {
-        println!("Fdmap.create({:?})", k);
         let s_fd = self.pop_fd()?;
         self.m[s_fd as usize] = Ok(k);
         Ok(s_fd)

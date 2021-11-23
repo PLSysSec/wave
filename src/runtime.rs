@@ -22,6 +22,7 @@ use RuntimeError::*;
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned)]
 #[external_calls(open, forget)]
+#[trusted]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];

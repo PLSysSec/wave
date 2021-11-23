@@ -53,7 +53,7 @@ pub fn wasi_path_open(
     ctx.fdmap.create(fd.into())
 }
 
-// // modifies: fdmap
+// modifies: fdmap
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(delete)]
 #[requires(trace_safe(ctx, trace))]
@@ -184,7 +184,7 @@ pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
 
-// // modifies: none
+// modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(try_from)]
 #[requires(trace_safe(ctx, trace))]
@@ -210,7 +210,7 @@ pub fn wasi_fd_advise(
     Ok(ret as u32)
 }
 
-// // modifies: none
+// modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
@@ -227,8 +227,8 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
     Ok(ret as u32)
 }
 
-// // modifies: none
-// // TODO: should not return u32 at all?
+// modifies: none
+// TODO: should not return u32 at all?
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
@@ -469,6 +469,7 @@ pub fn wasi_fd_pread(
 #[external_methods(push, as_bytes, to_vec)]
 #[requires(trace_safe(ctx, trace))]
 #[ensures(trace_safe(ctx, trace))]
+#[trusted]
 pub fn wasi_prestat_dirname(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -550,7 +551,7 @@ pub fn wasi_fd_pwrite(
     Ok(num)
 }
 
-//TODO: should create fd for directory
+// TODO: should create fd for directory
 // modifies: adds hostfd for directory created
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push, resolve_path)]
@@ -580,10 +581,10 @@ pub fn wasi_path_create_directory(
     Ok(())
 }
 
-// // // TODO: handle lookup flags
-// // // TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
-// // //       respect the fd.
-// // // modifies: None
+// TODO: handle lookup flags
+// TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
+//       respect the fd.
+// modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push, resolve_path)]
 #[external_calls(zeroed)]
@@ -1409,7 +1410,7 @@ pub fn wasi_fd_readdir(
         // find first null character
         let out_namlen = host_buf[in_idx + 19..in_idx + d_reclen as usize]
             .iter()
-            .position(|x| x == &0)
+            .position(|x| *x == 0)
             .unwrap();
         let out_next = in_idx + 24 + out_namlen as usize;
 

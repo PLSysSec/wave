@@ -355,6 +355,7 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> usize {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_method(set_len)]
 #[trusted]
+#[ensures(no_effect!(old(trace), trace))]
 // TODO: what effect should this have?
 //#[ensures(no_effect!(old(trace), trace))]
 pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> usize {
@@ -368,6 +369,7 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> usize {
 //https://man7.org/linux/man-pages/man2/socket.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
+#[ensures(no_effect!(old(trace), trace))]
 // TODO: finish spec
 //#[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
 pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> usize {
@@ -377,6 +379,7 @@ pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> usize {
 //https://man7.org/linux/man-pages/man2/connect.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
+#[ensures(no_effect!(old(trace), trace))]
 // TODO: finish spec
 // #[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
 pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> usize {

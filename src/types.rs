@@ -17,6 +17,8 @@ pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
 
 pub const HOMEDIR_FD: SboxFd = 3; //4GB
 
+// Note: prusti does not like derive(Debug)
+
 // #[cfg(feature = "verify")]
 // predicate! {
 //     fn safe(ctx: &VmCtx) -> bool {
@@ -29,7 +31,8 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 pub type SboxPtr = u32;
 
 // pub type HostFd = usize;
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct HostFd(usize);
 impl From<HostFd> for usize {
     fn from(w: HostFd) -> usize {
@@ -45,8 +48,8 @@ impl From<usize> for HostFd {
 
 pub type SboxFd = u32;
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-#[cfg_attr(test, derive(Debug))] // needed for assert_eq!
+#[derive(PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub enum RuntimeError {
     Success,
     Ebadf,
@@ -224,8 +227,8 @@ impl ClockId {
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd, Debug)]
-#[cfg_attr(test, derive(Debug))] // needed for assert_eq!
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct Timestamp(u64);
 
 impl Timestamp {
@@ -311,7 +314,7 @@ impl TryFrom<i32> for Advice {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub enum Filetype {
     Unknown,
     BlockDevice,
@@ -376,7 +379,7 @@ impl From<Filetype> for libc::mode_t {
 type Rights = u64;
 
 // internal representation is the wasi representation
-#[derive(Debug)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 #[repr(transparent)]
 pub struct FdFlags(u16);
 
@@ -454,7 +457,7 @@ impl From<libc::c_int> for FdFlags {
 // TODO: This doesn't exactly match due to layout issues. Could use repr tags to try and make
 //       it match, or could have a translation between this and wasm FdStat
 //       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
-#[derive(Debug)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdStat {
     pub fs_filetype: Filetype,
     pub fs_flags: FdFlags,
@@ -462,7 +465,7 @@ pub struct FdStat {
     pub fs_rights_inheriting: Rights,
 }
 
-#[derive(Debug)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FileStat {
     pub dev: u64,
     pub ino: u64,
