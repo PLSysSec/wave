@@ -855,7 +855,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_random_getZ_iii(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn Z_wasi_snapshot_preview1Z_sched_yieldZ_i(ctx: *const *mut VmCtx) -> u32 {
+pub extern "C" fn Z_wasi_snapshot_preview1Z_sched_yieldZ_iv(ctx: *const *mut VmCtx) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sched_yield(ctx_ref);
     wasm2c_marshal(r)
