@@ -5,6 +5,7 @@
 // This test doesn't really do much, all I'm expecting is that it doesn't crash
 int main() {
    __wasi_proc_raise(11);
+   __wasi_sched_yield();
    printf("Done!\n");
    return 0;
 }
