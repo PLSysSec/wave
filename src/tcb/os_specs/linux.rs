@@ -23,8 +23,8 @@ pub fn os_close(fd: usize) -> usize {
 
 // https://man7.org/linux/man-pages/man2/read.2.html
 #[with_ghost_var(trace: &mut Trace)]
-//#[requires(buf.len() >= cnt)]
-#[ensures(buf.len() >= cnt)]
+#[requires(buf.len() >= cnt)]
+#[ensures(buf.len() >= result)]
 #[ensures(result <= cnt)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
@@ -36,17 +36,13 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[external_method(set_len)]
-#[requires(buf.capacity() >= cnt)]
-#[ensures(buf.len() == result)]
-#[ensures(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
+#[ensures(buf.len() >= result)]
+#[ensures(result <= cnt)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
-pub fn os_pread(fd: usize, buf: &mut Vec<u8>, cnt: usize) -> usize {
-    unsafe {
-        let result = syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt);
-        buf.set_len(result);
-        result
-    }
+pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize) -> usize {
+    unsafe { syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt) }
 }
 
 //https://man7.org/linux/man-pages/man2/write.2.html
