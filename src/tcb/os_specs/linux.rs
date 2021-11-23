@@ -23,7 +23,7 @@ pub fn os_close(fd: usize) -> usize {
 
 // https://man7.org/linux/man-pages/man2/read.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
+//#[requires(buf.len() >= cnt)]
 #[ensures(buf.len() >= cnt)]
 #[ensures(result <= cnt)]
 #[trusted]
