@@ -252,7 +252,7 @@ uint32_t Z_wasi_snapshot_preview1Z_random_getZ_iii(void *ctx,
                                                    uint32_t buf,
                                                    uint32_t buf_len);
 
-uint32_t Z_wasi_snapshot_preview1Z_sched_yieldZ_i(void *ctx);
+uint32_t Z_wasi_snapshot_preview1Z_sched_yieldZ_iv(void *ctx);
 
 uint32_t Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(void *ctx,
                                                       uint32_t fd,
@@ -272,6 +272,17 @@ uint32_t Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(void *ctx,
 uint32_t Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(void *ctx,
                                                       uint32_t fd,
                                                       uint32_t how);
+
+uint32_t Z_wasi_snapshot_preview1Z_socketZ_iiiii(void *ctx,
+                                                 uint32_t domain,
+                                                 uint32_t ty,
+                                                 uint32_t protocol,
+                                                 uint32_t retptr);
+
+uint32_t Z_wasi_snapshot_preview1Z_sock_connectZ_iiii(void *ctx,
+                                                      uint32_t sockfd,
+                                                      uint32_t addr,
+                                                      uint32_t addrlen);
 
 #ifdef __cplusplus
 } // extern "C"
