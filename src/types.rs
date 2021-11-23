@@ -224,7 +224,7 @@ impl ClockId {
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug)]
 #[cfg_attr(test, derive(Debug))] // needed for assert_eq!
 pub struct Timestamp(u64);
 
@@ -454,6 +454,7 @@ impl From<libc::c_int> for FdFlags {
 // TODO: This doesn't exactly match due to layout issues. Could use repr tags to try and make
 //       it match, or could have a translation between this and wasm FdStat
 //       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
+#[derive(Debug)]
 pub struct FdStat {
     pub fs_filetype: Filetype,
     pub fs_flags: FdFlags,
@@ -461,6 +462,7 @@ pub struct FdStat {
     pub fs_rights_inheriting: Rights,
 }
 
+#[derive(Debug)]
 pub struct FileStat {
     pub dev: u64,
     pub ino: u64,

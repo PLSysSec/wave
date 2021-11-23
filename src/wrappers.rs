@@ -303,8 +303,10 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     // reference)
     let mut stat: libc::stat = unsafe { std::mem::zeroed() };
     // TODO: double check, should this be fstat or fstat64?
-    let filetype = trace_fstat(ctx, fd, &mut stat);
-    RuntimeError::from_syscall_ret(filetype)?;
+    let result = trace_fstat(ctx, fd, &mut stat);
+    RuntimeError::from_syscall_ret(result)?;
+    let filetype = stat.st_mode;
+    println!("filetype = {:?}", filetype);
 
     let mode_flags = trace_fgetfl(ctx, fd);
     RuntimeError::from_syscall_ret(mode_flags)?;

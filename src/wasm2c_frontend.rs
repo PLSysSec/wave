@@ -126,6 +126,7 @@ fn wasm2c_marshal_and_writeback_u32(
     addr: usize,
     result: RuntimeResult<u32>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_u32: {:?}", result);
     match result {
         Ok(r) => {
             ctx_ref.write_u32(addr, r); // writeback result
@@ -140,6 +141,7 @@ fn wasm2c_marshal_and_writeback_prestat(
     addr: usize,
     result: RuntimeResult<u32>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_prestat: {:?}", result);
     match result {
         Ok(r) => {
             ctx_ref.write_u32(addr, 0);
@@ -155,6 +157,7 @@ fn wasm2c_marshal_and_writeback_u64(
     addr: usize,
     result: RuntimeResult<u64>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_u64: {:?}", result);
     match result {
         Ok(r) => {
             ctx_ref.write_u64(addr, r); // writeback result
@@ -169,6 +172,7 @@ fn wasm2c_marshal_and_writeback_timestamp(
     addr: usize,
     result: RuntimeResult<Timestamp>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_timestamp: {:?}", result);
     match result {
         Ok(r) => {
             ctx_ref.write_u64(addr, r.nsec()); // writeback result
@@ -183,9 +187,10 @@ fn wasm2c_marshal_and_writeback_fdstat(
     addr: usize,
     result: RuntimeResult<FdStat>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_fdstat: {:?}", result);
     match result {
         Ok(r) => {
-            ctx_ref.write_u16(addr, r.fs_filetype as u16);
+            ctx_ref.write_u16(addr, r.fs_filetype.to_wasi() as u16);
             ctx_ref.write_u16(addr + 2, r.fs_flags.to_posix() as u16);
             ctx_ref.write_u64(addr + 8, r.fs_rights_base);
             ctx_ref.write_u64(addr + 16, r.fs_rights_inheriting);
@@ -200,6 +205,7 @@ fn wasm2c_marshal_and_writeback_filestat(
     addr: usize,
     result: RuntimeResult<FileStat>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_filestat: {:?}", result);
     match result {
         Ok(r) => {
             ctx_ref.write_u64(addr, r.dev);
@@ -222,6 +228,7 @@ fn wasm2c_marshal_and_writeback_u32_pair(
     addr1: usize,
     result: RuntimeResult<(u32, u32)>,
 ) -> u32 {
+    log::info!("wasm2c_marshal_and_writeback_u32_pair: {:?}", result);
     match result {
         Ok((v0, v1)) => {
             ctx_ref.write_u32(addr0, v0); // writeback envc
