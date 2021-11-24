@@ -1,6 +1,7 @@
 use crate::os;
 use crate::runtime::fresh_ctx;
 use crate::types::{SboxPtr, VmCtx};
+use std::time::{Duration, Instant};
 use quickcheck::{QuickCheck, TestResult};
 use quickcheck_macros;
 
@@ -26,10 +27,36 @@ The methods are:
     5. 4096 byte write (any way)
 */
 
+/* 
+let now = Instant::now();
+now.elapsed().as_nanos()
+*/
+
+// Method 1: repeated writes
+fn write_method_1(ctx: &mut VmCtx, src: &[u8], offset:usize){
+    for idx in 0..src.len() {
+        ctx[offset + idx] = src[idx];
+    }
+}
+
+// Method 2: vector write
+fn write_method_2(ctx: &mut VmCtx, src: &[u8], offset:usize){
+    (ctx.mem.get(offset)).write(src);
+    ctx.mem.flush();
+}
 
 
+// Method 5: vector::splice
+fn write_method_5(ctx: &mut VmCtx, src: &[u8], offset:usize){
+    ctx.mem.splice(offset..offset+src.len(), src);
 
+}
 
+// // Method 6: copy
+// fn write_method_5(ctx: &mut VmCtx, src: &[u8], offset:usize){
+//     ctx.mem.splice(offset..offset+src.len(), src);
+
+// }
 
 
 
