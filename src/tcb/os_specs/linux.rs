@@ -286,12 +286,12 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
-#[ensures(buf.capacity() >= cnt)]
+#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
-pub fn os_getrandom(buf: &mut Vec<u8>, cnt: usize, flags: u32) -> isize {
+pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) as isize }
 }
 

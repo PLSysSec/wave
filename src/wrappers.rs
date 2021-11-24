@@ -985,13 +985,13 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
     }
-    let mut buf: Vec<u8> = Vec::new();
-    buf.reserve_exact(len as usize);
-    let res = trace_getrandom(ctx, &mut buf, len as usize, 0)?;
+    // let mut buf: Vec<u8> = Vec::new();
+    // buf.reserve_exact(len as usize);
+    let res = trace_getrandom(ctx, ptr, len as usize, 0)?;
     //RuntimeError::from_syscall_ret(res)?;
-    let copy_ok = ctx
-        .copy_buf_to_sandbox(ptr, &buf, res as u32)
-        .ok_or(Efault)?;
+    // let copy_ok = ctx
+    //     .copy_buf_to_sandbox(ptr, &buf, res as u32)
+    //     .ok_or(Efault)?;
     Ok(())
 }
 
