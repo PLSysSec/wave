@@ -23,5 +23,6 @@ mod types;
 pub mod verifier_interface;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;
+mod writeback;
 // #[with_ghost_var(trace: &mut Trace)]
 mod wrappers;

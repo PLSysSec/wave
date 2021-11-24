@@ -1,5 +1,6 @@
 use crate::types::*;
 use crate::wrappers::*;
+use crate::writeback::*;
 use libc::{c_char, strlen};
 use std::ffi::CStr;
 use std::os::unix::io::AsRawFd;
@@ -11,19 +12,6 @@ use RuntimeError::*;
 // use env_logger;
 
 trace::init_depth_var!();
-
-// wasi_call_void!(ctx, func_name )
-// needs to accept # of args?
-// also needs to rename function
-// macro_rules! wasi_call_void {
-//     ($ctx:ident, $func_name:ident) => {
-//         if cfg!(feature = not("verify")) {
-//             let ctx_ref = ptr_to_ref($ctx);
-//             let r = $func_name(ctx_ref, argv, argv_buf);
-//             wasm2c_marshal(r)
-//         }
-//     }
-// }
 
 //TODO: figure out how to remove the dummy trace(logging)s
 
@@ -114,130 +102,130 @@ fn ptr_to_ref(ctx: *const *mut VmCtx) -> &'static mut VmCtx {
     unsafe { &mut **ctx }
 }
 
-fn wasm2c_marshal<T>(result: RuntimeResult<T>) -> u32 {
-    match result {
-        Ok(r) => 0,
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal<T>(result: RuntimeResult<T>) -> u32 {
+//     match result {
+//         Ok(r) => 0,
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_u32(
-    ctx_ref: &mut VmCtx,
-    addr: usize,
-    result: RuntimeResult<u32>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_u32: {:?}", result);
-    match result {
-        Ok(r) => {
-            ctx_ref.write_u32(addr, r); // writeback result
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_u32(
+//     ctx_ref: &mut VmCtx,
+//     addr: usize,
+//     result: RuntimeResult<u32>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_u32: {:?}", result);
+//     match result {
+//         Ok(r) => {
+//             ctx_ref.write_u32(addr, r); // writeback result
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_prestat(
-    ctx_ref: &mut VmCtx,
-    addr: usize,
-    result: RuntimeResult<u32>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_prestat: {:?}", result);
-    match result {
-        Ok(r) => {
-            ctx_ref.write_u32(addr, 0);
-            ctx_ref.write_u64(addr + 4, r as u64); // writeback result
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_prestat(
+//     ctx_ref: &mut VmCtx,
+//     addr: usize,
+//     result: RuntimeResult<u32>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_prestat: {:?}", result);
+//     match result {
+//         Ok(r) => {
+//             ctx_ref.write_u32(addr, 0);
+//             ctx_ref.write_u64(addr + 4, r as u64); // writeback result
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_u64(
-    ctx_ref: &mut VmCtx,
-    addr: usize,
-    result: RuntimeResult<u64>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_u64: {:?}", result);
-    match result {
-        Ok(r) => {
-            ctx_ref.write_u64(addr, r); // writeback result
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_u64(
+//     ctx_ref: &mut VmCtx,
+//     addr: usize,
+//     result: RuntimeResult<u64>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_u64: {:?}", result);
+//     match result {
+//         Ok(r) => {
+//             ctx_ref.write_u64(addr, r); // writeback result
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_timestamp(
-    ctx_ref: &mut VmCtx,
-    addr: usize,
-    result: RuntimeResult<Timestamp>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_timestamp: {:?}", result);
-    match result {
-        Ok(r) => {
-            ctx_ref.write_u64(addr, r.nsec()); // writeback result
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_timestamp(
+//     ctx_ref: &mut VmCtx,
+//     addr: usize,
+//     result: RuntimeResult<Timestamp>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_timestamp: {:?}", result);
+//     match result {
+//         Ok(r) => {
+//             ctx_ref.write_u64(addr, r.nsec()); // writeback result
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_fdstat(
-    ctx_ref: &mut VmCtx,
-    addr: usize,
-    result: RuntimeResult<FdStat>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_fdstat: {:?}", result);
-    match result {
-        Ok(r) => {
-            ctx_ref.write_u16(addr, r.fs_filetype.to_wasi() as u16);
-            ctx_ref.write_u16(addr + 2, r.fs_flags.to_posix() as u16);
-            ctx_ref.write_u64(addr + 8, r.fs_rights_base);
-            ctx_ref.write_u64(addr + 16, r.fs_rights_inheriting);
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_fdstat(
+//     ctx_ref: &mut VmCtx,
+//     addr: usize,
+//     result: RuntimeResult<FdStat>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_fdstat: {:?}", result);
+//     match result {
+//         Ok(r) => {
+//             ctx_ref.write_u16(addr, r.fs_filetype.to_wasi() as u16);
+//             ctx_ref.write_u16(addr + 2, r.fs_flags.to_posix() as u16);
+//             ctx_ref.write_u64(addr + 8, r.fs_rights_base);
+//             ctx_ref.write_u64(addr + 16, r.fs_rights_inheriting);
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_filestat(
-    ctx_ref: &mut VmCtx,
-    addr: usize,
-    result: RuntimeResult<FileStat>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_filestat: {:?}", result);
-    match result {
-        Ok(r) => {
-            ctx_ref.write_u64(addr, r.dev);
-            ctx_ref.write_u64(addr + 8, r.ino);
-            ctx_ref.write_u64(addr + 16, r.filetype as u64);
-            ctx_ref.write_u64(addr + 24, r.nlink);
-            ctx_ref.write_u64(addr + 32, r.size);
-            ctx_ref.write_u64(addr + 40, r.atim.nsec());
-            ctx_ref.write_u64(addr + 48, r.mtim.nsec());
-            ctx_ref.write_u64(addr + 56, r.ctim.nsec());
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_filestat(
+//     ctx_ref: &mut VmCtx,
+//     addr: usize,
+//     result: RuntimeResult<FileStat>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_filestat: {:?}", result);
+//     match result {
+//         Ok(r) => {
+//             ctx_ref.write_u64(addr, r.dev);
+//             ctx_ref.write_u64(addr + 8, r.ino);
+//             ctx_ref.write_u64(addr + 16, r.filetype as u64);
+//             ctx_ref.write_u64(addr + 24, r.nlink);
+//             ctx_ref.write_u64(addr + 32, r.size);
+//             ctx_ref.write_u64(addr + 40, r.atim.nsec());
+//             ctx_ref.write_u64(addr + 48, r.mtim.nsec());
+//             ctx_ref.write_u64(addr + 56, r.ctim.nsec());
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
-fn wasm2c_marshal_and_writeback_u32_pair(
-    ctx_ref: &mut VmCtx,
-    addr0: usize,
-    addr1: usize,
-    result: RuntimeResult<(u32, u32)>,
-) -> u32 {
-    log::debug!("wasm2c_marshal_and_writeback_u32_pair: {:?}", result);
-    match result {
-        Ok((v0, v1)) => {
-            ctx_ref.write_u32(addr0, v0); // writeback envc
-            ctx_ref.write_u32(addr1, v1); // writeback environ_buf
-            0
-        }
-        Err(err) => err.into(),
-    }
-}
+// fn wasm2c_marshal_and_writeback_u32_pair(
+//     ctx_ref: &mut VmCtx,
+//     addr0: usize,
+//     addr1: usize,
+//     result: RuntimeResult<(u32, u32)>,
+// ) -> u32 {
+//     log::debug!("wasm2c_marshal_and_writeback_u32_pair: {:?}", result);
+//     match result {
+//         Ok((v0, v1)) => {
+//             ctx_ref.write_u32(addr0, v0); // writeback envc
+//             ctx_ref.write_u32(addr1, v1); // writeback environ_buf
+//             0
+//         }
+//         Err(err) => err.into(),
+//     }
+// }
 
 // TODO: let us pass through what the homedir is from the cmdline
 #[no_mangle]
@@ -718,16 +706,6 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     let ctx_ref = ptr_to_ref(ctx);
     // adjust oflags by adding O_WRONLY & O_RDWR as bits 4 and 5
     // after wasi-libc put them in fs_rights_base
-    // let new_flags =
-    // if fs_rights_base & (1 << 6) != 0 { // can_write
-    //     if fs_rights_base & (1 << 1) != 0 { // can read
-    //         oflags | (1 << 5) // O_RDWR
-    //     }
-    //     else{
-    //         oflags | (1 << 4) // O_WRONLY
-    //     }
-    // }
-    // else {oflags};
     let new_flags = adjust_oflags(oflags, fs_rights_base);
     let r = wasi_path_open(ctx_ref, dirflags, path, path_len, new_flags, fdflags as i32);
     wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
@@ -918,12 +896,8 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_socketZ_iiiii(
     retptr: u32,
 ) -> u32 {
     let ctx_ref = ptr_to_ref(ctx);
-    // let now = Instant::now();
     let r = wasi_socket(ctx_ref, domain, ty, protocol);
     wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
-    // let final_result = wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r);
-    // println!("socket(): {:?}", now.elapsed());
-    // final_result
 }
 
 #[no_mangle]

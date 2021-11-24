@@ -58,6 +58,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
 
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
+    // TODO: can I eliminate this in favor os in_lin_mem_usize?
     #[with_ghost_var(trace: &mut Trace)]
     #[pure]
     #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
@@ -65,6 +66,12 @@ impl VmCtx {
         (ptr as usize) < self.memlen
     }
 
+    #[with_ghost_var(trace: &mut Trace)]
+    #[pure]
+    #[ensures((result == true) ==> ptr < self.memlen)]
+    pub fn in_lin_mem_usize(&self, ptr: usize) -> bool {
+        ptr < self.memlen
+    }
     // TODO: Currently trusted because it causes a fold-unfold error
     /*#[with_ghost_var(trace: &mut Trace)]
     #[requires(self.fits_in_lin_mem(ptr, len, trace))]
@@ -94,6 +101,7 @@ impl VmCtx {
     }
 
     /// Check whether buffer is entirely within sandbox
+    // Can I eliminate this in favor of fits_in_lin_mem_usize
     #[pure]
     #[with_ghost_var(trace: &mut Trace)]
     #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
@@ -103,6 +111,17 @@ impl VmCtx {
             return false;
         }
         self.in_lin_mem(buf) && self.in_lin_mem(cnt) && self.in_lin_mem(buf + cnt)
+    }
+
+    #[pure]
+    #[with_ghost_var(trace: &mut Trace)]
+    #[ensures(result == true ==> buf < self.memlen && (buf + cnt) < self.memlen && cnt < self.memlen)]
+    pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> bool {
+        let total_size = buf + cnt;
+        if total_size > self.memlen || total_size > LINEAR_MEM_SIZE {
+            return false;
+        }
+        self.in_lin_mem_usize(buf) && self.in_lin_mem_usize(cnt) && self.in_lin_mem_usize(buf + cnt)
     }
 
     ///// Copy buffer from sandbox to host
@@ -260,6 +279,7 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(from_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
     pub fn read_u16(&self, start: usize) -> u16 {
@@ -271,6 +291,7 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(from_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
     pub fn read_u32(&self, start: usize) -> u32 {
@@ -285,8 +306,11 @@ impl VmCtx {
 
     /// read u64 from wasm linear memory
     // Not thrilled about this implementation, but it works
+    // TODO: need to add effect annotation and move into TCB
+    // TODO: need to test different implementatiosn for this function
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(from_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
     pub fn read_u64(&self, start: usize) -> u64 {
@@ -307,6 +331,7 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
@@ -319,6 +344,7 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
@@ -333,6 +359,7 @@ impl VmCtx {
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
     // #[requires(self.memlen > 8)]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]

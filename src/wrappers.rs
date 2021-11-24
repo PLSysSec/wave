@@ -90,6 +90,9 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
@@ -135,6 +138,9 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
@@ -440,6 +446,9 @@ pub fn wasi_fd_pread(
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
@@ -528,6 +537,9 @@ pub fn wasi_fd_pwrite(
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
@@ -1021,6 +1033,10 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
         //body_invariant!(idx * 4 < cursor);
         // We have found an argument either when we find a trailing space, or if we started an arg
         // and ran out of space
+        if !ctx.fits_in_lin_mem_usize((argv as usize) + cursor, 8) {
+            return Err(Eoverflow);
+        }
+
         if ctx.arg_buffer[idx] == b'\0' {
             while ctx.arg_buffer[idx] == b'\0' {
                 idx += 1;
@@ -1030,6 +1046,7 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
             start = idx as u32;
         }
         idx += 1;
+
         // we reached the end, so record the final arg
         if idx >= ctx.arg_buffer.len() {
             ctx.write_u32((argv as usize) + cursor, argv_buf + start);
@@ -1053,10 +1070,14 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
     let mut cursor: usize = 0;
     while idx < ctx.env_buffer.len() {
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+        if !ctx.fits_in_lin_mem_usize((env as usize) + cursor, 8) {
+            return Err(Eoverflow);
+        }
         if ctx.env_buffer[idx] == b'\0' {
             while ctx.env_buffer[idx] == b'\0' {
                 idx += 1;
             } // scan past multiple spaces
+
             ctx.write_u32((env as usize) + cursor, env_buf + start);
             cursor += 4;
             start = idx as u32;
@@ -1109,6 +1130,9 @@ pub fn wasi_sock_recv(
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (ri_data + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
@@ -1152,6 +1176,9 @@ pub fn wasi_sock_send(
         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
         let start = (si_data + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
         let ptr = ctx.read_u32(start);
         let len = ctx.read_u32(start + 4);
         if !ctx.fits_in_lin_mem(ptr, len) {
@@ -1220,7 +1247,12 @@ pub fn wasi_poll_oneoff(
         // TODO: refactor to use constants
         let sub_offset = i * 48;
         let event_offset = i * 32;
-
+        if !ctx.fits_in_lin_mem_usize((in_ptr + sub_offset) as usize, 42) {
+            return Err(Eoverflow);
+        }
+        if !ctx.fits_in_lin_mem_usize((out_ptr + event_offset) as usize, 12) {
+            return Err(Eoverflow);
+        }
         // read the subscription struct fields
         let userdata = ctx.read_u64((in_ptr + sub_offset) as usize);
         let tag = ctx.read_u64((in_ptr + sub_offset + 8) as usize);
