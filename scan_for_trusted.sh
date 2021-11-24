@@ -13,6 +13,9 @@
 # -l flag = list file names instead of lines found
 # -R flag = recursive
 
+# TODO: this should probably exclude trusted/effect/assume/unsafe 
+# anotations that are in comments
+
 # Check for [trusted] annotation
 check_for_trusted=`grep -lR "\[trusted\]" src | grep -v "src\/tcb"`
 if [ -z "$check_for_trusted" ]
@@ -46,9 +49,19 @@ else
 	grep -lR "\sassume!" src | grep -v "src\/tcb"
 fi
 
+# 3. Check for assume! macro
+check_for_unsafe=`grep -lR "\sunsafe\s" src | grep -v "src\/tcb"`
+if [ -z "$check_for_unsafe" ]
+then
+	result4=1
+else
+	result4=0
+	echo "Found unsafe annotations outside the src/tcb folder"
+	grep -lR "\sunsafe\s" src | grep -v "src\/tcb"
+fi
 
 # If all tests passed, let the user know
-if [ "$result1" == "1" -a "$result2" == "1" -a "$result3" == "1" ]
+if [ "$result1" == "1" -a "$result2" == "1" -a "$result3" == "1" -a "$result4" == "1" ]
 then 
 	echo "All trusted code is in src/tcb. Good job!"
 fi
