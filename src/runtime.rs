@@ -120,12 +120,12 @@ impl VmCtx {
     /// Copy buffer from from host to sandbox
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some)]
-    #[requires(src.len() == (n as usize) )]
+    //#[requires(src.len() >= (n as usize) )]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]
     #[ensures(self.memlen == old(self.memlen))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
-        if !self.fits_in_lin_mem(dst, n) {
+        if src.len() < n as usize || !self.fits_in_lin_mem(dst, n) {
             return None;
         }
         self.memcpy_to_sandbox(dst, src, n);
@@ -197,7 +197,7 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(copy)]
     #[trusted]
-    #[requires(src.len() == (n as usize) )]
+    #[requires(src.len() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n, trace))]
     #[requires(trace_safe(self, trace))]
     #[ensures(trace_safe(self, trace))]

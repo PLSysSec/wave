@@ -8,13 +8,22 @@ use std::vec::Vec;
 // Used in fdmap implementation
 #[trusted]
 #[pure]
-#[requires (index < MAX_SBOX_FDS )]
+#[requires(index < MAX_SBOX_FDS )]
 pub fn vec_checked_lookup(
     vec: &Vec<RuntimeResult<HostFd>>,
     index: SboxFd,
 ) -> RuntimeResult<HostFd> {
     vec[index as usize]
 }
+
+// // Trusted because I can't convince the verifier tha tthis will never panic.
+// // Used in specification in src/os.rs
+// #[trusted]
+// #[pure]
+// #[requires(r.is_ok())]
+// pub fn safe_unwrap(r: &RuntimeResult<isize>) -> isize {
+//     r.unwrap()
+// }
 
 ///////////////////////////////// Bitwise Ops /////////////////////////////////
 /// These operations are currently trusted because prusti does not handle

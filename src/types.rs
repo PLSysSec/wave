@@ -2,7 +2,7 @@ use crate::no_effect;
 use crate::tcb::misc::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
-use extra_args::{external_call, external_method, with_ghost_var};
+use extra_args::with_ghost_var;
 use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::ops::Sub;
@@ -93,18 +93,27 @@ impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_call(Ok)]
-    #[external_call(Err)]
     #[ensures(no_effect!( old(trace), trace))]
-    pub fn from_syscall_ret(ret: usize) -> RuntimeResult<()> {
+    #[ensures(old(ret >= 0) ==> (match result {
+        Ok(r) => r == ret as usize,
+        _ => false,
+    }))]
+    pub fn from_syscall_ret(ret: isize) -> RuntimeResult<usize> {
         // syscall returns between -1 and -4095 are errors, source:
         // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
-        if ret < -4095isize as usize {
-            return Ok(());
+        // I am treating all negative values on error - we don't support any hostcalls that return negative values on success
+        // (e.g., mmap returning a sufficiently large pointer)
+        if ret >= 0 {
+            return Ok(ret as usize);
         }
 
-        let ret = -(ret as i32);
-        let errno = match ret {
+        // We support no syscalls that return negative values, so something has gone wronge
+        if ret <= 4096 {
+            return Err(Self::Einval);
+        }
+
+        let ret = -ret;
+        let errno = match ret as i32 {
             libc::EBADF => Self::Ebadf,
             libc::EMFILE => Self::Emfile,
             libc::EFAULT => Self::Efault,
@@ -703,8 +712,6 @@ pub struct EventFdReadWrite {
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 pub fn sock_domain_to_posix(domain: u32) -> RuntimeResult<i32> {
     if domain == 1 {
         return Ok(libc::AF_INET);
@@ -713,8 +720,6 @@ pub fn sock_domain_to_posix(domain: u32) -> RuntimeResult<i32> {
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_call(Ok)]
-#[external_call(Err)]
 pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
     if ty == 6 {
         return Ok(libc::SOCK_STREAM);
