@@ -252,27 +252,22 @@ pub fn trace_mkdirat(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
 #[requires(cnt < ctx.memlen)]
-#[requires(buf.capacity() >= cnt)]
-// #[ensures(buf.len() == result)]
-// #[ensures(result.is_ok() ==> (match result {
-//     Ok(r) => r == buf.len(),
-//     _ => false,
-// }))]
-#[ensures(buf.capacity() >= cnt)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(three_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::WriteN(count)))]
 pub fn trace_readlinkat(
-    ctx: &VmCtx,
+    ctx: &mut VmCtx,
     dir_fd: HostFd,
     pathname: SandboxedPath,
-    buf: &mut Vec<u8>,
+    ptr: SboxPtr,
     cnt: usize,
 ) -> RuntimeResult<usize> {
+    let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = dir_fd.into();
     let os_path: Vec<u8> = pathname.into();
-    let r = os_readlinkat(os_fd, os_path, buf, cnt);
+    let r = os_readlinkat(os_fd, os_path, slice, cnt);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -406,43 +401,40 @@ pub fn trace_getrandom(
 
 //https://man7.org/linux/man-pages/man2/getrandom.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
 #[requires(cnt < ctx.memlen)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[requires(buf.capacity() >= cnt)]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
-// #[ensures(result.is_ok() ==> (match result {
-//                                 Ok(r) => r <= buf.len(),
-//                                 _ => false,
-// }))]
-#[ensures(buf.capacity() >= cnt)]
 pub fn trace_recv(
-    ctx: &VmCtx,
+    ctx: &mut VmCtx,
     fd: HostFd,
-    buf: &mut Vec<u8>,
+    ptr: SboxPtr,
     cnt: usize,
     flags: u32,
 ) -> RuntimeResult<usize> {
+    let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
-    let r = os_recv(os_fd, buf, cnt, flags);
+    let r = os_recv(os_fd, slice, cnt, flags);
     RuntimeError::from_syscall_ret(r)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
+#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
 pub fn trace_send(
-    ctx: &VmCtx,
+    ctx: &mut VmCtx,
     fd: HostFd,
-    buf: &Vec<u8>,
+    ptr: SboxPtr,
     cnt: usize,
     flags: u32,
 ) -> RuntimeResult<usize> {
+    let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
-    let r = os_send(os_fd, buf, cnt, flags);
+    let r = os_send(os_fd, slice, cnt, flags);
     RuntimeError::from_syscall_ret(r)
 }
 

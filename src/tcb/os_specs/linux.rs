@@ -35,7 +35,6 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
 
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[external_method(set_len)]
 #[requires(buf.len() >= cnt)]
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
@@ -186,18 +185,13 @@ pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize
 
 //https://man7.org/linux/man-pages/man2/readlinkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[external_method(set_len)]
-#[requires(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
 #[ensures(result >= 0 ==> buf.len() == result as usize)]
-#[ensures(buf.capacity() >= cnt)]
+#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(three_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::WriteN(count) if count == cnt))]
-pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut Vec<u8>, cnt: usize) -> isize {
-    unsafe {
-        let result = syscall!(READLINKAT, dir_fd, pathname.as_ptr(), buf.as_mut_ptr(), cnt);
-        buf.set_len(result);
-        result as isize
-    }
+pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
+    unsafe { syscall!(READLINKAT, dir_fd, pathname.as_ptr(), buf.as_mut_ptr(), cnt) as isize }
 }
 
 //https://man7.org/linux/man-pages/man2/unlinkat.2.html
@@ -297,12 +291,12 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 
 //https://man7.org/linux/man-pages/man2/recvfrom.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.capacity() >= cnt)]
+#[requires(buf.len() >= cnt)]
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
-#[ensures(buf.capacity() >= cnt)]
+#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
-pub fn os_recv(fd: usize, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> isize {
+pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) as isize }
 }
 
@@ -311,7 +305,7 @@ pub fn os_recv(fd: usize, buf: &mut Vec<u8>, cnt: usize, flags: u32) -> isize {
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
-pub fn os_send(fd: usize, buf: &Vec<u8>, cnt: usize, flags: u32) -> isize {
+pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: u32) -> isize {
     unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize }
 }
 

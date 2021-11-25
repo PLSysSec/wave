@@ -768,13 +768,13 @@ pub fn wasi_path_readlink(
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
     }
-    let mut buf: Vec<u8> = Vec::new();
-    buf.reserve_exact(len as usize);
+    // let mut buf: Vec<u8> = Vec::new();
+    // buf.reserve_exact(len as usize);
 
-    let res = trace_readlinkat(ctx, fd, host_pathname, &mut buf, len as usize)?;
+    let res = trace_readlinkat(ctx, fd, host_pathname, ptr, len as usize)?;
     //RuntimeError::from_syscall_ret(res)?;
     let res = res as u32;
-    let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, res).ok_or(Efault)?;
+    // let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, res).ok_or(Efault)?;
     Ok(res)
 }
 
@@ -1138,16 +1138,16 @@ pub fn wasi_sock_recv(
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        let mut buf: Vec<u8> = Vec::new();
-        buf.reserve_exact(len as usize);
+        // let mut buf: Vec<u8> = Vec::new();
+        // buf.reserve_exact(len as usize);
         let flags = 0;
         // TODO: handle flags
-        let result = trace_recv(ctx, fd, &mut buf, len as usize, flags)?;
+        let result = trace_recv(ctx, fd, ptr, len as usize, flags)?;
         //RuntimeError::from_syscall_ret(result)?;
         let result = result as u32;
-        let copy_ok = ctx
-            .copy_buf_to_sandbox(ptr, &buf, result as u32)
-            .ok_or(Efault)?;
+        // let copy_ok = ctx
+        //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
+        //     .ok_or(Efault)?;
         num += result;
         i += 1;
     }
@@ -1159,7 +1159,7 @@ pub fn wasi_sock_recv(
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_sock_send(
-    ctx: &VmCtx,
+    ctx: &mut VmCtx,
     v_fd: u32,
     si_data: u32,
     si_data_count: u32,
@@ -1184,10 +1184,10 @@ pub fn wasi_sock_send(
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
+        // let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
         let flags = 0;
         // TODO: handle flags
-        let result = trace_send(ctx, fd, &host_buffer, len as usize, flags)?;
+        let result = trace_send(ctx, fd, ptr, len as usize, flags)?;
         //RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
         i += 1;
