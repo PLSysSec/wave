@@ -1,6 +1,6 @@
 use crate::os::*;
 use crate::runtime::*;
-use crate::tcb::misc::bitwise_or;
+use crate::tcb::misc::{bitwise_or, fresh_stat};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
@@ -234,7 +234,7 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(zeroed, from_posix)]
+#[external_calls(from_posix, fresh_stat)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
@@ -243,11 +243,7 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     }
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
-    // Unsafe necessary as libc::stat is opaque. It is safe but we can replace it by implementing
-    // the struct ourselves if we want to avoid as much unsafe as possible.
-    // Safety: Safe as libc::stat is valid with an all-zero byte-pattern (i.e. it is not a
-    // reference)
-    let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+    let mut stat = fresh_stat();
     // TODO: double check, should this be fstat or fstat64?
     let result = trace_fstat(ctx, fd, &mut stat)?;
     let filetype = stat.st_mode;
@@ -287,7 +283,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 
 // // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(zeroed)]
+#[external_calls(fresh_stat)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
@@ -296,11 +292,7 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     }
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
-    // Unsafe necessary as libc::stat is opaque. It is safe but we can replace it by implementing
-    // the struct ourselves if we want to avoid as much unsafe as possible.
-    // Safety: Safe as libc::stat is valid with an all-zero byte-pattern (i.e. it is not a
-    // reference)
-    let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+    let mut stat = fresh_stat();
     let filetype = trace_fstat(ctx, fd, &mut stat)?;
     Ok(stat.into())
 }
@@ -550,7 +542,7 @@ pub fn wasi_path_create_directory(
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push, resolve_path)]
-#[external_calls(zeroed)]
+#[external_calls(fresh_stat)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_path_filestat_get(
@@ -572,11 +564,8 @@ pub fn wasi_path_filestat_get(
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
     let host_pathname = ctx.resolve_path(host_buffer)?;
-    // Unsafe necessary as libc::stat is opaque. It is safe but we can replace it by implementing
-    // the struct ourselves if we want to avoid as much unsafe as possible.
-    // Safety: Safe as libc::stat is valid with an all-zero byte-pattern (i.e. it is not a
-    //         reference)
-    let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+    let mut stat = fresh_stat();
+
     let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, 0)?;
     //RuntimeError::from_syscall_ret(res)?;
     Ok(stat.into())
