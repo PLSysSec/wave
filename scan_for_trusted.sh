@@ -17,47 +17,47 @@
 # anotations that are in comments
 
 # Check for [trusted] annotation
-check_for_trusted=`grep -lR "\[trusted\]" src | grep -v "src\/tcb"`
+check_for_trusted=`grep -lR "\[trusted\]" src | grep -v "src\/tcb" | grep -v "src\/tests"`
 if [ -z "$check_for_trusted" ]
 then 
 	result1=1
 else
 	result1=0
 	echo "Found [trusted] annotations outside the src/tcb folder"
-	grep -lR "\[trusted\]" src | grep -v "src\/tcb"
+	grep -lR "\[trusted\]" src | grep -v "src\/tcb" | grep -v "src\/tests"
 fi
 
 # 2. Check for effect! macro
-check_for_effect=`grep -lR "\seffect!" src | grep -v "src\/tcb"`
+check_for_effect=`grep -lR "\seffect!" src | grep -v "src\/tcb" | grep -v "src\/tests"`
 if [ -z "$check_for_effect" ]
 then 
 	result2=1
 else
 	result2=0
 	echo "Found effect! annotations outside the src/tcb folder"
-	grep -lR "\seffect!" src | grep -v "src\/tcb"
+	grep -lR "\seffect!" src | grep -v "src\/tcb" | grep -v "src\/tests"
 fi
 
 # 3. Check for assume! macro
-check_for_assume=`grep -lR "\sassume!" src | grep -v "src\/tcb"`
+check_for_assume=`grep -lR "\sassume!" src | grep -v "src\/tcb" | grep -v "src\/tests"`
 if [ -z "$check_for_assume" ]
 then
 	result3=1
 else
 	result3=0
 	echo "Found assume! annotations outside the src/tcb folder"
-	grep -lR "\sassume!" src | grep -v "src\/tcb"
+	grep -lR "\sassume!" src | grep -v "src\/tcb" | grep -v "src\/tests"
 fi
 
 # 3. Check for assume! macro
-check_for_unsafe=`grep -lR "\sunsafe\s" src | grep -v "src\/tcb"`
+check_for_unsafe=`grep -lR "\sunsafe\s" src | grep -v "src\/tcb" | grep -v "src\/tests"`
 if [ -z "$check_for_unsafe" ]
 then
 	result4=1
 else
 	result4=0
 	echo "Found unsafe annotations outside the src/tcb folder"
-	grep -lR "\sunsafe\s" src | grep -v "src\/tcb"
+	grep -lR "\sunsafe\s" src | grep -v "src\/tcb" | grep -v "src\/tests"
 fi
 
 # If all tests passed, let the user know
