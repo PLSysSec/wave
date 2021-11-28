@@ -55,9 +55,18 @@ impl FdMap {
     #[pure]
     #[requires (index < MAX_SBOX_FDS )]
     pub fn lookup(&self, index: SboxFd) -> RuntimeResult<HostFd> {
-        // self.m[index as usize]
         vec_checked_lookup(&self.m, index)
     }
+
+    // #[pure]
+    // TODO: this is the function we should be using - but for some reason prusti does not like it.
+    // pub fn checked_lookup(&self, idx: SboxFd) -> RuntimeResult<HostFd> {
+    //     if idx >= MAX_SBOX_FDS {
+    //         return Err(Ebadf);
+    //     }
+    //     // self.m[idx as usize]
+    //     vec_checked_lookup(&self.m, idx)
+    // }
 
     #[pure]
     #[requires(index < MAX_SBOX_FDS)]
