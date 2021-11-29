@@ -62,3 +62,15 @@ pub fn bitwise_and_u32(bv1: u32, bv2: u32) -> u32 {
 pub fn bitwise_or(bv1: i32, bv2: i32) -> i32 {
     bv1 | bv2
 }
+
+// Unsafe necessary as libc::stat is opaque. It is safe but we can replace it by implementing
+// pub fn bitwise_or_u32(bv1: u32, bv2: u32) -> u32 {
+// the struct ourselves if we want to avoid as much unsafe as possible.
+//     bv1 | bv2
+// Safety: Safe as libc::stat is valid with an all-zero byte-pattern (i.e. it is not a
+// }
+// reference)
+#[trusted]
+pub fn fresh_stat() -> libc::stat {
+    unsafe { std::mem::zeroed() }
+}
