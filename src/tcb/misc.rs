@@ -62,8 +62,3 @@ pub fn bitwise_and_u32(bv1: u32, bv2: u32) -> u32 {
 pub fn bitwise_or(bv1: i32, bv2: i32) -> i32 {
     bv1 | bv2
 }
-
-// #[trusted]
-// pub fn bitwise_or_u32(bv1: u32, bv2: u32) -> u32 {
-//     bv1 | bv2
-// }
