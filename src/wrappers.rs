@@ -465,10 +465,9 @@ pub fn wasi_fd_pread(
 // modifies: mem
 // If v_fd refers to a preopened directory (fd == 3), write the name to path
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push, as_bytes, to_vec)]
+#[external_methods(get_homedir)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[trusted]
 pub fn wasi_prestat_dirname(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -479,9 +478,10 @@ pub fn wasi_prestat_dirname(
         return Err(Ebadf);
     }
 
-    //let mut dirname: Vec<u8> = Vec::new();
+    // let dirname: Vec<u8> = Vec::new();
     //dirname.push((&ctx.homedir).as_bytes().to_vec());
-    let dirname = (&ctx.homedir).as_bytes().to_vec();
+    // let dirname = ctx.homedir.as_bytes().to_vec();
+    let dirname = ctx.get_homedir();
     let dirname_len = dirname.len() as u32;
     if !ctx.fits_in_lin_mem(path, dirname_len) {
         return Err(Efault);
@@ -1475,12 +1475,11 @@ pub fn wasi_fd_readdir(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+#[external_calls(sock_domain_to_posix, sock_type_to_posix)]
 #[external_methods(create)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[trusted]
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
-    // TODO: safety checks
     // Should we keep socket fd and file fd seperate?
     // convert from wasi constants to posix constants
     let domain = sock_domain_to_posix(domain)?;
@@ -1489,14 +1488,13 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
     let res = trace_socket(ctx, domain, ty, protocol as i32)?;
     // check domain == AF_INET
     // check ty == SOCK_STREAM || ty == SOCK_DGRAM
-    //RuntimeError::from_syscall_ret(res)?;
     ctx.fdmap.create(res.into())
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+#[external_calls(sock_domain_to_posix)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[trusted]
 pub fn wasi_sock_connect(
     ctx: &mut VmCtx,
     sockfd: u32,
@@ -1508,6 +1506,10 @@ pub fn wasi_sock_connect(
         return Err(Ebadf);
     }
     let fd = ctx.fdmap.m[sockfd as usize]?;
+
+    if addrlen != 16 {
+        return Err(Einval);
+    }
 
     if !ctx.fits_in_lin_mem(addr, addrlen) {
         return Err(Eoverflow);
@@ -1528,6 +1530,5 @@ pub fn wasi_sock_connect(
     // I need to actually parse this buffer since it is different in
 
     let res = trace_connect(ctx, fd, &saddr, addrlen)?;
-    //RuntimeError::from_syscall_ret(res)?;
     return Ok(());
 }

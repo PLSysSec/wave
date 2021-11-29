@@ -376,6 +376,11 @@ impl VmCtx {
         self.mem[start + 7] = bytes[7];
         // effect!(trace, Effect::WriteN(8));
     }
+
+    #[trusted]
+    pub fn get_homedir(&self) -> Vec<u8> {
+        self.homedir.as_bytes().to_vec()
+    }
 }
 
 /// Convert relative path to absolute path
