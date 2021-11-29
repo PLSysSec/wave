@@ -14,7 +14,7 @@ use syscall::syscall;
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
 pub fn trace_open(ctx: &VmCtx, pathname: SandboxedPath, flags: i32) -> RuntimeResult<usize> {
     let os_path: Vec<u8> = pathname.into();
     let r = os_open(os_path, flags);
@@ -24,7 +24,7 @@ pub fn trace_open(ctx: &VmCtx, pathname: SandboxedPath, flags: i32) -> RuntimeRe
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_close(os_fd);
@@ -36,7 +36,7 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count)))]
 /// read writes `cnt` bytes to sandbox memory
 pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
@@ -54,7 +54,7 @@ pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Runt
 //#[ensures(buf.len() == result)]
 //#[ensures(buf.capacity() >= cnt)]
 /// pread writes `cnt` bytes to sandbox memory
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count)))]
 pub fn trace_pread(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -74,7 +74,7 @@ pub fn trace_pread(
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // write reads `cnt` bytes to the sandbox
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count)))]
 pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
@@ -88,7 +88,7 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 #[requires(cnt < ctx.memlen)]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // pwrite writes `cnt` bytes to the sandbox
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count)))]
 pub fn trace_pwrite(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -105,7 +105,7 @@ pub fn trace_pwrite(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_seek(os_fd, offset, whence);
@@ -115,7 +115,7 @@ pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> RuntimeR
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_advise(
     ctx: &VmCtx,
     fd: HostFd,
@@ -131,7 +131,7 @@ pub fn trace_advise(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_allocate(os_fd, offset, len);
@@ -141,7 +141,7 @@ pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> Runtime
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_sync(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_sync(os_fd);
@@ -151,7 +151,7 @@ pub fn trace_sync(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_datasync(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_datasync(os_fd);
@@ -161,7 +161,7 @@ pub fn trace_datasync(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_fstat(os_fd, stat);
@@ -171,7 +171,7 @@ pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> RuntimeRes
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn trace_fstatat(
     ctx: &VmCtx,
     fd: HostFd,
@@ -188,7 +188,7 @@ pub fn trace_fstatat(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_fgetfl(os_fd);
@@ -198,7 +198,7 @@ pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_fsetfl(ctx: &VmCtx, fd: HostFd, flags: libc::c_int) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_fsetfl(os_fd, flags);
@@ -208,7 +208,7 @@ pub fn trace_fsetfl(ctx: &VmCtx, fd: HostFd, flags: libc::c_int) -> RuntimeResul
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_ftruncate(os_fd, length);
@@ -218,7 +218,7 @@ pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> RuntimeR
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(four_effects!(old(trace), trace, Effect::FdAccess, Effect::FdAccess, Effect::PathAccess, Effect::PathAccess))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccess), effect!(PathAccess)))]
 pub fn trace_linkat(
     ctx: &VmCtx,
     old_fd: HostFd,
@@ -238,7 +238,7 @@ pub fn trace_linkat(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn trace_mkdirat(
     ctx: &VmCtx,
     dir_fd: HostFd,
@@ -256,7 +256,7 @@ pub fn trace_mkdirat(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(three_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::WriteN(count)))]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(WriteN, count)))]
 pub fn trace_readlinkat(
     ctx: &mut VmCtx,
     dir_fd: HostFd,
@@ -274,7 +274,7 @@ pub fn trace_readlinkat(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn trace_unlinkat(
     ctx: &VmCtx,
     dir_fd: HostFd,
@@ -290,7 +290,7 @@ pub fn trace_unlinkat(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(four_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
 pub fn trace_renameat(
     ctx: &VmCtx,
     old_dir_fd: HostFd,
@@ -309,7 +309,7 @@ pub fn trace_renameat(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(three_effects!(old(trace), trace,  Effect::PathAccess, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(three_effects!(old(trace), trace,  effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
 pub fn trace_symlinkat(
     ctx: &VmCtx,
     old_pathname: SandboxedPath,
@@ -327,7 +327,7 @@ pub fn trace_symlinkat(
 #[requires(specs.capacity() >= 2)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_futimens(
     ctx: &VmCtx,
     fd: HostFd,
@@ -342,7 +342,7 @@ pub fn trace_futimens(
 #[requires(specs.capacity() >= 2)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn trace_utimensat(
     ctx: &VmCtx,
     fd: HostFd,
@@ -387,7 +387,7 @@ pub fn trace_clock_get_res(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count)))]
+#[ensures(one_effect!(old(trace), trace, effect!(WriteN, count)))]
 pub fn trace_getrandom(
     ctx: &mut VmCtx,
     ptr: SboxPtr,
@@ -405,7 +405,7 @@ pub fn trace_getrandom(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count)))]
 pub fn trace_recv(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -424,7 +424,7 @@ pub fn trace_recv(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count)))]
 pub fn trace_send(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -441,7 +441,7 @@ pub fn trace_send(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
 pub fn trace_shutdown(ctx: &VmCtx, fd: HostFd, how: libc::c_int) -> RuntimeResult<usize> {
     let os_fd: usize = fd.into();
     let r = os_shutdown(os_fd, how);

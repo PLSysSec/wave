@@ -32,7 +32,7 @@ run_hello_example:
 # If this command is giving you trouble, try deleting the ./target directory and retrying
 # TODO: reenable overflow checks
 verify:
-	PRUSTI_ASSERT_TIMEOUT=0 PRUSTI_COUNTEREXAMPLE=false PRUSTI_CHECK_OVERFLOWS=false prusti-dev/target/release/cargo-prusti --features verify
+	prusti-dev/target/release/cargo-prusti --features verify
 
 verify-debug:
 	PRUSTI_ASSERT_TIMEOUT=0 PRUSTI_CHECK_OVERFLOWS=false PRUSTI_DUMP_VIPER_PROGRAM=true PRUSTI_DUMP_DEBUG_INFO_DURING_FOLD=true prusti-dev/target/debug/cargo-prusti --features verify
