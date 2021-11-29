@@ -136,7 +136,6 @@ impl VmCtx {
     }
 
     /// Function for memcpy from sandbox to host
-    /// One of 2 unsafe functions (besides syscalls), so needs to be obviously correct
     //TODO: add effects annotation
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(copy_nonoverlapping)]
@@ -153,5 +152,20 @@ impl VmCtx {
                 n as usize,
             )
         };
+    }
+
+    // Currently trusted because it causes a fold-unfold error
+    #[with_ghost_var(trace: &mut Trace)]
+    #[requires(self.fits_in_lin_mem(ptr, len, trace))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, old(self).memlen))]
+    #[ensures(result.len() == (len as usize))]
+    #[ensures(no_effect!(old(trace), trace))]
+    #[after_expiry(ctx_safe(self))]
+    #[trusted]
+    pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
+        let start = ptr as usize;
+        let end = ptr as usize + len as usize;
+        &mut self.mem[start..end]
     }
 }

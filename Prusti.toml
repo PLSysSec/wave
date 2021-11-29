@@ -1,0 +1,5 @@
+counterexample = false
+check_overflows = false
+assert_timeout = 0
+extra_verifier_args = [ "--checkTimeout=50",  "--z3SaturationTimeout=500" ]
+dump_debug_info = true
