@@ -1,3 +1,4 @@
+pub mod ffi;
 pub mod misc;
 pub mod os_specs;
 pub mod sbox_mem;

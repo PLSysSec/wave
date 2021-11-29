@@ -1,3 +1,4 @@
+use crate::tcb::ffi::*;
 use crate::types::*;
 use crate::wrappers::*;
 use crate::writeback::*;
@@ -40,14 +41,11 @@ fn ctx_from_memptr(
         homedir, args, env, log_path
     );
     let memlen = LINEAR_MEM_SIZE;
-    //let mem = vec![0; memlen];
-    let mem = unsafe { Vec::from_raw_parts(memptr, memlen, memlen) };
+    let mem = ffi_load_vec(memptr, memlen);
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
-    // let homedir_fd = std::fs::File::open(&homedir).unwrap().as_raw_fd();
-    let log_path = unsafe { CStr::from_ptr(log_path).to_str().unwrap().to_owned() }.clone();
-
-    let homedir = unsafe { CStr::from_ptr(homedir).to_str().unwrap() }.clone();
+    let log_path = ffi_load_cstr(log_path).to_owned().clone();
+    let homedir = ffi_load_cstr(homedir).clone();
     let homedir_file = std::fs::File::open(homedir).unwrap();
     let homedir_fd = homedir_file.as_raw_fd();
     if homedir_fd > 0 {
@@ -57,21 +55,19 @@ fn ctx_from_memptr(
     // when it gets out of scope
     std::mem::forget(homedir_file);
 
-    let arg_len = unsafe { strlen(args as *const i8) };
-    let mut arg_buffer = unsafe { Vec::from_raw_parts(args, arg_len, arg_len) }.clone();
+    let mut arg_buffer = ffi_load_cstr_as_vec(args).clone();
     // replace all space with null.
     // This makes it easy to return the arg_buffer later
-    for i in 0..arg_len {
+    for i in 0..arg_buffer.len() {
         if arg_buffer[i] == b' ' {
             arg_buffer[i] = b'\0';
         }
     }
 
-    let env_len = unsafe { strlen(env as *const i8) };
-    let mut env_buffer = unsafe { Vec::from_raw_parts(env, env_len, env_len) }.clone();
+    let mut env_buffer = ffi_load_cstr_as_vec(env).clone();
     // replace all space with null.
     // This makes it easy to return the env_buffer later
-    for i in 0..env_len {
+    for i in 0..env_buffer.len() {
         if env_buffer[i] == b' ' {
             env_buffer[i] = b'\0';
         }
@@ -89,17 +85,6 @@ fn ctx_from_memptr(
         envc,
         log_path,
     }
-}
-
-/// To get wasm2c ffi working, we need to pass a VmCtx pointer back and forth
-/// from C to Rust and back again.
-/// The actual pointer that wasm2c gives us has a second layer of indrection
-/// so we deref it twice to get the vmctx, then return a reference to that VmCtx
-fn ptr_to_ref(ctx: *const *mut VmCtx) -> &'static mut VmCtx {
-    if ctx.is_null() {
-        panic!("null ctx")
-    }
-    unsafe { &mut **ctx }
 }
 
 // TODO: let us pass through what the homedir is from the cmdline

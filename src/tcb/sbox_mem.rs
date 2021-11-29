@@ -1,10 +1,10 @@
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
+use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::ptr::{copy, copy_nonoverlapping};
-use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 
 //TODO: effects annotations
 
