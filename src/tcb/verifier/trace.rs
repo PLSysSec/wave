@@ -15,14 +15,14 @@ use prusti_contracts::*;
 
 // TODO: combine into a single variadic macro
 
-#[macro_export]
+/*#[macro_export]
 macro_rules! effect {
     ($trace:expr, $input:expr) => {
         if cfg!(feature = "verify") {
             $trace.push($input);
         }
     };
-}
+}*/
 
 //TODO: wrap into a single variadic macro / predicate?
 #[cfg(feature = "verify")]
@@ -164,13 +164,56 @@ macro_rules! four_effects {
     };
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+/*#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Effect {
     ReadN(usize),  // read into `addr` `count` bytes
     WriteN(usize), // write into `addr` `count` bytes
     Shutdown,
     FdAccess, // TODO: should this store the HostFd?
     PathAccess,
+}*/
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+#[repr(usize)]
+pub enum EffectType {
+    ReadN,
+    WriteN,
+    Shutdown,
+    FdAccess,
+    PathAccess,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub struct Effect {
+    pub typ: EffectType,
+    pub f1: usize,
+    pub f2: usize,
+}
+
+// TODO: I think this has to become a proc macro if we don't wanna expand every case manually...
+#[macro_export]
+macro_rules! effect {
+    ($typ:ident) => {
+        Effect {
+            typ: EffectType::$typ,
+            f1: 0,
+            f2: 0,
+        }
+    };
+    ($typ:ident, $f1:pat) => {
+        Effect {
+            typ: EffectType::$typ,
+            f1: $f1,
+            f2: 0,
+        }
+    };
+    ($typ:ident, $f1:pat, $f2:pat) => {
+        Effect {
+            typ: EffectType::$typ,
+            f1: $f1,
+            f2: $f2,
+        }
+    };
 }
 
 pub struct Trace {

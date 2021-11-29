@@ -1,4 +1,4 @@
-use crate::tcb::verifier::trace::{Effect, Trace};
+use crate::tcb::verifier::trace::{Effect, EffectType, Trace};
 use crate::types::{VmCtx, LINEAR_MEM_SIZE};
 use prusti_contracts::*;
 
@@ -21,11 +21,11 @@ predicate! {
             (i < trace.len() ==> (
                 match trace.lookup(i) {
                     // dumb right now, just make sure count less than size of mem...
-                    Effect::ReadN(count) => (count < memlen),
-                    Effect::WriteN(count) => (count < memlen),
-                    Effect::Shutdown => true, // currently, all shutdowns are safe
-                    Effect::FdAccess => true,
-                    Effect::PathAccess => true,
+                    Effect { typ: EffectType::ReadN, f1: count, .. } => (count < memlen),
+                    Effect { typ: EffectType::WriteN, f1: count, .. } => (count < memlen),
+                    Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe
+                    Effect { typ: EffectType::FdAccess, ..  } => true,
+                    Effect { typ: EffectType::PathAccess, ..  } => true,
                 }
             ))
         )

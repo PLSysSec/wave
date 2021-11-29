@@ -8,7 +8,7 @@ use syscall::syscall;
 //https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::PathAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
 pub fn os_open(pathname: Vec<u8>, flags: i32) -> isize {
     unsafe { syscall!(OPEN, pathname.as_ptr(), flags) as isize }
 }
@@ -16,7 +16,7 @@ pub fn os_open(pathname: Vec<u8>, flags: i32) -> isize {
 //https://man7.org/linux/man-pages/man2/close.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_close(fd: usize) -> isize {
     unsafe { syscall!(CLOSE, fd) as isize }
 }
@@ -27,7 +27,8 @@ pub fn os_close(fd: usize) -> isize {
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
+//#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count) if count == cnt))]
 //TODO: fix the result handling
 pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
     unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) as isize }
@@ -39,7 +40,7 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count) if count == cnt))]
 pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
     unsafe { syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt, offset) as isize }
 }
@@ -48,7 +49,7 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count) if count == cnt))]
 pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
     unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) as isize }
 }
@@ -57,7 +58,7 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count) if count == cnt))]
 pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     unsafe { syscall!(PWRITE64, fd, buf.as_ptr(), cnt, offset) as isize }
 }
@@ -66,7 +67,7 @@ pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
 // TODO: could be cleaner to do a typedef SyscallRet = usize or something for From traits
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_seek(fd: usize, offset: i64, whence: i32) -> isize {
     unsafe { syscall!(LSEEK, fd, offset, whence) as isize }
 }
@@ -74,7 +75,7 @@ pub fn os_seek(fd: usize, offset: i64, whence: i32) -> isize {
 //https://man7.org/linux/man-pages/man2/fadvise64.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> isize {
     unsafe { syscall!(FADVISE64, fd, offset, len, advice) as isize }
 }
@@ -83,7 +84,7 @@ pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> isize {
 // hardcode mode to 0 to behave more like posix_fallocate
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_allocate(fd: usize, offset: i64, len: i64) -> isize {
     unsafe { syscall!(FALLOCATE, fd, 0, offset, len) as isize }
 }
@@ -91,7 +92,7 @@ pub fn os_allocate(fd: usize, offset: i64, len: i64) -> isize {
 //https://man7.org/linux/man-pages/man2/fsync.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_sync(fd: usize) -> isize {
     unsafe { syscall!(FSYNC, fd) as isize }
 }
@@ -99,7 +100,7 @@ pub fn os_sync(fd: usize) -> isize {
 //https://man7.org/linux/man-pages/man2/fdatasync.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_datasync(fd: usize) -> isize {
     unsafe { syscall!(FDATASYNC, fd) as isize }
 }
@@ -107,7 +108,7 @@ pub fn os_datasync(fd: usize) -> isize {
 //https://man7.org/linux/man-pages/man2/fstat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> isize {
     unsafe { syscall!(FSTAT, fd, stat as *mut libc::stat) as isize }
 }
@@ -115,7 +116,7 @@ pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> isize {
 //https://man7.org/linux/man-pages/man2/fstatat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
     unsafe {
         syscall!(
@@ -131,7 +132,7 @@ pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -
 //https://man7.org/linux/man-pages/man2/fcntl.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_fgetfl(fd: usize) -> isize {
     unsafe { syscall!(FCNTL, fd, libc::F_GETFL, 0) as isize }
 }
@@ -139,7 +140,7 @@ pub fn os_fgetfl(fd: usize) -> isize {
 //https://man7.org/linux/man-pages/man2/fcntl.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> isize {
     unsafe { syscall!(FCNTL, fd, libc::F_SETFL, flags) as isize }
 }
@@ -147,7 +148,7 @@ pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> isize {
 //https://man7.org/linux/man-pages/man2/ftruncate.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_ftruncate(fd: usize, length: libc::off_t) -> isize {
     unsafe { syscall!(FTRUNCATE, fd, length) as isize }
 }
@@ -155,7 +156,7 @@ pub fn os_ftruncate(fd: usize, length: libc::off_t) -> isize {
 //https://man7.org/linux/man-pages/man2/linkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(four_effects!(old(trace), trace, Effect::FdAccess, Effect::FdAccess, Effect::PathAccess, Effect::PathAccess))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccess), effect!(PathAccess)))]
 pub fn os_linkat(
     old_fd: usize,
     old_path: Vec<u8>,
@@ -178,7 +179,7 @@ pub fn os_linkat(
 //https://man7.org/linux/man-pages/man2/mkdirat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize {
     unsafe { syscall!(MKDIRAT, dir_fd, pathname.as_ptr(), mode) as isize }
 }
@@ -189,7 +190,7 @@ pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize
 #[ensures(result >= 0 ==> buf.len() == result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
-#[ensures(three_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::WriteN(count) if count == cnt))]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(WriteN, count) if count == cnt))]
 pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
     unsafe { syscall!(READLINKAT, dir_fd, pathname.as_ptr(), buf.as_mut_ptr(), cnt) as isize }
 }
@@ -197,7 +198,7 @@ pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usiz
 //https://man7.org/linux/man-pages/man2/unlinkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> isize {
     unsafe { syscall!(UNLINKAT, dir_fd, pathname.as_ptr(), flags) as isize }
 }
@@ -205,7 +206,7 @@ pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> isiz
 //https://man7.org/linux/man-pages/man2/renameat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(four_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_renameat(
     old_dir_fd: usize,
     old_pathname: Vec<u8>,
@@ -226,7 +227,7 @@ pub fn os_renameat(
 //https://man7.org/linux/man-pages/man2/symlinkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(three_effects!(old(trace), trace,  Effect::PathAccess, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(three_effects!(old(trace), trace,  effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>) -> isize {
     unsafe {
         syscall!(
@@ -242,7 +243,7 @@ pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>)
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(specs.capacity() >= 2)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::FdAccess))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
     // Linux impls futimens as UTIMENSAT with null path
     // source: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/futimens.c.html
@@ -253,7 +254,7 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(specs.capacity() >= 2)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::PathAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_utimensat(
     fd: usize,
     pathname: Vec<u8>,
@@ -284,7 +285,7 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, Effect::WriteN(count) if count == cnt))]
+#[ensures(one_effect!(old(trace), trace, effect!(WriteN, count) if count == cnt))]
 pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) as isize }
 }
@@ -295,7 +296,7 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[ensures(result >= 0 ==> buf.len() >= result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::WriteN(count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count) if count == cnt))]
 pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) as isize }
 }
@@ -304,7 +305,7 @@ pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::FdAccess, Effect::ReadN(count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count) if count == cnt))]
 pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: u32) -> isize {
     unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize }
 }
@@ -312,7 +313,7 @@ pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: u32) -> isize {
 //https://man7.org/linux/man-pages/man2/shutdown.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
+#[ensures(two_effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
 pub fn os_shutdown(fd: usize, how: libc::c_int) -> isize {
     unsafe { syscall!(SHUTDOWN, fd, how) as isize }
 }
@@ -361,7 +362,7 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
 #[trusted]
 #[ensures(no_effect!(old(trace), trace))]
 // TODO: finish spec
-//#[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
+//#[ensures(two_effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
 pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
     unsafe { syscall!(SOCKET, domain, ty, protocol) as isize }
 }
@@ -371,7 +372,7 @@ pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
 #[trusted]
 #[ensures(no_effect!(old(trace), trace))]
 // TODO: finish spec
-// #[ensures(two_effects!(old(trace), trace, Effect::Shutdown, Effect::FdAccess))]
+// #[ensures(two_effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
 pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> isize {
     unsafe { syscall!(CONNECT, sockfd, addr as *const libc::sockaddr_in, addrlen) as isize }
 }
