@@ -17,1342 +17,1342 @@ use RuntimeError::*;
 
 // Modifies: fdmap
 // TODO: fdmap trace fix
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(resolve_path, create, to_posix)]
-// #[external_calls(from, bitwise_or)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_open(
-//     ctx: &mut VmCtx,
-//     dirflags: u32,
-//     pathname: u32,
-//     path_len: u32,
-//     oflags: u32,
-//     fdflags: i32,
-// ) -> RuntimeResult<u32> {
-//     let dirflags = LookupFlags::new(dirflags);
-//     let oflags = OFlags::new(oflags);
-//     let fdflags = FdFlags::from(fdflags);
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(resolve_path, create, to_posix)]
+#[external_calls(from, bitwise_or)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_open(
+    ctx: &mut VmCtx,
+    dirflags: u32,
+    pathname: u32,
+    path_len: u32,
+    oflags: u32,
+    fdflags: i32,
+) -> RuntimeResult<u32> {
+    let dirflags = LookupFlags::new(dirflags);
+    let oflags = OFlags::new(oflags);
+    let fdflags = FdFlags::from(fdflags);
 
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Eoverflow);
-//     }
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Eoverflow);
+    }
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let dirflags_posix = dirflags.to_posix();
-//     let oflags_posix = oflags.to_posix();
-//     let fdflags_posix = fdflags.to_posix();
-//     let flags = bitwise_or(
-//         bitwise_or(dirflags.to_posix(), oflags.to_posix()),
-//         fdflags.to_posix(),
-//     );
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let dirflags_posix = dirflags.to_posix();
+    let oflags_posix = oflags.to_posix();
+    let fdflags_posix = fdflags.to_posix();
+    let flags = bitwise_or(
+        bitwise_or(dirflags.to_posix(), oflags.to_posix()),
+        fdflags.to_posix(),
+    );
 
-//     let fd = trace_open(ctx, host_pathname, flags)?;
-//     //RuntimeError::from_syscall_ret(fd)?; // check result TODO: do this in trace_open
-//     ctx.fdmap.create(fd.into())
-// }
+    let fd = trace_open(ctx, host_pathname, flags)?;
+    //RuntimeError::from_syscall_ret(fd)?; // check result TODO: do this in trace_open
+    ctx.fdmap.create(fd.into())
+}
 
-// // modifies: fdmap
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(delete)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// // if args are not valid, nothing happens
+// modifies: fdmap
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(delete)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+// if args are not valid, nothing happens
+#[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
+// #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> no_effect!(old(trace), trace))]
+// if args are valid, we do invoke an effect
+//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::FdAccess) )]
+pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    ctx.fdmap.delete(v_fd);
+    let result = trace_close(ctx, fd)?;
+    Ok(result as u32)
+}
+
+// modifies: mem
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(reserve_exact, map_err)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < iovcnt {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
+        let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        //let slice = ctx.slice_mem_mut(ptr, len);
+        // let start = ptr as usize;
+        // let end = ptr as usize + len as usize;
+
+        // let mut buf: Vec<u8> = Vec::new();
+        // buf.reserve_exact(len as usize);
+        let result = trace_read(ctx, fd, ptr, len as usize)?;
+        //RuntimeError::from_syscall_ret(result)?;
+        // let result = result as u32;
+        // let copy_ok = ctx
+        //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
+        //     .ok_or(Efault)?;
+
+        // let slice = &mut ctx.mem[ptr as usize..ptr as usize + len as usize];
+
+        // let result = trace_read(ctx, fd, slice, len as usize);
+        // RuntimeError::from_syscall_ret(result as usize)?;
+        // let result = result as u32;
+        num += result as u32;
+        i += 1;
+    }
+    Ok(num)
+}
+
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < iovcnt {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
+        let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        // let slice = ctx.slice_mem(ptr, len);
+        //let start = ptr as usize;
+        //let end = (ptr + len) as usize;
+        //let slice = &ctx.mem[start..end];
+        let result = trace_write(ctx, fd, ptr, len as usize)?;
+        //RuntimeError::from_syscall_ret(result)?;
+        num += result as u32;
+        i += 1;
+    }
+    Ok(num)
+}
+
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(from_u32)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+// #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> one_effect!(old(trace), trace, Effect::FdAccess))]
 // #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
-// // #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> no_effect!(old(trace), trace))]
-// // if args are valid, we do invoke an effect
-// //#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::FdAccess) )]
-// pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     ctx.fdmap.delete(v_fd);
-//     let result = trace_close(ctx, fd)?;
-//     Ok(result as u32)
-// }
+pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
+    let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
 
-// // modifies: mem
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact, map_err)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let ret = trace_seek(ctx, fd, v_filedelta, whence.into())?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
-//         let start = (iovs + i * 8) as usize;
-//         if !ctx.fits_in_lin_mem_usize(start, 8) {
-//             return Err(Eoverflow);
-//         }
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         //let slice = ctx.slice_mem_mut(ptr, len);
-//         // let start = ptr as usize;
-//         // let end = ptr as usize + len as usize;
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
+}
 
-//         // let mut buf: Vec<u8> = Vec::new();
-//         // buf.reserve_exact(len as usize);
-//         let result = trace_read(ctx, fd, ptr, len as usize)?;
-//         //RuntimeError::from_syscall_ret(result)?;
-//         // let result = result as u32;
-//         // let copy_ok = ctx
-//         //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
-//         //     .ok_or(Efault)?;
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(try_from)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_advise(
+    ctx: &VmCtx,
+    v_fd: u32,
+    offset: u64,
+    len: u64,
+    v_advice: u32,
+) -> RuntimeResult<u32> {
+    let advice = Advice::try_from(v_advice as i32)?;
 
-//         // let slice = &mut ctx.mem[ptr as usize..ptr as usize + len as usize];
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//         // let result = trace_read(ctx, fd, slice, len as usize);
-//         // RuntimeError::from_syscall_ret(result as usize)?;
-//         // let result = result as u32;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    // these casts could cause offset and len to become negative
+    // I don't think this will be an issue as os_advise will throw an EINVAL error
+    let ret = trace_advise(ctx, fd, offset as i64, len as i64, advice.into())?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    // these casts could cause offset and len to become negative
+    // I don't think this will be an issue as os_advise will throw an EINVAL error
+    let ret = trace_allocate(ctx, fd, offset as i64, len as i64)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
-//         let start = (iovs + i * 8) as usize;
-//         if !ctx.fits_in_lin_mem_usize(start, 8) {
-//             return Err(Eoverflow);
-//         }
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         // let slice = ctx.slice_mem(ptr, len);
-//         //let start = ptr as usize;
-//         //let end = (ptr + len) as usize;
-//         //let slice = &ctx.mem[start..end];
-//         let result = trace_write(ctx, fd, ptr, len as usize)?;
-//         //RuntimeError::from_syscall_ret(result)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
+// modifies: none
+// TODO: should not return u32 at all?
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(from_u32)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// // #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> one_effect!(old(trace), trace, Effect::FdAccess))]
-// // #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
-// pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
-//     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let ret = trace_sync(ctx, fd)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let ret = trace_seek(ctx, fd, v_filedelta, whence.into())?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
-
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-//     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
-// }
-
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(try_from)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_advise(
-//     ctx: &VmCtx,
-//     v_fd: u32,
-//     offset: u64,
-//     len: u64,
-//     v_advice: u32,
-// ) -> RuntimeResult<u32> {
-//     let advice = Advice::try_from(v_advice as i32)?;
-
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     // these casts could cause offset and len to become negative
-//     // I don't think this will be an issue as os_advise will throw an EINVAL error
-//     let ret = trace_advise(ctx, fd, offset as i64, len as i64, advice.into())?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
-
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     // these casts could cause offset and len to become negative
-//     // I don't think this will be an issue as os_advise will throw an EINVAL error
-//     let ret = trace_allocate(ctx, fd, offset as i64, len as i64)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
-
-// // modifies: none
-// // TODO: should not return u32 at all?
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let ret = trace_sync(ctx, fd)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
-
-// // // modifies: None
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let ret = trace_datasync(ctx, fd)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(ret as u32)
-// }
-
-// //modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(fresh_stat, from_posix)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-
-//     let mut stat = fresh_stat();
-//     // TODO: double check, should this be fstat or fstat64?
-//     let result = trace_fstat(ctx, fd, &mut stat)?;
-//     //RuntimeError::from_syscall_ret(result)?;
-//     let filetype = stat.st_mode;
-
-//     let mode_flags = trace_fgetfl(ctx, fd)?;
-//     //RuntimeError::from_syscall_ret(mode_flags)?;
-
-//     // TODO: put rights in once those are implemented
-//     let result = FdStat {
-//         fs_filetype: (filetype as libc::mode_t).into(),
-//         fs_flags: FdFlags::from_posix(mode_flags as i32), //(mode_flags as libc::c_int).into(),
-//         fs_rights_base: 0, // TODO: convert read and write from mode flags to the proper masks?
-//         fs_rights_inheriting: u64::MAX, //TODO: we should pass in homedir rights
-//     };
-//     Ok(result)
-// }
-
-// //TODO: need wasm layout for FdFlags to read from ptr
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(from)]
-// #[external_methods(to_posix)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// // can only adjust Fdflags using set_flags, not O_flags or any other flags
-// pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
-//     let flags = FdFlags::from(v_flags as i32);
-
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let posix_flags = flags.to_posix();
-
-//     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(())
-// }
-
-// // // modifies: None
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(fresh_stat)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut stat = fresh_stat();
-
-//     let filetype = trace_fstat(ctx, fd, &mut stat)?;
-//     //RuntimeError::from_syscall_ret(filetype)?;
-//     Ok(stat.into())
-// }
-
-// // modifies: none
-// // Note: WASI API says that size should be u64.
-// // but ftruncate, which filestat_set_size is supposed to call used i64
-// // I'm keeping this as i64 since this does not cause any truncation
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let ret = trace_ftruncate(ctx, fd, size)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(())
-// }
-
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
-// #[external_methods(reserve_exact, push)] // Vec methods
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_filestat_set_times(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     v_atim: u64,
-//     v_mtim: u64,
-//     v_fst_flags: u32,
-// ) -> RuntimeResult<()> {
-//     let atim = Timestamp::new(v_atim);
-//     let mtim = Timestamp::new(v_mtim);
-//     let fst_flags = FstFlags::new(v_fst_flags as u16);
-
-//     // if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-//     //     return Err(Einval);
-//     // }
-
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
-//     //       and handle here?
-//     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
-
-//     let mut specs: Vec<libc::timespec> = Vec::new();
-//     specs.reserve_exact(2);
-//     let atim_nsec = if fst_flags.atim() {
-//         atim.nsec() as i64
-//     } else {
-//         if fst_flags.atim_now() {
-//             libc::UTIME_NOW
-//         } else {
-//             libc::UTIME_OMIT
-//         }
-//     };
-//     let atim_spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: atim_nsec,
-//     };
-
-//     let mtim_nsec = if fst_flags.mtim() {
-//         mtim.nsec() as i64
-//     } else if fst_flags.mtim_now() {
-//         libc::UTIME_NOW
-//     } else {
-//         libc::UTIME_OMIT
-//     };
-//     let mtim_spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: mtim_nsec,
-//     };
-
-//     specs.push(atim_spec);
-//     specs.push(mtim_spec);
-
-//     let res = trace_futimens(ctx, fd, &specs)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-
-//     Ok(())
-// }
-
-// // TODO: refactor read and pread into common impl
-// // modifies: mem
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact, push, resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_pread(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     iovs: u32,
-//     iovcnt: u32,
-//     offset: u64,
-// ) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
-
-//         let start = (iovs + i * 8) as usize;
-//         if !ctx.fits_in_lin_mem_usize(start, 8) {
-//             return Err(Eoverflow);
-//         }
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         let result = trace_pread(ctx, fd, ptr, len as usize, offset as usize)?;
-//         // RuntimeError::from_syscall_ret(result)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
-
-// // modifies: mem
-// // If v_fd refers to a preopened directory (fd == 3), write the name to path
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(get_homedir)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_prestat_dirname(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     path: u32,
-//     path_len: u32,
-// ) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     // let dirname: Vec<u8> = Vec::new();
-//     //dirname.push((&ctx.homedir).as_bytes().to_vec());
-//     // let dirname = ctx.homedir.as_bytes().to_vec();
-//     let dirname = ctx.get_homedir();
-//     let dirname_len = dirname.len() as u32;
-//     if !ctx.fits_in_lin_mem(path, dirname_len) {
-//         return Err(Efault);
-//     }
-
-//     let copy_ok = ctx
-//         .copy_buf_to_sandbox(path, &dirname, dirname_len)
-//         .ok_or(Efault)?;
-//     Ok(())
-// }
-
-// /// Currently we use the same implementation as wasm2c, which is to not do very mucb at all
-// /// TODO: real implementation for this, most likely following wasi-common's implementation
-// /// fd_presat_get returns the length of the preopened directory corresponding to v_fd
-// /// since we are currently hardcoded to 1 preopened directory at fd==3, this is pretty simple.
-// ///
-// /// must return ebadf if the file doesn't exist:
-// /// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-//     // if v_fd >= MAX_SBOX_FDS {
-//     //     return Err(Ebadf);
-//     // }
-//     if v_fd == HOMEDIR_FD {
-//         return Ok(ctx.homedir.len() as u32);
-//     }
-//     return Err(Ebadf);
-// }
-
-// // TODO: refactor write and pwrite into common impl
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(push, resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_fd_pwrite(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     iovs: u32,
-//     iovcnt: u32,
-//     offset: u64,
-// ) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
-
-//         let start = (iovs + i * 8) as usize;
-//         if !ctx.fits_in_lin_mem_usize(start, 8) {
-//             return Err(Eoverflow);
-//         }
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         let result = trace_pwrite(ctx, fd, ptr, len as usize, offset as usize)?;
-//         //RuntimeError::from_syscall_ret(result)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
-
-// // TODO: should create fd for directory
-// // modifies: adds hostfd for directory created
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(push, resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_create_directory(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     pathname: u32,
-//     path_len: u32,
-// ) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Eoverflow);
-//     }
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     // TODO: wasi doesn't seem so specify what permissions should be?
-//     //       I will use rw------- cause it seems sane.
-//     let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
-//     let res = trace_mkdirat(ctx, fd, host_pathname, mode)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(())
-// }
-
-// // TODO: handle lookup flags
-// // TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
-// //       respect the fd.
 // // modifies: None
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(push, resolve_path)]
-// #[external_calls(fresh_stat)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_filestat_get(
-//     ctx: &VmCtx,
-//     v_fd: u32,
-//     flags: u32,
-//     pathname: u32,
-//     path_len: u32,
-// ) -> RuntimeResult<FileStat> {
-//     let flags = LookupFlags::new(flags);
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Ebadf);
-//     }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let ret = trace_datasync(ctx, fd)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(ret as u32)
+}
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut stat = fresh_stat();
+//modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(fresh_stat, from_posix)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, 0)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(stat.into())
-// }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
 
-// // // // modifies: None
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
-// #[external_methods(reserve_exact, push)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_filestat_set_times(
-//     ctx: &VmCtx,
-//     v_fd: u32,
-//     flags: u32,
-//     pathname: u32,
-//     path_len: u32,
-//     atim: u64,
-//     mtim: u64,
-//     fst_flags: FstFlags,
-// ) -> RuntimeResult<()> {
-//     let atim = Timestamp::new(atim);
-//     let mtim = Timestamp::new(mtim);
-//     let flags = LookupFlags::new(flags);
+    let mut stat = fresh_stat();
+    // TODO: double check, should this be fstat or fstat64?
+    let result = trace_fstat(ctx, fd, &mut stat)?;
+    //RuntimeError::from_syscall_ret(result)?;
+    let filetype = stat.st_mode;
 
-//     if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-//         return Err(Einval);
-//     }
+    let mode_flags = trace_fgetfl(ctx, fd)?;
+    //RuntimeError::from_syscall_ret(mode_flags)?;
 
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+    // TODO: put rights in once those are implemented
+    let result = FdStat {
+        fs_filetype: (filetype as libc::mode_t).into(),
+        fs_flags: FdFlags::from_posix(mode_flags as i32), //(mode_flags as libc::c_int).into(),
+        fs_rights_base: 0, // TODO: convert read and write from mode flags to the proper masks?
+        fs_rights_inheriting: u64::MAX, //TODO: we should pass in homedir rights
+    };
+    Ok(result)
+}
 
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Ebadf);
-//     }
+//TODO: need wasm layout for FdFlags to read from ptr
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(from)]
+#[external_methods(to_posix)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+// can only adjust Fdflags using set_flags, not O_flags or any other flags
+pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
+    let flags = FdFlags::from(v_flags as i32);
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     let mut specs: Vec<libc::timespec> = Vec::new();
-//     specs.reserve_exact(2);
-//     let atim_nsec = if fst_flags.atim() {
-//         atim.nsec() as i64
-//     } else {
-//         if fst_flags.atim_now() {
-//             libc::UTIME_NOW
-//         } else {
-//             libc::UTIME_OMIT
-//         }
-//     };
-//     let atim_spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: atim_nsec,
-//     };
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let posix_flags = flags.to_posix();
 
-//     let mtim_nsec = if fst_flags.mtim() {
-//         mtim.nsec() as i64
-//     } else if fst_flags.mtim_now() {
-//         libc::UTIME_NOW
-//     } else {
-//         libc::UTIME_OMIT
-//     };
-//     let mtim_spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: mtim_nsec,
-//     };
+    let ret = trace_fsetfl(ctx, fd, posix_flags)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(())
+}
 
-//     specs.push(atim_spec);
-//     specs.push(mtim_spec);
+// // modifies: None
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(fresh_stat)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//     // TODO: path flags
-//     let res = trace_utimensat(ctx, fd, host_pathname, &specs, 0)?;
-//     //RuntimeError::from_syscall_ret(res)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut stat = fresh_stat();
 
-//     Ok(())
-// }
+    let filetype = trace_fstat(ctx, fd, &mut stat)?;
+    //RuntimeError::from_syscall_ret(filetype)?;
+    Ok(stat.into())
+}
 
-// // TODO: handle LookupFlags
-// // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
+// modifies: none
+// Note: WASI API says that size should be u64.
+// but ftruncate, which filestat_set_size is supposed to call used i64
+// I'm keeping this as i64 since this does not cause any truncation
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let ret = trace_ftruncate(ctx, fd, size)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(())
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
+#[external_methods(reserve_exact, push)] // Vec methods
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_filestat_set_times(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    v_atim: u64,
+    v_mtim: u64,
+    v_fst_flags: u32,
+) -> RuntimeResult<()> {
+    let atim = Timestamp::new(v_atim);
+    let mtim = Timestamp::new(v_mtim);
+    let fst_flags = FstFlags::new(v_fst_flags as u16);
+
+    // if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
+    //     return Err(Einval);
+    // }
+
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
+    //       and handle here?
+    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
+
+    let mut specs: Vec<libc::timespec> = Vec::new();
+    specs.reserve_exact(2);
+    let atim_nsec = if fst_flags.atim() {
+        atim.nsec() as i64
+    } else {
+        if fst_flags.atim_now() {
+            libc::UTIME_NOW
+        } else {
+            libc::UTIME_OMIT
+        }
+    };
+    let atim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: atim_nsec,
+    };
+
+    let mtim_nsec = if fst_flags.mtim() {
+        mtim.nsec() as i64
+    } else if fst_flags.mtim_now() {
+        libc::UTIME_NOW
+    } else {
+        libc::UTIME_OMIT
+    };
+    let mtim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: mtim_nsec,
+    };
+
+    specs.push(atim_spec);
+    specs.push(mtim_spec);
+
+    let res = trace_futimens(ctx, fd, &specs)?;
+    //RuntimeError::from_syscall_ret(res)?;
+
+    Ok(())
+}
+
+// TODO: refactor read and pread into common impl
+// modifies: mem
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(reserve_exact, push, resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_pread(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+    offset: u64,
+) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < iovcnt {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
+        let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        let result = trace_pread(ctx, fd, ptr, len as usize, offset as usize)?;
+        // RuntimeError::from_syscall_ret(result)?;
+        num += result as u32;
+        i += 1;
+    }
+    Ok(num)
+}
+
+// modifies: mem
+// If v_fd refers to a preopened directory (fd == 3), write the name to path
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(get_homedir)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_prestat_dirname(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    path: u32,
+    path_len: u32,
+) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    // let dirname: Vec<u8> = Vec::new();
+    //dirname.push((&ctx.homedir).as_bytes().to_vec());
+    // let dirname = ctx.homedir.as_bytes().to_vec();
+    let dirname = ctx.get_homedir();
+    let dirname_len = dirname.len() as u32;
+    if !ctx.fits_in_lin_mem(path, dirname_len) {
+        return Err(Efault);
+    }
+
+    let copy_ok = ctx
+        .copy_buf_to_sandbox(path, &dirname, dirname_len)
+        .ok_or(Efault)?;
+    Ok(())
+}
+
+/// Currently we use the same implementation as wasm2c, which is to not do very mucb at all
+/// TODO: real implementation for this, most likely following wasi-common's implementation
+/// fd_presat_get returns the length of the preopened directory corresponding to v_fd
+/// since we are currently hardcoded to 1 preopened directory at fd==3, this is pretty simple.
+///
+/// must return ebadf if the file doesn't exist:
+/// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    // if v_fd >= MAX_SBOX_FDS {
+    //     return Err(Ebadf);
+    // }
+    if v_fd == HOMEDIR_FD {
+        return Ok(ctx.homedir.len() as u32);
+    }
+    return Err(Ebadf);
+}
+
+// TODO: refactor write and pwrite into common impl
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(push, resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_fd_pwrite(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+    offset: u64,
+) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < iovcnt {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+
+        let start = (iovs + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        let result = trace_pwrite(ctx, fd, ptr, len as usize, offset as usize)?;
+        //RuntimeError::from_syscall_ret(result)?;
+        num += result as u32;
+        i += 1;
+    }
+    Ok(num)
+}
+
+// TODO: should create fd for directory
+// modifies: adds hostfd for directory created
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(push, resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_create_directory(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    pathname: u32,
+    path_len: u32,
+) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Eoverflow);
+    }
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    // TODO: wasi doesn't seem so specify what permissions should be?
+    //       I will use rw------- cause it seems sane.
+    let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
+    let res = trace_mkdirat(ctx, fd, host_pathname, mode)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
+
+// TODO: handle lookup flags
+// TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
+//       respect the fd.
+// modifies: None
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(push, resolve_path)]
+#[external_calls(fresh_stat)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_filestat_get(
+    ctx: &VmCtx,
+    v_fd: u32,
+    flags: u32,
+    pathname: u32,
+    path_len: u32,
+) -> RuntimeResult<FileStat> {
+    let flags = LookupFlags::new(flags);
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Ebadf);
+    }
+
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut stat = fresh_stat();
+
+    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, 0)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(stat.into())
+}
+
+// // // modifies: None
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
+#[external_methods(reserve_exact, push)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_filestat_set_times(
+    ctx: &VmCtx,
+    v_fd: u32,
+    flags: u32,
+    pathname: u32,
+    path_len: u32,
+    atim: u64,
+    mtim: u64,
+    fst_flags: FstFlags,
+) -> RuntimeResult<()> {
+    let atim = Timestamp::new(atim);
+    let mtim = Timestamp::new(mtim);
+    let flags = LookupFlags::new(flags);
+
+    if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
+        return Err(Einval);
+    }
+
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Ebadf);
+    }
+
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+
+    let mut specs: Vec<libc::timespec> = Vec::new();
+    specs.reserve_exact(2);
+    let atim_nsec = if fst_flags.atim() {
+        atim.nsec() as i64
+    } else {
+        if fst_flags.atim_now() {
+            libc::UTIME_NOW
+        } else {
+            libc::UTIME_OMIT
+        }
+    };
+    let atim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: atim_nsec,
+    };
+
+    let mtim_nsec = if fst_flags.mtim() {
+        mtim.nsec() as i64
+    } else if fst_flags.mtim_now() {
+        libc::UTIME_NOW
+    } else {
+        libc::UTIME_OMIT
+    };
+    let mtim_spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: mtim_nsec,
+    };
+
+    specs.push(atim_spec);
+    specs.push(mtim_spec);
+
+    // TODO: path flags
+    let res = trace_utimensat(ctx, fd, host_pathname, &specs, 0)?;
+    //RuntimeError::from_syscall_ret(res)?;
+
+    Ok(())
+}
+
+// TODO: handle LookupFlags
+// TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_link(
+    ctx: &VmCtx,
+    v_old_fd: u32,
+    old_flags: u32,
+    old_pathname: u32,
+    old_path_len: u32,
+    v_new_fd: u32,
+    new_pathname: u32,
+    new_path_len: u32,
+) -> RuntimeResult<()> {
+    let old_flags = LookupFlags::new(old_flags);
+
+    if v_old_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if v_new_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
+        return Err(Ebadf);
+    }
+
+    let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
+    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
+    let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
+    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
+    let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
+    let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
+
+    let res = trace_linkat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname, 0)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
+
+// modifies: mem
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(reserve_exact, push)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_readlink(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    pathname: u32,
+    path_len: u32,
+    ptr: u32,
+    len: u32,
+) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Eoverflow);
+    }
+
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+
+    if !ctx.fits_in_lin_mem(ptr, len) {
+        return Err(Efault);
+    }
+    // let mut buf: Vec<u8> = Vec::new();
+    // buf.reserve_exact(len as usize);
+
+    let res = trace_readlinkat(ctx, fd, host_pathname, ptr, len as usize)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    let res = res as u32;
+    // let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, res).ok_or(Efault)?;
+    Ok(res)
+}
+
+//TODO: should remove fd from map?
+//modifies: removes directory from fdmap
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_remove_directory(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    pathname: u32,
+    path_len: u32,
+) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Ebadf);
+    }
+
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+
+    let res = trace_unlinkat(ctx, fd, host_pathname, libc::AT_REMOVEDIR);
+    //let err = RuntimeError::from_syscall_ret(res);
+    // posix spec allows unlinkat to return EEXIST for a non-empty directory
+    // however, the wasi spec requires that ENOTEMPTY is returned
+    // see: https://man7.org/linux/man-pages/man2/rmdir.2.html
+    if let Err(Eexist) = res {
+        return Err(RuntimeError::Enotempty);
+    }
+    res?;
+    Ok(())
+}
+
 // // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_link(
-//     ctx: &VmCtx,
-//     v_old_fd: u32,
-//     old_flags: u32,
-//     old_pathname: u32,
-//     old_path_len: u32,
-//     v_new_fd: u32,
-//     new_pathname: u32,
-//     new_path_len: u32,
-// ) -> RuntimeResult<()> {
-//     let old_flags = LookupFlags::new(old_flags);
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_rename(
+    ctx: &VmCtx,
+    v_old_fd: u32,
+    old_pathname: u32,
+    old_path_len: u32,
+    v_new_fd: u32,
+    new_pathname: u32,
+    new_path_len: u32,
+) -> RuntimeResult<()> {
+    if v_old_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if v_new_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
+        return Err(Ebadf);
+    }
 
-//     if v_old_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if v_new_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-//         return Err(Ebadf);
-//     }
+    let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
+    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
+    let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
+    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
+    let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
+    let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
 
-//     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
-//     let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
-//     let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
-//     let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
-//     let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
-//     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
+    let res = trace_renameat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
 
-//     let res = trace_linkat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname, 0)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(())
-// }
+//modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_symlink(
+    ctx: &VmCtx,
+    old_pathname: u32,
+    old_path_len: u32,
+    v_fd: u32,
+    new_pathname: u32,
+    new_path_len: u32,
+) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
+        return Err(Ebadf);
+    }
 
-// // modifies: mem
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact, push)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_readlink(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     pathname: u32,
-//     path_len: u32,
-//     ptr: u32,
-//     len: u32,
-// ) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Eoverflow);
-//     }
+    let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
+    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
+    let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
+    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
+    let res = trace_symlinkat(ctx, old_host_pathname, fd, new_host_pathname)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
 
-//     if !ctx.fits_in_lin_mem(ptr, len) {
-//         return Err(Efault);
-//     }
-//     // let mut buf: Vec<u8> = Vec::new();
-//     // buf.reserve_exact(len as usize);
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(resolve_path)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_path_unlink_file(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    pathname: u32,
+    path_len: u32,
+) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    if !ctx.fits_in_lin_mem(pathname, path_len) {
+        return Err(Eoverflow);
+    }
 
-//     let res = trace_readlinkat(ctx, fd, host_pathname, ptr, len as usize)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     let res = res as u32;
-//     // let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, res).ok_or(Efault)?;
-//     Ok(res)
-// }
+    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
+    let host_pathname = ctx.resolve_path(host_buffer)?;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
 
-// //TODO: should remove fd from map?
-// //modifies: removes directory from fdmap
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_remove_directory(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     pathname: u32,
-//     path_len: u32,
-// ) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Ebadf);
-//     }
+    let res = trace_unlinkat(ctx, fd, host_pathname, 0)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(from_u32)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
+    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
 
-//     let res = trace_unlinkat(ctx, fd, host_pathname, libc::AT_REMOVEDIR);
-//     //let err = RuntimeError::from_syscall_ret(res);
-//     // posix spec allows unlinkat to return EEXIST for a non-empty directory
-//     // however, the wasi spec requires that ENOTEMPTY is returned
-//     // see: https://man7.org/linux/man-pages/man2/rmdir.2.html
-//     if let Err(Eexist) = res {
-//         return Err(RuntimeError::Enotempty);
-//     }
-//     res?;
-//     Ok(())
-// }
+    let mut spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
 
-// // // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_rename(
-//     ctx: &VmCtx,
-//     v_old_fd: u32,
-//     old_pathname: u32,
-//     old_path_len: u32,
-//     v_new_fd: u32,
-//     new_pathname: u32,
-//     new_path_len: u32,
-// ) -> RuntimeResult<()> {
-//     if v_old_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if v_new_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-//         return Err(Ebadf);
-//     }
+    let ret = trace_clock_get_res(ctx, id.into(), &mut spec)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(spec.into())
+}
 
-//     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
-//     let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
-//     let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
-//     let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
-//     let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
-//     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(from_u32)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_clock_time_get(
+    ctx: &VmCtx,
+    clock_id: u32,
+    //precision: Timestamp,
+) -> RuntimeResult<Timestamp> {
+    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
+    let mut spec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
 
-//     let res = trace_renameat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(())
-// }
+    let ret = trace_clock_get_time(ctx, id.into(), &mut spec)?;
+    //RuntimeError::from_syscall_ret(ret)?;
+    Ok(spec.into())
+}
 
-// //modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_symlink(
-//     ctx: &VmCtx,
-//     old_pathname: u32,
-//     old_path_len: u32,
-//     v_fd: u32,
-//     new_pathname: u32,
-//     new_path_len: u32,
-// ) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-//         return Err(Ebadf);
-//     }
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
+    Ok(())
+}
 
-//     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
-//     let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
-//     let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
-//     let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
+    Ok(())
+}
 
-//     let res = trace_symlinkat(ctx, old_host_pathname, fd, new_host_pathname)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(())
-// }
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
+    Ok(())
+}
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(resolve_path)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_path_unlink_file(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     pathname: u32,
-//     path_len: u32,
-// ) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     if !ctx.fits_in_lin_mem(pathname, path_len) {
-//         return Err(Eoverflow);
-//     }
+// modifies: memory
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(reserve_exact)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
+    if !ctx.fits_in_lin_mem(ptr, len) {
+        return Err(Efault);
+    }
+    // let mut buf: Vec<u8> = Vec::new();
+    // buf.reserve_exact(len as usize);
+    let res = trace_getrandom(ctx, ptr, len as usize, 0)?;
+    //RuntimeError::from_syscall_ret(res)?;
+    // let copy_ok = ctx
+    //     .copy_buf_to_sandbox(ptr, &buf, res as u32)
+    //     .ok_or(Efault)?;
+    Ok(())
+}
 
-//     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-//     let host_pathname = ctx.resolve_path(host_buffer)?;
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(shift)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
+    // 1. translate from fd
+    if v_from >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    // 2. translate to fd
+    if v_to >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    // 3. delete from with to
+    ctx.fdmap.shift(v_from, v_to);
+    Ok(())
+}
 
-//     let res = trace_unlinkat(ctx, fd, host_pathname, 0)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(())
-// }
-
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(from_u32)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
-//     let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
-
-//     let mut spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: 0,
-//     };
-
-//     let ret = trace_clock_get_res(ctx, id.into(), &mut spec)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(spec.into())
-// }
-
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(from_u32)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_clock_time_get(
-//     ctx: &VmCtx,
-//     clock_id: u32,
-//     //precision: Timestamp,
-// ) -> RuntimeResult<Timestamp> {
-//     let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
-//     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
-//     let mut spec = libc::timespec {
-//         tv_sec: 0,
-//         tv_nsec: 0,
-//     };
-
-//     let ret = trace_clock_get_time(ctx, id.into(), &mut spec)?;
-//     //RuntimeError::from_syscall_ret(ret)?;
-//     Ok(spec.into())
-// }
-
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
-//     Ok(())
-// }
+pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
+    // 1. copy argv_buffer
+    let argv_buf_len = ctx.arg_buffer.len() as u32;
+    ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
+        .ok_or(Efault)?;
+    // 2. copy in argv
+    let mut idx: usize = 0;
+    let mut start: u32 = 0;
+    let mut cursor: usize = 0;
+    while idx < ctx.arg_buffer.len() {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+        // body_invariant!(idx < ctx.arg_buffer.len());
+        //body_invariant!(idx * 4 < cursor);
+        // We have found an argument either when we find a trailing space, or if we started an arg
+        // and ran out of space
+        if !ctx.fits_in_lin_mem_usize((argv as usize) + cursor, 8) {
+            return Err(Eoverflow);
+        }
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+        if ctx.arg_buffer[idx] == b'\0' {
+            while ctx.arg_buffer[idx] == b'\0' {
+                idx += 1;
+            } // scan past multiple spaces
+            ctx.write_u32((argv as usize) + cursor, argv_buf + start);
+            cursor += 4;
+            start = idx as u32;
+        }
+        idx += 1;
+
+        // we reached the end, so record the final arg
+        if idx >= ctx.arg_buffer.len() {
+            ctx.write_u32((argv as usize) + cursor, argv_buf + start);
+        }
+    }
+    Ok(())
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
-//     Ok(())
-// }
+pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
+    // 1. copy argv_buffer
+    let env_buf_len = ctx.env_buffer.len() as u32;
+    ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)
+        .ok_or(Efault)?;
+    // 2. copy in argv
+    let mut idx: usize = 0;
+    let mut start: u32 = 0;
+    let mut cursor: usize = 0;
+    while idx < ctx.env_buffer.len() {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+        if !ctx.fits_in_lin_mem_usize((env as usize) + cursor, 8) {
+            return Err(Eoverflow);
+        }
+        if ctx.env_buffer[idx] == b'\0' {
+            while ctx.env_buffer[idx] == b'\0' {
+                idx += 1;
+            } // scan past multiple spaces
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
-//     Ok(())
-// }
+            ctx.write_u32((env as usize) + cursor, env_buf + start);
+            cursor += 4;
+            start = idx as u32;
+        }
+        idx += 1;
+        if idx >= ctx.arg_buffer.len() {
+            ctx.write_u32((env as usize) + cursor, env_buf + start);
+        }
+    }
+    Ok(())
+}
 
-// // modifies: memory
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
-//     if !ctx.fits_in_lin_mem(ptr, len) {
-//         return Err(Efault);
-//     }
-//     // let mut buf: Vec<u8> = Vec::new();
-//     // buf.reserve_exact(len as usize);
-//     let res = trace_getrandom(ctx, ptr, len as usize, 0)?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     // let copy_ok = ctx
-//     //     .copy_buf_to_sandbox(ptr, &buf, res as u32)
-//     //     .ok_or(Efault)?;
-//     Ok(())
-// }
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
+    Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
+}
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(shift)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
-//     // 1. translate from fd
-//     if v_from >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     // 2. translate to fd
-//     if v_to >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     // 3. delete from with to
-//     ctx.fdmap.shift(v_from, v_to);
-//     Ok(())
-// }
+// modifies: none
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
+    Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
+}
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// // #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
-//     // 1. copy argv_buffer
-//     let argv_buf_len = ctx.arg_buffer.len() as u32;
-//     ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
-//         .ok_or(Efault)?;
-//     // 2. copy in argv
-//     let mut idx: usize = 0;
-//     let mut start: u32 = 0;
-//     let mut cursor: usize = 0;
-//     while idx < ctx.arg_buffer.len() {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
-//         // body_invariant!(idx < ctx.arg_buffer.len());
-//         //body_invariant!(idx * 4 < cursor);
-//         // We have found an argument either when we find a trailing space, or if we started an arg
-//         // and ran out of space
-//         if !ctx.fits_in_lin_mem_usize((argv as usize) + cursor, 8) {
-//             return Err(Eoverflow);
-//         }
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(reserve_exact)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_sock_recv(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    ri_data: u32,
+    ri_data_count: u32,
+    ri_flags: u32,
+) -> RuntimeResult<(u32, u32)> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//         if ctx.arg_buffer[idx] == b'\0' {
-//             while ctx.arg_buffer[idx] == b'\0' {
-//                 idx += 1;
-//             } // scan past multiple spaces
-//             ctx.write_u32((argv as usize) + cursor, argv_buf + start);
-//             cursor += 4;
-//             start = idx as u32;
-//         }
-//         idx += 1;
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < ri_data_count {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
-//         // we reached the end, so record the final arg
-//         if idx >= ctx.arg_buffer.len() {
-//             ctx.write_u32((argv as usize) + cursor, argv_buf + start);
-//         }
-//     }
-//     Ok(())
-// }
+        let start = (ri_data + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        // let mut buf: Vec<u8> = Vec::new();
+        // buf.reserve_exact(len as usize);
+        let flags = 0;
+        // TODO: handle flags
+        let result = trace_recv(ctx, fd, ptr, len as usize, flags)?;
+        //RuntimeError::from_syscall_ret(result)?;
+        let result = result as u32;
+        // let copy_ok = ctx
+        //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
+        //     .ok_or(Efault)?;
+        num += result;
+        i += 1;
+    }
+    // TODO: handle ro_flags
+    Ok((num, 0))
+}
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// // #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
-//     // 1. copy argv_buffer
-//     let env_buf_len = ctx.env_buffer.len() as u32;
-//     ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)
-//         .ok_or(Efault)?;
-//     // 2. copy in argv
-//     let mut idx: usize = 0;
-//     let mut start: u32 = 0;
-//     let mut cursor: usize = 0;
-//     while idx < ctx.env_buffer.len() {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
-//         if !ctx.fits_in_lin_mem_usize((env as usize) + cursor, 8) {
-//             return Err(Eoverflow);
-//         }
-//         if ctx.env_buffer[idx] == b'\0' {
-//             while ctx.env_buffer[idx] == b'\0' {
-//                 idx += 1;
-//             } // scan past multiple spaces
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_sock_send(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    si_data: u32,
+    si_data_count: u32,
+    si_flags: u32,
+) -> RuntimeResult<u32> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-//             ctx.write_u32((env as usize) + cursor, env_buf + start);
-//             cursor += 4;
-//             start = idx as u32;
-//         }
-//         idx += 1;
-//         if idx >= ctx.arg_buffer.len() {
-//             ctx.write_u32((env as usize) + cursor, env_buf + start);
-//         }
-//     }
-//     Ok(())
-// }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let mut num: u32 = 0;
+    let mut i = 0;
+    while i < si_data_count {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
 
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
-//     Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
-// }
+        let start = (si_data + i * 8) as usize;
+        if !ctx.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let ptr = ctx.read_u32(start);
+        let len = ctx.read_u32(start + 4);
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+        // let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
+        let flags = 0;
+        // TODO: handle flags
+        let result = trace_send(ctx, fd, ptr, len as usize, flags)?;
+        //RuntimeError::from_syscall_ret(result)?;
+        num += result as u32;
+        i += 1;
+    }
+    Ok(num)
+}
 
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(no_effect!(old(trace), trace))]
-// pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
-//     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
-// }
+// ensures: valid(v_fd) => trace = old(shutdown :: trace)
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+// If sandbox does not own fd, no effects take place
+//#[ensures(v_fd >= MAX_SBOX_FDS || !ctx.fdmap.m[v_fd].is_err() ==> no_effect!(old(trace), trace))]
+// if args are valid, we do invoke an effect
+//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::Shutdown) )] // we added 1 effect (add-only)
+// #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
+pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<()> {
+    if v_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_sock_recv(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     ri_data: u32,
-//     ri_data_count: u32,
-//     ri_flags: u32,
-// ) -> RuntimeResult<(u32, u32)> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+    let how = SdFlags::new(v_how);
+    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let res = trace_shutdown(ctx, fd, how.into())?;
+    //RuntimeError::from_syscall_ret(res)?;
+    Ok(())
+}
 
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < ri_data_count {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+// TODO: Do we need to check alignment on the pointers?
+// TODO: clean this up, pretty gross
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(subscription_clock_abstime)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_poll_oneoff(
+    ctx: &mut VmCtx,
+    in_ptr: u32,
+    out_ptr: u32,
+    nsubscriptions: u32,
+) -> RuntimeResult<u32> {
+    // copy events to runtime buffer
+    if !ctx.fits_in_lin_mem(
+        in_ptr,
+        nsubscriptions * mem::size_of::<Subscription>() as u32,
+    ) {
+        return Err(Efault);
+    }
 
-//         let start = (ri_data + i * 8) as usize;
-//         if !ctx.fits_in_lin_mem_usize(start, 8) {
-//             return Err(Eoverflow);
-//         }
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         // let mut buf: Vec<u8> = Vec::new();
-//         // buf.reserve_exact(len as usize);
-//         let flags = 0;
-//         // TODO: handle flags
-//         let result = trace_recv(ctx, fd, ptr, len as usize, flags)?;
-//         //RuntimeError::from_syscall_ret(result)?;
-//         let result = result as u32;
-//         // let copy_ok = ctx
-//         //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
-//         //     .ok_or(Efault)?;
-//         num += result;
-//         i += 1;
-//     }
-//     // TODO: handle ro_flags
-//     Ok((num, 0))
-// }
+    if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * mem::size_of::<Event>() as u32) {
+        return Err(Efault);
+    }
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_sock_send(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     si_data: u32,
-//     si_data_count: u32,
-//     si_flags: u32,
-// ) -> RuntimeResult<u32> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+    //let mut current_byte = 0;
+    let mut i = 0;
+    while i < nsubscriptions {
+        body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+        // TODO: refactor to use constants
+        let sub_offset = i * 48;
+        let event_offset = i * 32;
+        if !ctx.fits_in_lin_mem_usize((in_ptr + sub_offset) as usize, 42) {
+            return Err(Eoverflow);
+        }
+        if !ctx.fits_in_lin_mem_usize((out_ptr + event_offset) as usize, 12) {
+            return Err(Eoverflow);
+        }
+        // read the subscription struct fields
+        let userdata = ctx.read_u64((in_ptr + sub_offset) as usize);
+        let tag = ctx.read_u64((in_ptr + sub_offset + 8) as usize);
 
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < si_data_count {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
+        match tag {
+            0 => {
+                let clock_id = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
+                //let clock_id = clock_id.ok_or(Einval)?;
+                let timeout_bytes = ctx.read_u64((in_ptr + sub_offset + 24) as usize);
+                let timeout = Timestamp::new(timeout_bytes);
+                // let _precision: Timestamp =
+                //     Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
+                let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
+                // TODO: get clock time and use it to check if passed
 
-//         let start = (si_data + i * 8) as usize;
-//         if !ctx.fits_in_lin_mem_usize(start, 8) {
-//             return Err(Eoverflow);
-//         }
-//         let ptr = ctx.read_u32(start);
-//         let len = ctx.read_u32(start + 4);
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         // let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
-//         let flags = 0;
-//         // TODO: handle flags
-//         let result = trace_send(ctx, fd, ptr, len as usize, flags)?;
-//         //RuntimeError::from_syscall_ret(result)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
+                let now = wasi_clock_time_get(ctx, clock_id)?;
+                let req: libc::timespec = if flags.subscription_clock_abstime() {
+                    // is absolute, wait the diff between timeout and noew
+                    // TODO: I assume we should check for underflow
+                    (timeout - now).into()
+                } else {
+                    timeout.into()
+                };
 
-// // ensures: valid(v_fd) => trace = old(shutdown :: trace)
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// // If sandbox does not own fd, no effects take place
-// //#[ensures(v_fd >= MAX_SBOX_FDS || !ctx.fdmap.m[v_fd].is_err() ==> no_effect!(old(trace), trace))]
-// // if args are valid, we do invoke an effect
-// //#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::Shutdown) )] // we added 1 effect (add-only)
-// // #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
-// pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<()> {
-//     if v_fd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
+                let mut rem = libc::timespec {
+                    tv_sec: 0,
+                    tv_nsec: 0,
+                };
 
-//     let how = SdFlags::new(v_how);
-//     let fd = ctx.fdmap.m[v_fd as usize]?;
-//     let res = trace_shutdown(ctx, fd, how.into())?;
-//     //RuntimeError::from_syscall_ret(res)?;
-//     Ok(())
-// }
+                // TODO: handle multi-threaded case, in which nanosleep can be canceled by
+                //       signals... we shouldn't need to handle it now though...
+                let res = trace_nanosleep(ctx, &req, &mut rem)?;
+                //RuntimeError::from_syscall_ret(res)?;
 
-// // TODO: Do we need to check alignment on the pointers?
-// // TODO: clean this up, pretty gross
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(subscription_clock_abstime)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_poll_oneoff(
-//     ctx: &mut VmCtx,
-//     in_ptr: u32,
-//     out_ptr: u32,
-//     nsubscriptions: u32,
-// ) -> RuntimeResult<u32> {
-//     // copy events to runtime buffer
-//     if !ctx.fits_in_lin_mem(
-//         in_ptr,
-//         nsubscriptions * mem::size_of::<Subscription>() as u32,
-//     ) {
-//         return Err(Efault);
-//     }
+                // write the event output...
+                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
+                let errno = 0;
+                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
+                ctx.write_u16(
+                    (out_ptr + event_offset + 10) as usize,
+                    EventType::Clock.into(),
+                );
+                // clock event ignores fd_readwrite field.
+            }
+            1 => {
+                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
+                if v_fd >= MAX_SBOX_FDS {
+                    return Err(Ebadf);
+                }
+                let fd = ctx.fdmap.m[v_fd as usize]?;
+                let host_fd: usize = fd.into();
 
-//     if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * mem::size_of::<Event>() as u32) {
-//         return Err(Efault);
-//     }
+                let mut pollfd = libc::pollfd {
+                    fd: host_fd as i32,
+                    events: libc::POLLIN,
+                    revents: 0,
+                };
+                let timeout = -1;
 
-//     //let mut current_byte = 0;
-//     let mut i = 0;
-//     while i < nsubscriptions {
-//         body_invariant!(trace_safe(trace, ctx.memlen) && ctx_safe(ctx));
-//         // TODO: refactor to use constants
-//         let sub_offset = i * 48;
-//         let event_offset = i * 32;
-//         if !ctx.fits_in_lin_mem_usize((in_ptr + sub_offset) as usize, 42) {
-//             return Err(Eoverflow);
-//         }
-//         if !ctx.fits_in_lin_mem_usize((out_ptr + event_offset) as usize, 12) {
-//             return Err(Eoverflow);
-//         }
-//         // read the subscription struct fields
-//         let userdata = ctx.read_u64((in_ptr + sub_offset) as usize);
-//         let tag = ctx.read_u64((in_ptr + sub_offset + 8) as usize);
+                let res = trace_poll(ctx, &mut pollfd, timeout)?;
+                //RuntimeError::from_syscall_ret(res)?;
 
-//         match tag {
-//             0 => {
-//                 let clock_id = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-//                 //let clock_id = clock_id.ok_or(Einval)?;
-//                 let timeout_bytes = ctx.read_u64((in_ptr + sub_offset + 24) as usize);
-//                 let timeout = Timestamp::new(timeout_bytes);
-//                 // let _precision: Timestamp =
-//                 //     Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
-//                 let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
-//                 // TODO: get clock time and use it to check if passed
+                // write the event output...
+                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
+                let errno = 0;
+                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
+                ctx.write_u16(
+                    (out_ptr + event_offset + 10) as usize,
+                    EventType::FdRead.into(),
+                );
+                // TODO: fd_readwrite member...need number of bytes available....
+            }
+            2 => {
+                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
+                if v_fd >= MAX_SBOX_FDS {
+                    return Err(Ebadf);
+                }
+                let fd = ctx.fdmap.m[v_fd as usize]?;
+                let host_fd: usize = fd.into();
 
-//                 let now = wasi_clock_time_get(ctx, clock_id)?;
-//                 let req: libc::timespec = if flags.subscription_clock_abstime() {
-//                     // is absolute, wait the diff between timeout and noew
-//                     // TODO: I assume we should check for underflow
-//                     (timeout - now).into()
-//                 } else {
-//                     timeout.into()
-//                 };
+                let mut pollfd = libc::pollfd {
+                    fd: host_fd as i32,
+                    events: libc::POLLIN,
+                    revents: 0,
+                };
+                let timeout = -1;
 
-//                 let mut rem = libc::timespec {
-//                     tv_sec: 0,
-//                     tv_nsec: 0,
-//                 };
+                let res = trace_poll(ctx, &mut pollfd, timeout)?;
+                //RuntimeError::from_syscall_ret(res)?;
 
-//                 // TODO: handle multi-threaded case, in which nanosleep can be canceled by
-//                 //       signals... we shouldn't need to handle it now though...
-//                 let res = trace_nanosleep(ctx, &req, &mut rem)?;
-//                 //RuntimeError::from_syscall_ret(res)?;
+                // write the event output...
+                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
+                let errno = 0;
+                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
+                ctx.write_u16(
+                    (out_ptr + event_offset + 10) as usize,
+                    EventType::FdWrite.into(),
+                );
+                // TODO: fd_readwrite member...need number of bytes available....
+            }
+            _ => {
+                return Err(Einval);
+            }
+        }
 
-//                 // write the event output...
-//                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
-//                 let errno = 0;
-//                 ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-//                 ctx.write_u16(
-//                     (out_ptr + event_offset + 10) as usize,
-//                     EventType::Clock.into(),
-//                 );
-//                 // clock event ignores fd_readwrite field.
-//             }
-//             1 => {
-//                 let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-//                 if v_fd >= MAX_SBOX_FDS {
-//                     return Err(Ebadf);
-//                 }
-//                 let fd = ctx.fdmap.m[v_fd as usize]?;
-//                 let host_fd: usize = fd.into();
+        i += 1;
+    }
 
-//                 let mut pollfd = libc::pollfd {
-//                     fd: host_fd as i32,
-//                     events: libc::POLLIN,
-//                     revents: 0,
-//                 };
-//                 let timeout = -1;
-
-//                 let res = trace_poll(ctx, &mut pollfd, timeout)?;
-//                 //RuntimeError::from_syscall_ret(res)?;
-
-//                 // write the event output...
-//                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
-//                 let errno = 0;
-//                 ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-//                 ctx.write_u16(
-//                     (out_ptr + event_offset + 10) as usize,
-//                     EventType::FdRead.into(),
-//                 );
-//                 // TODO: fd_readwrite member...need number of bytes available....
-//             }
-//             2 => {
-//                 let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-//                 if v_fd >= MAX_SBOX_FDS {
-//                     return Err(Ebadf);
-//                 }
-//                 let fd = ctx.fdmap.m[v_fd as usize]?;
-//                 let host_fd: usize = fd.into();
-
-//                 let mut pollfd = libc::pollfd {
-//                     fd: host_fd as i32,
-//                     events: libc::POLLIN,
-//                     revents: 0,
-//                 };
-//                 let timeout = -1;
-
-//                 let res = trace_poll(ctx, &mut pollfd, timeout)?;
-//                 //RuntimeError::from_syscall_ret(res)?;
-
-//                 // write the event output...
-//                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
-//                 let errno = 0;
-//                 ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-//                 ctx.write_u16(
-//                     (out_ptr + event_offset + 10) as usize,
-//                     EventType::FdWrite.into(),
-//                 );
-//                 // TODO: fd_readwrite member...need number of bytes available....
-//             }
-//             _ => {
-//                 return Err(Einval);
-//             }
-//         }
-
-//         i += 1;
-//     }
-
-//     Ok(0)
-// }
+    Ok(0)
+}
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(extend_from_slice, reserve_exact)]
@@ -1477,61 +1477,61 @@ pub fn wasi_fd_readdir(
     Ok(out_buf.len() as u32)
 }
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(sock_domain_to_posix, sock_type_to_posix)]
-// #[external_methods(create)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
-//     // Should we keep socket fd and file fd seperate?
-//     // convert from wasi constants to posix constants
-//     let domain = sock_domain_to_posix(domain)?;
-//     let ty = sock_type_to_posix(ty)?;
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(sock_domain_to_posix, sock_type_to_posix)]
+#[external_methods(create)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
+    // Should we keep socket fd and file fd seperate?
+    // convert from wasi constants to posix constants
+    let domain = sock_domain_to_posix(domain)?;
+    let ty = sock_type_to_posix(ty)?;
 
-//     let res = trace_socket(ctx, domain, ty, protocol as i32)?;
-//     // check domain == AF_INET
-//     // check ty == SOCK_STREAM || ty == SOCK_DGRAM
-//     ctx.fdmap.create(res.into())
-// }
+    let res = trace_socket(ctx, domain, ty, protocol as i32)?;
+    // check domain == AF_INET
+    // check ty == SOCK_STREAM || ty == SOCK_DGRAM
+    ctx.fdmap.create(res.into())
+}
 
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_calls(sock_domain_to_posix)]
-// #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// pub fn wasi_sock_connect(
-//     ctx: &mut VmCtx,
-//     sockfd: u32,
-//     addr: u32,
-//     addrlen: u32,
-// ) -> RuntimeResult<()> {
-//     // TODO: safety checks
-//     if sockfd >= MAX_SBOX_FDS {
-//         return Err(Ebadf);
-//     }
-//     let fd = ctx.fdmap.m[sockfd as usize]?;
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(sock_domain_to_posix)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+pub fn wasi_sock_connect(
+    ctx: &mut VmCtx,
+    sockfd: u32,
+    addr: u32,
+    addrlen: u32,
+) -> RuntimeResult<()> {
+    // TODO: safety checks
+    if sockfd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+    let fd = ctx.fdmap.m[sockfd as usize]?;
 
-//     if addrlen != 16 {
-//         return Err(Einval);
-//     }
+    if addrlen != 16 {
+        return Err(Einval);
+    }
 
-//     if !ctx.fits_in_lin_mem(addr, addrlen) {
-//         return Err(Eoverflow);
-//     }
+    if !ctx.fits_in_lin_mem(addr, addrlen) {
+        return Err(Eoverflow);
+    }
 
-//     let sin_family = ctx.read_u16(addr as usize);
-//     let sin_port = ctx.read_u16(addr as usize + 2);
-//     let sin_addr = ctx.read_u32(addr as usize + 4);
-//     let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
-//     // We can directly use sockaddr_in since we already know all socks are inet
-//     let sin_addr = libc::in_addr { s_addr: sin_addr };
-//     let saddr = libc::sockaddr_in {
-//         sin_family,
-//         sin_port,
-//         sin_addr,
-//         sin_zero: [0; 8],
-//     };
-//     // I need to actually parse this buffer since it is different in
+    let sin_family = ctx.read_u16(addr as usize);
+    let sin_port = ctx.read_u16(addr as usize + 2);
+    let sin_addr = ctx.read_u32(addr as usize + 4);
+    let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
+    // We can directly use sockaddr_in since we already know all socks are inet
+    let sin_addr = libc::in_addr { s_addr: sin_addr };
+    let saddr = libc::sockaddr_in {
+        sin_family,
+        sin_port,
+        sin_addr,
+        sin_zero: [0; 8],
+    };
+    // I need to actually parse this buffer since it is different in
 
-//     let res = trace_connect(ctx, fd, &saddr, addrlen)?;
-//     return Ok(());
-// }
+    let res = trace_connect(ctx, fd, &saddr, addrlen)?;
+    return Ok(());
+}
