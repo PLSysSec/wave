@@ -74,3 +74,20 @@ pub fn bitwise_or(bv1: i32, bv2: i32) -> i32 {
 pub fn fresh_stat() -> libc::stat {
     unsafe { std::mem::zeroed() }
 }
+
+#[trusted]
+#[requires(len >= 19)]
+#[requires(buf.len() > start + len)]
+#[ensures(result < old(len))]
+pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
+    buf[start + 19..start + len]
+        .iter()
+        .position(|x| *x == 0)
+        .unwrap()
+}
+
+#[trusted]
+// #[requires(buf.len() > start + len + 19)]
+pub fn push_dirent_name(out_buf: &mut Vec<u8>, buf: &Vec<u8>, start: usize, len: usize) {
+    out_buf.extend_from_slice(&buf[start + 19..start + 19 + len])
+}
