@@ -12,8 +12,11 @@ bootstrap:
 	git submodule update --init --recursive
 	cd prusti-dev && ./x.py setup
 	cd prusti-dev && JAVA_HOME=$(JAVA_HOME) ./x.py build --release
+	cargo build --release
+	make bindings # this is dirty, fix this
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
 	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
+
 
 
 prusti:
