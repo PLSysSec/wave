@@ -24,6 +24,7 @@ use RuntimeError::*;
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_path_open(
     ctx: &mut VmCtx,
+    v_dir_fd: u32,
     dirflags: u32,
     pathname: u32,
     path_len: u32,
@@ -38,6 +39,12 @@ pub fn wasi_path_open(
         return Err(Eoverflow);
     }
 
+    if v_dir_fd >= MAX_SBOX_FDS {
+        return Err(Ebadf);
+    }
+
+    let fd = ctx.fdmap.m[v_dir_fd as usize]?;
+
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
     let host_pathname = ctx.resolve_path(host_buffer)?;
     let dirflags_posix = dirflags.to_posix();
@@ -48,7 +55,7 @@ pub fn wasi_path_open(
         fdflags.to_posix(),
     );
 
-    let fd = trace_open(ctx, host_pathname, flags)?;
+    let fd = trace_openat(ctx, fd, host_pathname, flags)?;
     //RuntimeError::from_syscall_ret(fd)?; // check result TODO: do this in trace_open
     ctx.fdmap.create(fd.into())
 }

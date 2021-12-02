@@ -36,10 +36,10 @@ fn ctx_from_memptr(
         .format_timestamp_nanos()
         .init();
 
-    println!(
-        "homedir = {:?} args = {:?} env = {:?} log_path = {:?}",
-        homedir, args, env, log_path
-    );
+    // println!(
+    //     "homedir = {:?} args = {:?} env = {:?} log_path = {:?}",
+    //     homedir, args, env, log_path
+    // );
     let memlen = LINEAR_MEM_SIZE;
     let mem = ffi_load_vec(memptr, memlen);
     let mut fdmap = FdMap::new();
@@ -567,7 +567,15 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     // adjust oflags by adding O_WRONLY & O_RDWR as bits 4 and 5
     // after wasi-libc put them in fs_rights_base
     let new_flags = adjust_oflags(oflags, fs_rights_base);
-    let r = wasi_path_open(ctx_ref, dirflags, path, path_len, new_flags, fdflags as i32);
+    let r = wasi_path_open(
+        ctx_ref,
+        fd,
+        dirflags,
+        path,
+        path_len,
+        new_flags,
+        fdflags as i32,
+    );
     wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
 }
 

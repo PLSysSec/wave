@@ -9,8 +9,8 @@ use syscall::syscall;
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
-pub fn os_open(pathname: Vec<u8>, flags: i32) -> isize {
-    unsafe { syscall!(OPEN, pathname.as_ptr(), flags) as isize }
+pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
+    unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags) as isize }
 }
 
 //https://man7.org/linux/man-pages/man2/close.2.html

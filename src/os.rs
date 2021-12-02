@@ -15,9 +15,15 @@ use syscall::syscall;
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
-pub fn trace_open(ctx: &VmCtx, pathname: SandboxedPath, flags: i32) -> RuntimeResult<usize> {
+pub fn trace_openat(
+    ctx: &VmCtx,
+    dir_fd: HostFd,
+    pathname: SandboxedPath,
+    flags: i32,
+) -> RuntimeResult<usize> {
+    let os_fd: usize = dir_fd.into();
     let os_path: Vec<u8> = pathname.into();
-    let r = os_open(os_path, flags);
+    let r = os_openat(os_fd, os_path, flags);
     RuntimeError::from_syscall_ret(r)
 }
 
