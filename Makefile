@@ -16,6 +16,8 @@ bootstrap:
 	make bindings # this is dirty, fix this
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
 	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
+	cd rlbox_wasm2c_sandbox/build/_deps/wasiclang-src && make # TODO: upstream sockets-wasiclang or amke rlbox/cmakelists do this
+	cd rlbox_wasm2c_sandbox/build/_deps/wasiclang-src/src/wasi-libc && make # TODO: upstream sockets-wasi-libc or make rlbox/cmakelists do this
 
 
 
