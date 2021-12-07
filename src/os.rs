@@ -80,7 +80,7 @@ pub fn trace_pread(
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // write reads `cnt` bytes to the sandbox
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
 pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
@@ -94,7 +94,7 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 #[requires(cnt < ctx.memlen)]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // pwrite writes `cnt` bytes to the sandbox
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
 pub fn trace_pwrite(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -430,7 +430,7 @@ pub fn trace_recv(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
 pub fn trace_send(
     ctx: &mut VmCtx,
     fd: HostFd,

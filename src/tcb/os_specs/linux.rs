@@ -72,7 +72,7 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if count == cnt))]
 pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) as isize };
@@ -85,7 +85,7 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if count == cnt))]
 pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PWRITE64, fd, buf.as_ptr(), cnt, offset) as isize };
@@ -426,7 +426,7 @@ pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, count) if count == cnt))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if count == cnt))]
 pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: u32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize };
