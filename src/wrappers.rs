@@ -56,7 +56,6 @@ pub fn wasi_path_open(
     );
 
     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
-    //RuntimeError::from_syscall_ret(fd)?; // check result TODO: do this in trace_open
     ctx.fdmap.create(fd.into())
 }
 

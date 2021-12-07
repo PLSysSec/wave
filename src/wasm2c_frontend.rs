@@ -12,6 +12,22 @@ use RuntimeError::*;
 // use log;
 // use env_logger;
 
+// When we are not timing syscalls, disable time syscalls
+// TODO: clean this up somehow
+#[cfg(not(feature = "time_hostcalls"))]
+use crate::stats::noop_instrumentation::{push_hostcall_result, start_timer, stop_timer};
+#[cfg(feature = "time_hostcalls")]
+use crate::stats::timing::{push_hostcall_result, start_timer, stop_timer};
+
+#[cfg(not(feature = "time_hostcalls"))]
+use crate::stats::noop_instrumentation::output_hostcall_perf_results;
+#[cfg(not(feature = "time_syscalls"))]
+use crate::stats::noop_instrumentation::output_syscall_perf_results;
+#[cfg(feature = "time_hostcalls")]
+use crate::stats::stats::output_hostcall_perf_results;
+#[cfg(feature = "time_syscalls")]
+use crate::stats::stats::output_syscall_perf_results;
+
 trace::init_depth_var!();
 
 //TODO: figure out how to remove the dummy trace(logging)s
@@ -105,6 +121,14 @@ pub extern "C" fn veriwasi_init(
     result
 }
 
+// TODO: should probably manually drop stuff here and null out ptr
+#[no_mangle]
+pub extern "C" fn veriwasi_cleanup(ctx: *const *mut VmCtx) {
+    // println!("Cleanup time!");
+    output_hostcall_perf_results();
+    output_syscall_perf_results();
+}
+
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_args_getZ_iii(
@@ -112,9 +136,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_args_getZ_iii(
     argv: u32,
     argv_buf: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_args_get(ctx_ref, argv, argv_buf);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("args_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -124,16 +152,23 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii(
     pargc: u32,
     pargv_buf_size: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_args_sizes_get(ctx_ref);
-    wasm2c_marshal_and_writeback_u32_pair(ctx_ref, pargc as usize, pargv_buf_size as usize, r)
+    let retval =
+        wasm2c_marshal_and_writeback_u32_pair(ctx_ref, pargc as usize, pargv_buf_size as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("args_sizes_get", start, end);
+    retval
 }
 
+// TODO: this needs to invoke the cleanup function
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx: *const *mut VmCtx, x: u32) {
     std::process::exit(x as i32);
-    // let ctx_ref = ptr_to_ref(ctx);
+    // let start = start_timer();
+    //let ctx_ref = ptr_to_ref(ctx);
     // wasi_proc_exit(ctx_ref, x);
 }
 
@@ -144,9 +179,14 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_environ_sizes_getZ_iii(
     pcount: u32,
     pbuf_size: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_environ_sizes_get(ctx_ref);
-    wasm2c_marshal_and_writeback_u32_pair(ctx_ref, pcount as usize, pbuf_size as usize, r)
+    let retval =
+        wasm2c_marshal_and_writeback_u32_pair(ctx_ref, pcount as usize, pbuf_size as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("environ_sizes_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -156,9 +196,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_environ_getZ_iii(
     __environ: u32,
     environ_buf: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_environ_get(ctx_ref, __environ, environ_buf);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("environ_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -169,9 +213,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_prestat_getZ_iii(
     prestat: u32,
 ) -> u32 {
     // Wasm2c implementation
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_prestat_get(ctx_ref, fd);
-    wasm2c_marshal_and_writeback_prestat(ctx_ref, prestat as usize, r)
+    let retval = wasm2c_marshal_and_writeback_prestat(ctx_ref, prestat as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_prestat_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -183,9 +231,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_writeZ_iiiii(
     iovcnt: u32,
     pnum: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_write(ctx_ref, fd, iov, iovcnt);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, pnum as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, pnum as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_write", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -197,17 +249,25 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_readZ_iiiii(
     iovcnt: u32,
     pnum: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_read(ctx_ref, fd, iov, iovcnt);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, pnum as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, pnum as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_read", start, end);
+    retval
 }
 
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_closeZ_ii(ctx: *const *mut VmCtx, fd: u32) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_close(ctx_ref, fd);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_close", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -219,9 +279,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(
     whence: u32,
     new_offset: u32, // output
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_seek(ctx_ref, fd, offset as i64, whence);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, new_offset as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, new_offset as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_seek", start, end);
+    retval
 }
 
 // TODO: what is the purpose of precision here?
@@ -234,9 +298,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(
     precision: u64,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_clock_time_get(ctx_ref, clock_id);
-    wasm2c_marshal_and_writeback_timestamp(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_timestamp(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("clock_time_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -246,9 +314,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_res_getZ_iii(
     clock_id: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_clock_res_get(ctx_ref, clock_id);
-    wasm2c_marshal_and_writeback_timestamp(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_timestamp(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("clock_res_get", start, end);
+    retval
 }
 
 // void wasm_rt_sys_init() {
@@ -268,9 +340,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_adviseZ_iijji(
     len: u64,
     advice: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_advise(ctx_ref, v_fd, offset, len, advice);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_advise", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -281,9 +357,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_allocateZ_iijj(
     offset: u64,
     len: u64,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_allocate(ctx_ref, v_fd, offset, len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_allocate", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -292,9 +372,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_datasyncZ_ii(
     ctx: *const *mut VmCtx,
     v_fd: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_datasync(ctx_ref, v_fd);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_datasync", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -304,9 +388,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(
     v_fd: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_fdstat_get(ctx_ref, v_fd);
-    wasm2c_marshal_and_writeback_fdstat(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_fdstat(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_fdstat_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -316,9 +404,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
     v_fd: u32,
     flags: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_fdstat_set_flags(ctx_ref, v_fd, flags);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_filestat_set_flags", start, end);
+    retval
 }
 
 // Not supporting this because rights are getting removed
@@ -335,9 +427,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(
     v_fd: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_filestat_get(ctx_ref, v_fd);
-    wasm2c_marshal_and_writeback_filestat(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_filestat(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_filestat_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -347,9 +443,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_filestat_set_sizeZ_iij(
     v_fd: u32,
     size: u64,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_filestat_set_size(ctx_ref, v_fd, size as i64);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_filestat_set_size", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -361,9 +461,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_filestat_set_timesZ_iijji(
     mtim: u64,
     fst_flags: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_filestat_set_times(ctx_ref, v_fd, atim, mtim, fst_flags);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_filestat_set_times", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -376,9 +480,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_preadZ_iiiiji(
     offset: u64,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_pread(ctx_ref, fd, iovs, iov_len, offset);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_pread", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -389,9 +497,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_prestat_dir_nameZ_iiii(
     path: u32,
     path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_prestat_dirname(ctx_ref, fd, path, path_len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_prestat_dir_name", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -404,9 +516,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_pwriteZ_iiiiji(
     offset: u64,
     retptr: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_pwrite(ctx_ref, fd, iovs, iov_len, offset);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_pwrite", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -419,9 +535,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_readdirZ_iiiiji(
     cookie: u64, // ???
     retptr: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_readdir(ctx_ref, fd, buf, buf_len as usize, cookie);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_readdir", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -431,17 +551,25 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_renumberZ_iii(
     from: u32,
     to: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_renumber(ctx_ref, from, to);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_renumber", start, end);
+    retval
 }
 
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_syncZ_ii(ctx: *const *mut VmCtx, fd: u32) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_sync(ctx_ref, fd);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("fd_sync", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -451,9 +579,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_tellZ_iii(
     fd: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_tell(ctx_ref, fd);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("fd_tell", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -464,9 +596,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_create_directoryZ_iiii(
     pathname: u32,
     path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_create_directory(ctx_ref, fd, pathname, path_len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_create_directory", start, end);
+    retval
 }
 
 // wasi libc truncates result to 16 bits ???
@@ -480,9 +616,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_getZ_iiiiii(
     path_len: u32,
     out: u32, // wasm2c and wasi-libc disagree about 4 vs 5 arguments
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_filestat_get(ctx_ref, fd, flags, path, path_len);
-    wasm2c_marshal_and_writeback_filestat(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_filestat(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("path_filestat_get", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -497,6 +637,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
     mtim: u64,
     fst_flags: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_filestat_set_times(
         ctx_ref,
@@ -508,7 +649,10 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
         mtim,
         FstFlags::new(fst_flags as u16),
     );
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_filestat_set_times", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -523,6 +667,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
     new_path: u32,
     new_path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_link(
         ctx_ref,
@@ -534,7 +679,10 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_linkZ_iiiiiiii(
         new_path,
         new_path_len,
     );
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_link", start, end);
+    retval
 }
 
 fn adjust_oflags(oflags: u32, fs_rights_base: u64) -> u32 {
@@ -563,6 +711,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
     fdflags: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     // adjust oflags by adding O_WRONLY & O_RDWR as bits 4 and 5
     // after wasi-libc put them in fs_rights_base
@@ -576,7 +725,10 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_openZ_iiiiiijjii(
         new_flags,
         fdflags as i32,
     );
-    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("path_open", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -590,9 +742,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_readlinkZ_iiiiiii(
     buf_len: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_readlink(ctx_ref, fd, path, path_len, buf, buf_len);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("path_readlink", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -604,9 +760,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
     path: u32,
     path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_remove_directory(ctx_ref, fd, path, path_len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_remove_directory", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -621,6 +781,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
     new_path: u32,
     new_path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_rename(
         ctx_ref,
@@ -631,7 +792,10 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
         new_path,
         new_path_len,
     );
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_rename", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -644,9 +808,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_symlinkZ_iiiiii(
     path: u32,
     path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_symlink(ctx_ref, old_path, old_path_len, fd, path, path_len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_symlink", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -657,9 +825,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_unlink_fileZ_iiii(
     path: u32,
     path_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_path_unlink_file(ctx_ref, fd, path, path_len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("path_unlink_file", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -671,9 +843,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_poll_oneoffZ_iiiii(
     nsubscriptions: u32,
     retptr: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_poll_oneoff(ctx_ref, in_ptr, out_ptr, nsubscriptions);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("poll_oneoff", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -682,9 +858,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
     ctx: *const *mut VmCtx,
     signal: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_proc_raise(ctx_ref, signal);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("proc_Raise", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -694,17 +874,25 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_random_getZ_iii(
     buf: u32,
     buf_len: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_random_get(ctx_ref, buf, buf_len);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("random_get", start, end);
+    retval
 }
 
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_sched_yieldZ_iv(ctx: *const *mut VmCtx) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sched_yield(ctx_ref);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("sched_yield", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -718,9 +906,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_recvZ_iiiiiii(
     out0: u32,
     out1: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sock_recv(ctx_ref, fd, ri_data, ri_data_count, ri_flags);
-    wasm2c_marshal_and_writeback_u32_pair(ctx_ref, out0 as usize, out1 as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32_pair(ctx_ref, out0 as usize, out1 as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("sock_recv", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -733,9 +925,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_sendZ_iiiiii(
     si_flags: u32,
     out: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sock_send(ctx_ref, fd, si_data, si_data_count, si_flags);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("sock_send", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -745,9 +941,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_shutdownZ_iii(
     fd: u32,
     how: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sock_shutdown(ctx_ref, fd, how);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("sock_shutdown", start, end);
+    retval
 }
 
 /*
@@ -763,9 +963,13 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_socketZ_iiiii(
     protocol: u32,
     retptr: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_socket(ctx_ref, domain, ty, protocol);
-    wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r)
+    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, retptr as usize, r);
+    let end = stop_timer();
+    push_hostcall_result("socket", start, end);
+    retval
 }
 
 #[no_mangle]
@@ -776,7 +980,11 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_sock_connectZ_iiii(
     addr: u32,
     addrlen: u32,
 ) -> u32 {
+    let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_sock_connect(ctx_ref, sockfd, addr, addrlen);
-    wasm2c_marshal(r)
+    let retval = wasm2c_marshal(r);
+    let end = stop_timer();
+    push_hostcall_result("sock_connect", start, end);
+    retval
 }

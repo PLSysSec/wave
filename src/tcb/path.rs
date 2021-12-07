@@ -16,15 +16,17 @@ impl VmCtx {
     // #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
     pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
-        //println!("resolve_path: path = {:?}", path);
+        // println!("resolve_path: path = {:?}", path);
         let safe_path = PathBuf::from(self.homedir.clone()).join(normalize_path(&path));
-        //println!("safe_path: safe_path = {:?}", safe_path);
+        // println!("safe_path: safe_path = {:?}", safe_path);
         let path_str = safe_path.into_os_string();
-        //println!("path_str = {:?}, into_string = ", path_str, path_str.into_string());
+        // println!("path_str = {:?}, into_string = ", path_str, path_str.into_string());
         if let Ok(s) = path_str.into_string() {
-            //println!("Checking prefix of s = {:?}", s);
+            // println!("Checking prefix of s = {:?} as_bytes = {:?}", s, s.clone().into_bytes());
             if s.starts_with(&self.homedir) {
-                return Ok(SandboxedPath::from(s.into_bytes()));
+                let mut bytepath = s.into_bytes();
+                bytepath.push(0); // push null
+                return Ok(SandboxedPath::from(bytepath));
             }
         }
         Err(RuntimeError::Eacces)

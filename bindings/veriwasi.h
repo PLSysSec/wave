@@ -39,6 +39,8 @@ struct VmCtx *veriwasi_init(uint8_t *memptr,
                             uintptr_t envc,
                             char *log_path);
 
+void veriwasi_cleanup(void *ctx);
+
 uint32_t Z_wasi_snapshot_preview1Z_args_getZ_iii(void *ctx,
                                                  uint32_t argv,
                                                  uint32_t argv_buf);

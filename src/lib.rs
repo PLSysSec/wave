@@ -17,6 +17,8 @@ extern crate prusti_contracts;
 mod fdmap;
 mod os;
 mod runtime;
+#[cfg(not(feature = "verify"))]
+pub mod stats;
 pub mod tcb;
 mod tests;
 mod types;

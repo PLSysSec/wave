@@ -35,3 +35,30 @@ macro_rules! three_effects {
 macro_rules! four_effects {
     ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
 }
+
+// Dummy timing functions that should not exist during verification
+// #[cfg(feature = "verify")]
+#[inline]
+pub fn start_timer() -> u64 {
+    0
+}
+
+// #[cfg(feature = "verify")]
+#[inline]
+pub fn stop_timer() -> u64 {
+    0
+}
+
+// #[cfg(feature = "verify")]
+#[inline]
+pub fn push_hostcall_result(_name: &str, _start: u64, _end: u64) {}
+
+// #[cfg(feature = "verify")]
+#[inline]
+pub fn push_syscall_result(_name: &str, _start: u64, _end: u64) {}
+
+// #[cfg(feature = "verify")]
+pub fn output_hostcall_perf_results() {}
+
+// #[cfg(feature = "verify")]
+pub fn output_syscall_perf_results() {}
