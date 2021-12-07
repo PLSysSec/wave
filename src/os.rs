@@ -42,7 +42,7 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 /// read writes `cnt` bytes to sandbox memory
 pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
@@ -60,7 +60,7 @@ pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Runt
 //#[ensures(buf.len() == result)]
 //#[ensures(buf.capacity() >= cnt)]
 /// pread writes `cnt` bytes to sandbox memory
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_pread(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -262,7 +262,7 @@ pub fn trace_mkdirat(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(WriteN, count)))]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(WriteN, addr, count)))]
 pub fn trace_readlinkat(
     ctx: &mut VmCtx,
     dir_fd: HostFd,
@@ -393,7 +393,7 @@ pub fn trace_clock_get_res(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(one_effect!(old(trace), trace, effect!(WriteN, count)))]
+#[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, count)))]
 pub fn trace_getrandom(
     ctx: &mut VmCtx,
     ptr: SboxPtr,
@@ -411,7 +411,7 @@ pub fn trace_getrandom(
 #[requires(cnt < ctx.memlen)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, count)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_recv(
     ctx: &mut VmCtx,
     fd: HostFd,

@@ -104,24 +104,8 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        //let slice = ctx.slice_mem_mut(ptr, len);
-        // let start = ptr as usize;
-        // let end = ptr as usize + len as usize;
 
-        // let mut buf: Vec<u8> = Vec::new();
-        // buf.reserve_exact(len as usize);
         let result = trace_read(ctx, fd, ptr, len as usize)?;
-        //RuntimeError::from_syscall_ret(result)?;
-        // let result = result as u32;
-        // let copy_ok = ctx
-        //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
-        //     .ok_or(Efault)?;
-
-        // let slice = &mut ctx.mem[ptr as usize..ptr as usize + len as usize];
-
-        // let result = trace_read(ctx, fd, slice, len as usize);
-        // RuntimeError::from_syscall_ret(result as usize)?;
-        // let result = result as u32;
         num += result as u32;
         i += 1;
     }
@@ -152,12 +136,8 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        // let slice = ctx.slice_mem(ptr, len);
-        //let start = ptr as usize;
-        //let end = (ptr + len) as usize;
-        //let slice = &ctx.mem[start..end];
+
         let result = trace_write(ctx, fd, ptr, len as usize)?;
-        //RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
         i += 1;
     }
@@ -180,7 +160,6 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_seek(ctx, fd, v_filedelta, whence.into())?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(ret as u32)
 }
 
@@ -214,7 +193,6 @@ pub fn wasi_fd_advise(
     // these casts could cause offset and len to become negative
     // I don't think this will be an issue as os_advise will throw an EINVAL error
     let ret = trace_advise(ctx, fd, offset as i64, len as i64, advice.into())?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(ret as u32)
 }
 
@@ -231,7 +209,6 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
     // these casts could cause offset and len to become negative
     // I don't think this will be an issue as os_advise will throw an EINVAL error
     let ret = trace_allocate(ctx, fd, offset as i64, len as i64)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(ret as u32)
 }
 
@@ -247,7 +224,6 @@ pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_sync(ctx, fd)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(ret as u32)
 }
 
@@ -262,7 +238,6 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_datasync(ctx, fd)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(ret as u32)
 }
 
@@ -281,11 +256,9 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let mut stat = fresh_stat();
     // TODO: double check, should this be fstat or fstat64?
     let result = trace_fstat(ctx, fd, &mut stat)?;
-    //RuntimeError::from_syscall_ret(result)?;
     let filetype = stat.st_mode;
 
     let mode_flags = trace_fgetfl(ctx, fd)?;
-    //RuntimeError::from_syscall_ret(mode_flags)?;
 
     // TODO: put rights in once those are implemented
     let result = FdStat {
@@ -315,7 +288,6 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
     let posix_flags = flags.to_posix();
 
     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(())
 }
 
@@ -333,7 +305,6 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     let mut stat = fresh_stat();
 
     let filetype = trace_fstat(ctx, fd, &mut stat)?;
-    //RuntimeError::from_syscall_ret(filetype)?;
     Ok(stat.into())
 }
 
@@ -351,7 +322,6 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_ftruncate(ctx, fd, size)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(())
 }
 
@@ -416,7 +386,6 @@ pub fn wasi_fd_filestat_set_times(
     specs.push(mtim_spec);
 
     let res = trace_futimens(ctx, fd, &specs)?;
-    //RuntimeError::from_syscall_ret(res)?;
 
     Ok(())
 }
@@ -454,7 +423,6 @@ pub fn wasi_fd_pread(
             return Err(Efault);
         }
         let result = trace_pread(ctx, fd, ptr, len as usize, offset as usize)?;
-        // RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
         i += 1;
     }
@@ -477,9 +445,6 @@ pub fn wasi_prestat_dirname(
         return Err(Ebadf);
     }
 
-    // let dirname: Vec<u8> = Vec::new();
-    //dirname.push((&ctx.homedir).as_bytes().to_vec());
-    // let dirname = ctx.homedir.as_bytes().to_vec();
     let dirname = ctx.get_homedir();
     let dirname_len = dirname.len() as u32;
     if !ctx.fits_in_lin_mem(path, dirname_len) {
@@ -492,27 +457,18 @@ pub fn wasi_prestat_dirname(
     Ok(())
 }
 
-/// Currently we use the same implementation as wasm2c, which is to not do very mucb at all
-/// TODO: real implementation for this, most likely following wasi-common's implementation
-/// fd_presat_get returns the length of the preopened directory corresponding to v_fd
-/// since we are currently hardcoded to 1 preopened directory at fd==3, this is pretty simple.
-///
-/// must return ebadf if the file doesn't exist:
+/// Must return ebadf if the file doesn't exist:
 /// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-    // if v_fd >= MAX_SBOX_FDS {
-    //     return Err(Ebadf);
-    // }
     if v_fd == HOMEDIR_FD {
         return Ok(ctx.homedir.len() as u32);
     }
     return Err(Ebadf);
 }
 
-// TODO: refactor write and pwrite into common impl
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push, resolve_path)]
@@ -545,7 +501,6 @@ pub fn wasi_fd_pwrite(
             return Err(Efault);
         }
         let result = trace_pwrite(ctx, fd, ptr, len as usize, offset as usize)?;
-        //RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
         i += 1;
     }
@@ -578,7 +533,6 @@ pub fn wasi_path_create_directory(
     //       I will use rw------- cause it seems sane.
     let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
     let res = trace_mkdirat(ctx, fd, host_pathname, mode)?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
 
@@ -613,11 +567,10 @@ pub fn wasi_path_filestat_get(
     let mut stat = fresh_stat();
 
     let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, 0)?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(stat.into())
 }
 
-// // // modifies: None
+// modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
 #[external_methods(reserve_exact, push)]
@@ -687,7 +640,6 @@ pub fn wasi_path_filestat_set_times(
 
     // TODO: path flags
     let res = trace_utimensat(ctx, fd, host_pathname, &specs, 0)?;
-    //RuntimeError::from_syscall_ret(res)?;
 
     Ok(())
 }
@@ -732,7 +684,6 @@ pub fn wasi_path_link(
     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
 
     let res = trace_linkat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname, 0)?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
 
@@ -764,13 +715,9 @@ pub fn wasi_path_readlink(
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
     }
-    // let mut buf: Vec<u8> = Vec::new();
-    // buf.reserve_exact(len as usize);
 
     let res = trace_readlinkat(ctx, fd, host_pathname, ptr, len as usize)?;
-    //RuntimeError::from_syscall_ret(res)?;
     let res = res as u32;
-    // let copy_ok = ctx.copy_buf_to_sandbox(ptr, &buf, res).ok_or(Efault)?;
     Ok(res)
 }
 
@@ -798,7 +745,6 @@ pub fn wasi_path_remove_directory(
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = trace_unlinkat(ctx, fd, host_pathname, libc::AT_REMOVEDIR);
-    //let err = RuntimeError::from_syscall_ret(res);
     // posix spec allows unlinkat to return EEXIST for a non-empty directory
     // however, the wasi spec requires that ENOTEMPTY is returned
     // see: https://man7.org/linux/man-pages/man2/rmdir.2.html
@@ -844,7 +790,6 @@ pub fn wasi_path_rename(
     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
 
     let res = trace_renameat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname)?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
 
@@ -878,7 +823,6 @@ pub fn wasi_path_symlink(
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = trace_symlinkat(ctx, old_host_pathname, fd, new_host_pathname)?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
 
@@ -904,7 +848,6 @@ pub fn wasi_path_unlink_file(
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = trace_unlinkat(ctx, fd, host_pathname, 0)?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
 
@@ -922,7 +865,6 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
     };
 
     let ret = trace_clock_get_res(ctx, id.into(), &mut spec)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(spec.into())
 }
 
@@ -944,7 +886,6 @@ pub fn wasi_clock_time_get(
     };
 
     let ret = trace_clock_get_time(ctx, id.into(), &mut spec)?;
-    //RuntimeError::from_syscall_ret(ret)?;
     Ok(spec.into())
 }
 
@@ -981,13 +922,8 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
     }
-    // let mut buf: Vec<u8> = Vec::new();
-    // buf.reserve_exact(len as usize);
+
     let res = trace_getrandom(ctx, ptr, len as usize, 0)?;
-    //RuntimeError::from_syscall_ret(res)?;
-    // let copy_ok = ctx
-    //     .copy_buf_to_sandbox(ptr, &buf, res as u32)
-    //     .ok_or(Efault)?;
     Ok(())
 }
 
@@ -1134,16 +1070,12 @@ pub fn wasi_sock_recv(
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        // let mut buf: Vec<u8> = Vec::new();
-        // buf.reserve_exact(len as usize);
+
         let flags = 0;
         // TODO: handle flags
         let result = trace_recv(ctx, fd, ptr, len as usize, flags)?;
-        //RuntimeError::from_syscall_ret(result)?;
         let result = result as u32;
-        // let copy_ok = ctx
-        //     .copy_buf_to_sandbox(ptr, &buf, result as u32)
-        //     .ok_or(Efault)?;
+
         num += result;
         i += 1;
     }
@@ -1180,11 +1112,9 @@ pub fn wasi_sock_send(
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
-        // let host_buffer = ctx.copy_buf_from_sandbox(ptr, len);
         let flags = 0;
         // TODO: handle flags
         let result = trace_send(ctx, fd, ptr, len as usize, flags)?;
-        //RuntimeError::from_syscall_ret(result)?;
         num += result as u32;
         i += 1;
     }
@@ -1208,7 +1138,6 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
     let how = SdFlags::new(v_how);
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let res = trace_shutdown(ctx, fd, how.into())?;
-    //RuntimeError::from_syscall_ret(res)?;
     Ok(())
 }
 
@@ -1309,7 +1238,6 @@ pub fn wasi_poll_oneoff(
                 let timeout = -1;
 
                 let res = trace_poll(ctx, &mut pollfd, timeout)?;
-                //RuntimeError::from_syscall_ret(res)?;
 
                 // write the event output...
                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
@@ -1337,7 +1265,6 @@ pub fn wasi_poll_oneoff(
                 let timeout = -1;
 
                 let res = trace_poll(ctx, &mut pollfd, timeout)?;
-                //RuntimeError::from_syscall_ret(res)?;
 
                 // write the event output...
                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
@@ -1428,14 +1355,6 @@ pub fn wasi_fd_readdir(
         // File type
         let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
 
-        // find first null character
-        // let out_namlen = host_buf[in_idx + 19..in_idx + d_reclen as usize]
-        //     .iter()
-        //     .position(|x| *x == 0)
-        //     .unwrap();
-        //let out_namlen = first_null(&host_buf[in_idx + 19..in_idx + d_reclen as usize]);
-        // let out_namlen = 3;
-
         // If we would overflow - don't :)
         if d_reclen < 19 || (in_idx + d_reclen as usize) >= host_buf.len() {
             break;
@@ -1469,8 +1388,6 @@ pub fn wasi_fd_readdir(
 
         // Copy name
         push_dirent_name(&mut out_buf, &host_buf, in_idx, out_namlen as usize);
-        // out_buf.extend_from_slice(&host_buf[in_idx + 19..in_idx + 19 + out_namlen as usize]);
-        // out_buf.extend_from_slice(host_buf.get_unchecked(in_idx + 19..in_idx + 19 + out_namlen as usize));
 
         in_idx += d_reclen as usize;
         out_idx += (24 + out_namlen) as usize
