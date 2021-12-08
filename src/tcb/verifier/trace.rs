@@ -15,14 +15,14 @@ use prusti_contracts::*;
 
 // TODO: combine into a single variadic macro
 
-/*#[macro_export]
-macro_rules! effect {
+#[macro_export]
+macro_rules! do_effect {
     ($trace:expr, $input:expr) => {
         if cfg!(feature = "verify") {
             $trace.push($input);
         }
     };
-}*/
+}
 //TODO: wrap into a single variadic macro / predicate?
 #[cfg(feature = "verify")]
 predicate! {

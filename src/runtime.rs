@@ -74,24 +74,24 @@ impl VmCtx {
     // Can I eliminate this in favor of fits_in_lin_mem_usize
     #[pure]
     #[with_ghost_var(trace: &mut Trace)]
-    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf as usize) + (cnt as usize)) < self.memlen && (cnt as usize) < self.memlen)]
+    #[ensures(result == true ==> (buf as usize) < self.memlen && (buf <= buf + cnt) && (cnt as usize) < self.memlen)]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         let total_size = (buf as usize) + (cnt as usize);
         if total_size > self.memlen || total_size > LINEAR_MEM_SIZE {
             return false;
         }
-        self.in_lin_mem(buf) && self.in_lin_mem(cnt) && self.in_lin_mem(buf + cnt)
+        self.in_lin_mem(buf) && self.in_lin_mem(cnt) && buf <= buf + cnt
     }
 
     #[pure]
     #[with_ghost_var(trace: &mut Trace)]
-    #[ensures(result == true ==> buf < self.memlen && (buf + cnt) < self.memlen && cnt < self.memlen)]
+    #[ensures(result == true ==> buf < self.memlen && (buf <= buf + cnt) && cnt < self.memlen)]
     pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> bool {
         let total_size = buf + cnt;
         if total_size > self.memlen || total_size > LINEAR_MEM_SIZE {
             return false;
         }
-        self.in_lin_mem_usize(buf) && self.in_lin_mem_usize(cnt) && self.in_lin_mem_usize(buf + cnt)
+        self.in_lin_mem_usize(buf) && self.in_lin_mem_usize(cnt) && buf <= buf + cnt
     }
 
     /// Copy buffer from sandbox to host

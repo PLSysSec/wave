@@ -558,7 +558,7 @@ pub fn wasi_path_filestat_get(
     }
 
     if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
@@ -600,7 +600,7 @@ pub fn wasi_path_filestat_set_times(
     }
 
     if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
@@ -670,10 +670,10 @@ pub fn wasi_path_link(
         return Err(Ebadf);
     }
     if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
     if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
 
     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
@@ -737,7 +737,7 @@ pub fn wasi_path_remove_directory(
         return Err(Ebadf);
     }
     if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
 
     let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
@@ -776,10 +776,10 @@ pub fn wasi_path_rename(
         return Err(Ebadf);
     }
     if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
     if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
 
     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
@@ -810,10 +810,10 @@ pub fn wasi_path_symlink(
         return Err(Ebadf);
     }
     if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
     if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-        return Err(Ebadf);
+        return Err(Eoverflow);
     }
 
     let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
@@ -1312,10 +1312,10 @@ pub fn wasi_fd_readdir(
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
+    let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let mut host_buf: Vec<u8> = Vec::new();
     host_buf.reserve_exact(buf_len as usize);
-    let fd = ctx.fdmap.m[v_fd as usize]?;
 
     let res = trace_getdents64(ctx, fd, &mut host_buf, buf_len)?;
 

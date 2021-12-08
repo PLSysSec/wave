@@ -483,6 +483,7 @@ pub fn trace_poll(
 
 //TODO: not sure what the spec for this is yet.
 #[with_ghost_var(trace: &mut Trace)]
+#[requires(dirp.capacity() >= count)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(no_effect!(old(trace), trace))]

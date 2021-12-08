@@ -481,8 +481,10 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_method(set_len)]
 #[trusted]
+#[requires(dirp.capacity() >= count)]
 #[ensures(no_effect!(old(trace), trace))]
 // TODO: what effect should this have?
+// TODO: this result handling is screwed up
 //#[ensures(no_effect!(old(trace), trace))]
 pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
