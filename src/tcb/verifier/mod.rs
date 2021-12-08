@@ -1,3 +1,4 @@
+#[cfg(feature = "verify")]
 pub(crate) mod external_specs;
 mod spec;
 mod trace;

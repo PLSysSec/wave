@@ -23,7 +23,6 @@ macro_rules! effect {
         }
     };
 }*/
-
 //TODO: wrap into a single variadic macro / predicate?
 #[cfg(feature = "verify")]
 predicate! {
@@ -216,6 +215,7 @@ macro_rules! effect {
     };
 }
 
+#[derive(Clone)]
 pub struct Trace {
     v: Vec<Effect>,
 }

@@ -24,7 +24,7 @@ use quickcheck_macros;
 //     }
 // }
 
-#[quickcheck_macros::quickcheck]
+/*#[quickcheck_macros::quickcheck]
 fn check_memcpy_to_sandbox(dst: SboxPtr, src: Vec<u8>, n: u32) -> TestResult {
     let mut ctx = fresh_ctx(".".to_string());
     let old_memlen = ctx.memlen;
@@ -37,4 +37,4 @@ fn check_memcpy_to_sandbox(dst: SboxPtr, src: Vec<u8>, n: u32) -> TestResult {
 
     let r = ctx.memcpy_to_sandbox(dst, &src, n);
     TestResult::from_bool(old_memlen == ctx.memlen)
-}
+}*/
