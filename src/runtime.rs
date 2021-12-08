@@ -74,7 +74,7 @@ impl VmCtx {
     // Can I eliminate this in favor of fits_in_lin_mem_usize
     #[pure]
     #[with_ghost_var(trace: &mut Trace)]
-    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf + cnt) as usize) < self.memlen && (cnt as usize) < self.memlen)]
+    #[ensures(result == true ==> (buf as usize) < self.memlen && ((buf as usize) + (cnt as usize)) < self.memlen && (cnt as usize) < self.memlen)]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         let total_size = (buf as usize) + (cnt as usize);
         if total_size > self.memlen || total_size > LINEAR_MEM_SIZE {

@@ -21,8 +21,8 @@ predicate! {
             (i < trace.len() ==> (
                 match trace.lookup(i) {
                     // dumb right now, just make sure count less than size of mem...
-                    Effect { typ: EffectType::ReadN, f1: addr, f2: count } => (count < memlen),
-                    Effect { typ: EffectType::WriteN, f1: addr, f2: count } => (count < memlen),
+                    Effect { typ: EffectType::ReadN, f1: addr, f2: count } => (addr < memlen) && (count < memlen) && ((addr + count) < memlen),
+                    Effect { typ: EffectType::WriteN, f1: addr, f2: count } => (addr < memlen) && (count < memlen) && ((addr + count) < memlen),
                     Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe
                     Effect { typ: EffectType::FdAccess, ..  } => true,
                     Effect { typ: EffectType::PathAccess, ..  } => true,

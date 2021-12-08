@@ -6,6 +6,16 @@ use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::ptr::{copy, copy_nonoverlapping};
 
+// Uninterpreted predicate meant to accompany slice_mem_mut
+// result is equal to the offset into memory that slice came from, i.e.
+// slice.start - mem.start
+// if the slice did not come from memory, then the return value will be unconstrained (i.e., any pointer)
+#[pure]
+#[trusted]
+pub fn as_sbox_ptr(slice: &[u8]) -> usize {
+    unimplemented!()
+}
+
 //TODO: effects annotations
 
 impl VmCtx {
@@ -161,6 +171,7 @@ impl VmCtx {
     #[ensures(trace_safe(trace, old(self).memlen))]
     #[ensures(result.len() == (len as usize))]
     #[ensures(no_effect!(old(trace), trace))]
+    #[ensures(as_sbox_ptr(result) == old(ptr as usize))]
     #[after_expiry(ctx_safe(self))]
     #[trusted]
     pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
