@@ -68,22 +68,22 @@ pub enum RuntimeError {
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
 // Apparently wasi errors are not actually the same numbers as posix errors :(
-// TODO: make all of these align to https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
 impl From<RuntimeError> for u32 {
     fn from(item: RuntimeError) -> Self {
         let result = match item {
             RuntimeError::Success => 0,
-            RuntimeError::Ebadf => 8, // see above libc::EBADF,
-            RuntimeError::Emfile => libc::EMFILE,
-            RuntimeError::Efault => libc::EFAULT,
-            RuntimeError::Einval => libc::EINVAL,
-            RuntimeError::Eoverflow => libc::EOVERFLOW,
-            RuntimeError::Eio => libc::EIO,
-            RuntimeError::Enospc => libc::ENOSPC,
-            RuntimeError::Eacces => libc::EACCES,
-            RuntimeError::Eexist => libc::EEXIST,
-            RuntimeError::Enotempty => libc::ENOTEMPTY,
-            RuntimeError::Enotsup => libc::ENOTSUP,
+            RuntimeError::Ebadf => 8,
+            RuntimeError::Emfile => 41,
+            RuntimeError::Efault => 21,
+            RuntimeError::Einval => 28,
+            RuntimeError::Eoverflow => 61,
+            RuntimeError::Eio => 29,
+            RuntimeError::Enospc => 51,
+            RuntimeError::Eacces => 2,
+            RuntimeError::Eexist => 20,
+            RuntimeError::Enotempty => 55,
+            RuntimeError::Enotsup => 58,
         };
         result as u32
     }
@@ -382,9 +382,6 @@ impl From<Filetype> for libc::mode_t {
     }
 }
 
-// TODO: can't use bitflags crate due to prusti issues.
-// TODO: pruti doesn't support bitwise operators
-//       hmm instead we could have a lame struct full of bools....
 type Rights = u64;
 
 // internal representation is the wasi representation

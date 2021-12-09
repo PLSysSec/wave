@@ -9,9 +9,6 @@ use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effe
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use syscall::syscall;
-// use crate::stats::noop_instrumentation::{start_timer, stop_timer, push_syscall_result};
-// #[cfg(feature = "verify")]
-// use crate::verifier_interface::{start_timer, stop_timer, push_syscall_result};
 
 //https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]

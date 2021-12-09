@@ -390,7 +390,6 @@ pub fn wasi_fd_filestat_set_times(
     Ok(())
 }
 
-// TODO: refactor read and pread into common impl
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, push, resolve_path)]
@@ -536,7 +535,6 @@ pub fn wasi_path_create_directory(
     Ok(())
 }
 
-// TODO: handle lookup flags
 // TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
 //       respect the fd.
 // modifies: None
@@ -644,7 +642,6 @@ pub fn wasi_path_filestat_set_times(
     Ok(())
 }
 
-// TODO: handle LookupFlags
 // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
@@ -1427,7 +1424,6 @@ pub fn wasi_sock_connect(
     addr: u32,
     addrlen: u32,
 ) -> RuntimeResult<()> {
-    // TODO: safety checks
     if sockfd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
