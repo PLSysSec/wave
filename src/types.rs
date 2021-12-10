@@ -63,6 +63,8 @@ pub enum RuntimeError {
     Eexist,
     Enotempty,
     Enotsup,
+    Enotcapable,
+    Enotsock,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -84,6 +86,8 @@ impl From<RuntimeError> for u32 {
             RuntimeError::Eexist => 20,
             RuntimeError::Enotempty => 55,
             RuntimeError::Enotsup => 58,
+            RuntimeError::Enotcapable => 76,
+            RuntimeError::Enotsock => 57,
         };
         result as u32
     }
@@ -122,6 +126,7 @@ impl RuntimeError {
             libc::EIO => Self::Eio,
             libc::ENOSPC => Self::Enospc,
             libc::EACCES => Self::Eacces,
+            libc::ENOTSOCK => Self::Enotsock,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
         };
 
@@ -134,6 +139,7 @@ pub struct SyscallRet(usize);
 
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
+    pub sockinfo: Vec<RuntimeResult<(u32, u32, u32)>>,
     pub reserve: Vec<SboxFd>,
     pub counter: SboxFd,
 }
@@ -729,7 +735,7 @@ pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
 }
 
 // protocol 1 = TCP 2 = UDP
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 #[repr(C)]
 pub struct NetEndpoint {

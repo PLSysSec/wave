@@ -167,4 +167,6 @@ impl VmCtx {
     pub fn get_homedir(&self) -> Vec<u8> {
         self.homedir.as_bytes().to_vec()
     }
+
+    // pub fn in_netlist(&self, ) -> bool
 }

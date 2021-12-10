@@ -1415,7 +1415,7 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(sock_domain_to_posix)]
+#[external_calls(sock_domain_to_posix, from)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_sock_connect(
@@ -1449,7 +1449,11 @@ pub fn wasi_sock_connect(
         sin_addr,
         sin_zero: [0; 8],
     };
-    // I need to actually parse this buffer since it is different in
+
+    let (domain, ty, protocol) = ctx.fdmap.sockinfo[usize::from(fd)]?;
+    // if !ctx.in_netlist(si, sin_addr, sin_port){
+    //     return Err(Enotcapable);
+    // }
 
     let res = trace_connect(ctx, fd, &saddr, addrlen)?;
     return Ok(());

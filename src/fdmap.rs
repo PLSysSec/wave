@@ -25,6 +25,7 @@ impl FdMap {
     pub fn new() -> Self {
         FdMap {
             m: vec![Err(Ebadf); MAX_SBOX_FDS as usize],
+            sockinfo: vec![Err(Enotsock); MAX_SBOX_FDS as usize],
             reserve: Vec::new(),
             counter: 0,
         }
