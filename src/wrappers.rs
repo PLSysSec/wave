@@ -564,7 +564,7 @@ pub fn wasi_path_filestat_get(
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut stat = fresh_stat();
 
-    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, 0)?;
+    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_posix())?;
     Ok(stat.into())
 }
 
@@ -636,8 +636,7 @@ pub fn wasi_path_filestat_set_times(
     specs.push(atim_spec);
     specs.push(mtim_spec);
 
-    // TODO: path flags
-    let res = trace_utimensat(ctx, fd, host_pathname, &specs, 0)?;
+    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_posix())?;
 
     Ok(())
 }
@@ -651,14 +650,14 @@ pub fn wasi_path_filestat_set_times(
 pub fn wasi_path_link(
     ctx: &VmCtx,
     v_old_fd: u32,
-    old_flags: u32,
+    flags: u32,
     old_pathname: u32,
     old_path_len: u32,
     v_new_fd: u32,
     new_pathname: u32,
     new_path_len: u32,
 ) -> RuntimeResult<()> {
-    let old_flags = LookupFlags::new(old_flags);
+    let flags = LookupFlags::new(flags);
 
     if v_old_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -680,7 +679,14 @@ pub fn wasi_path_link(
     let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
     let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
 
-    let res = trace_linkat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname, 0)?;
+    let res = trace_linkat(
+        ctx,
+        old_fd,
+        old_host_pathname,
+        new_fd,
+        new_host_pathname,
+        flags.to_posix(),
+    )?;
     Ok(())
 }
 
@@ -1416,6 +1422,7 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(sock_domain_to_posix, from)]
+#[external_methods(in_netlist)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_sock_connect(
@@ -1439,10 +1446,12 @@ pub fn wasi_sock_connect(
 
     let sin_family = ctx.read_u16(addr as usize);
     let sin_port = ctx.read_u16(addr as usize + 2);
-    let sin_addr = ctx.read_u32(addr as usize + 4);
+    let sin_addr_in = ctx.read_u32(addr as usize + 4);
     let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
     // We can directly use sockaddr_in since we already know all socks are inet
-    let sin_addr = libc::in_addr { s_addr: sin_addr };
+    let sin_addr = libc::in_addr {
+        s_addr: sin_addr_in,
+    };
     let saddr = libc::sockaddr_in {
         sin_family,
         sin_port,
@@ -1451,9 +1460,9 @@ pub fn wasi_sock_connect(
     };
 
     let (domain, ty, protocol) = ctx.fdmap.sockinfo[usize::from(fd)]?;
-    // if !ctx.in_netlist(si, sin_addr, sin_port){
-    //     return Err(Enotcapable);
-    // }
+    if !ctx.in_netlist(domain, ty, protocol, sin_addr_in, sin_port.into()) {
+        return Err(Enotcapable);
+    }
 
     let res = trace_connect(ctx, fd, &saddr, addrlen)?;
     return Ok(());

@@ -1,3 +1,4 @@
+use crate::tcb::misc::{clone_vec_u8, get_homedir_fd};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
@@ -17,23 +18,25 @@ use RuntimeError::*;
 
 //#[ensures(safe(&result))]
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned)]
-#[external_calls(open, forget)]
+#[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned, clone)]
+#[external_calls(open, forget, get_homedir_fd)]
 #[trusted]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
-    let homedir_file = std::fs::File::open(&homedir).unwrap();
-    let homedir_fd = homedir_file.as_raw_fd();
+    let homedir_fd = get_homedir_fd(&homedir);
+    // let homedir_file = std::fs::File::open(&homedir).unwrap();
+    // let homedir_fd = homedir_file.as_raw_fd();
     if homedir_fd > 0 {
         fdmap.create((homedir_fd as usize).into());
     }
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
-    std::mem::forget(homedir_file);
-    let log_path = "".to_owned();
+    // std::mem::forget(homedir_file);
+    // let log_path = "".to_owned();
+    let log_path = String::new();
 
     let arg_buffer = Vec::new();
     let argc = 0;
@@ -44,7 +47,28 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         addr: 0,
         port: 0,
     };
-    let netlist = [empty, empty, empty, empty];
+    let netlist = [
+        NetEndpoint {
+            protocol: 0,
+            addr: 0,
+            port: 0,
+        },
+        NetEndpoint {
+            protocol: 0,
+            addr: 0,
+            port: 0,
+        },
+        NetEndpoint {
+            protocol: 0,
+            addr: 0,
+            port: 0,
+        },
+        NetEndpoint {
+            protocol: 0,
+            addr: 0,
+            port: 0,
+        },
+    ];
     VmCtx {
         mem,
         memlen,
@@ -130,11 +154,8 @@ impl VmCtx {
     }
 
     /// Copy arg buffer from from host to sandbox
-    /// TODO: make this not trusted
-    /// (its only trusted because clone breaks viper for some reason)
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(Some)]
-    #[trusted]
+    #[external_calls(Some, clone_vec_u8)]
     #[requires(self.arg_buffer.len() == (n as usize) )]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
@@ -142,16 +163,15 @@ impl VmCtx {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
         }
-        self.memcpy_to_sandbox(dst, &self.arg_buffer.clone(), n);
+        // let arg_buffer = self.arg_buffer.clone();
+        let arg_buffer = clone_vec_u8(&self.arg_buffer);
+        self.memcpy_to_sandbox(dst, &arg_buffer, n);
         Some(())
     }
 
     /// Copy arg buffer from from host to sandbox
-    /// TODO: make this not trusted
-    /// (its only trusted because clone breaks viper for some reason)
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(Some)]
-    #[trusted]
+    #[external_calls(Some, clone_vec_u8)]
     #[requires(self.env_buffer.len() == (n as usize) )]
     #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
@@ -159,7 +179,9 @@ impl VmCtx {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
         }
-        self.memcpy_to_sandbox(dst, &self.env_buffer.clone(), n);
+        // let env_buffer = self.env_buffer.clone();
+        let env_buffer = clone_vec_u8(&self.env_buffer);
+        self.memcpy_to_sandbox(dst, &env_buffer, n);
         Some(())
     }
 
@@ -168,5 +190,30 @@ impl VmCtx {
         self.homedir.as_bytes().to_vec()
     }
 
-    // pub fn in_netlist(&self, ) -> bool
+    pub fn in_netlist(&self, domain: u32, ty: u32, proto: u32, addr: u32, port: u32) -> bool {
+        let protocol = if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_STREAM {
+            1
+        } else if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_DGRAM {
+            2
+        } else {
+            return false;
+        };
+
+        // let target = NetEndpoint {protocol, addr, port};
+        // let e0 = self.netlist[0];
+        // let e1 = self.netlist[1];
+        // let e2 = self.netlist[2];
+        // let e3 = self.netlist[3];
+        // if domain == self.netlist[0].protocol {return true;}
+        // if domain == e1.protocol && ty == e1.addr && port == e1.port {return true;}
+        // if domain == e2.protocol && ty == e2.addr && port == e2.port {return true;}
+        // if domain == e3.protocol && ty == e3.addr && port == e3.port {return true;}
+        // if target == self.netlist[0].domain {return true;}
+        // if target == self.netlist[1]{return true;}
+        // if target == self.netlist[2]{return true;}
+        // if target == self.netlist[3]{return true;}
+
+        return true;
+        // return target == self.netlist[0] || target == self.netlist[1] || target == self.netlist[2] || target == self.netlist[3];
+    }
 }
