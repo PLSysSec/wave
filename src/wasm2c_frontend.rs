@@ -46,6 +46,7 @@ fn ctx_from_memptr(
     env: *mut u8,
     envc: usize,
     log_path: *mut c_char,
+    netlist: *const Netlist,
 ) -> VmCtx {
     //env_logger::init();
     let builder = env_logger::Builder::from_default_env()
@@ -89,6 +90,10 @@ fn ctx_from_memptr(
         }
     }
 
+    let netlist = transmut_netlist(netlist);
+
+    println!("netlist = {:?}", netlist);
+
     VmCtx {
         mem,
         memlen,
@@ -100,6 +105,7 @@ fn ctx_from_memptr(
         env_buffer,
         envc,
         log_path,
+        netlist,
     }
 }
 
@@ -115,8 +121,11 @@ pub extern "C" fn veriwasi_init(
     env: *mut u8,
     envc: usize,
     log_path: *mut c_char,
+    netlist: *const Netlist,
 ) -> *mut VmCtx {
-    let ctx = ctx_from_memptr(memptr, memsize, homedir, args, argc, env, envc, log_path);
+    let ctx = ctx_from_memptr(
+        memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
+    );
     let result = Box::into_raw(Box::new(ctx));
     result
 }

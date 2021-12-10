@@ -149,6 +149,7 @@ pub struct VmCtx {
     pub env_buffer: Vec<u8>,
     pub envc: usize,
     pub log_path: String,
+    pub netlist: Netlist,
 }
 
 pub struct SandboxedPath(Vec<u8>);
@@ -726,3 +727,17 @@ pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
     }
     return Err(RuntimeError::Enotsup);
 }
+
+// protocol 1 = TCP 2 = UDP
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
+#[repr(C)]
+pub struct NetEndpoint {
+    // domain: u32,
+    // ty: u32,
+    pub protocol: u32,
+    pub addr: u32,
+    pub port: u32,
+}
+
+pub type Netlist = [NetEndpoint; 4];

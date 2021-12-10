@@ -16,6 +16,14 @@ pub fn ptr_to_ref(ctx: *const *mut VmCtx) -> &'static mut VmCtx {
 }
 
 #[trusted]
+pub fn transmut_netlist(nl: *const Netlist) -> Netlist {
+    if nl.is_null() {
+        panic!("null netlist")
+    }
+    unsafe { *nl }
+}
+
+#[trusted]
 pub fn ffi_load_vec(ptr: *mut u8, len: usize) -> Vec<u8> {
     unsafe { Vec::from_raw_parts(ptr, len, len) }
 }

@@ -22,6 +22,14 @@
 
 typedef struct VmCtx VmCtx;
 
+typedef struct NetEndpoint {
+  uint32_t protocol;
+  uint32_t addr;
+  uint32_t port;
+} NetEndpoint;
+
+typedef struct NetEndpoint Netlist[4];
+
 typedef uint32_t SboxFd;
 
 #define HOMEDIR_FD 3
@@ -37,7 +45,8 @@ struct VmCtx *veriwasi_init(uint8_t *memptr,
                             uintptr_t argc,
                             uint8_t *env,
                             uintptr_t envc,
-                            char *log_path);
+                            char *log_path,
+                            const Netlist *netlist);
 
 void veriwasi_cleanup(void *ctx);
 

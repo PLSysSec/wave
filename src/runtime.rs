@@ -39,6 +39,12 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     let argc = 0;
     let env_buffer = Vec::new();
     let envc = 0;
+    let empty = NetEndpoint {
+        protocol: 0,
+        addr: 0,
+        port: 0,
+    };
+    let netlist = [empty, empty, empty, empty];
     VmCtx {
         mem,
         memlen,
@@ -50,6 +56,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         env_buffer,
         envc,
         log_path,
+        netlist,
     }
 }
 
