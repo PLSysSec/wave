@@ -21,10 +21,11 @@ mod runtime;
 pub mod stats;
 pub mod tcb;
 mod tests;
-mod types;
+pub mod types;
 pub mod verifier_interface;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;
+pub mod lucet_frontend;
 mod writeback;
 // #[with_ghost_var(trace: &mut Trace)]
 mod wrappers;
