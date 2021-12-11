@@ -35,8 +35,18 @@ impl VmCtx {
     #[requires(idx < 4)]
     #[pure]
     #[trusted]
-    pub fn matches_netlist_entry(&self, target: &NetEndpoint, idx: usize) -> bool {
-        target == &self.netlist[0]
+    pub fn matches_netlist_entry(
+        &self,
+        protocol: WasiProto,
+        addr: u32,
+        port: u32,
+        idx: usize,
+    ) -> bool {
+        NetEndpoint {
+            protocol,
+            addr,
+            port,
+        } == self.netlist[0]
     }
 }
 

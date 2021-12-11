@@ -139,7 +139,7 @@ pub struct SyscallRet(usize);
 
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
-    pub sockinfo: Vec<RuntimeResult<(u32, u32, u32)>>,
+    pub sockinfo: Vec<RuntimeResult<WasiProto>>,
     pub reserve: Vec<SboxFd>,
     pub counter: SboxFd,
 }
@@ -741,9 +741,31 @@ pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
 pub struct NetEndpoint {
     // domain: u32,
     // ty: u32,
-    pub protocol: u32,
+    pub protocol: WasiProto,
     pub addr: u32,
     pub port: u32,
 }
 
 pub type Netlist = [NetEndpoint; 4];
+
+// Higher level protocols
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
+pub enum WasiProto {
+    Tcp,
+    Udp,
+    Unknown,
+}
+
+impl WasiProto {
+    // domain and type are enough to identify tcp and udp, the only protocols allowed
+    pub fn new(domain: i32, ty: i32, _family: i32) -> Self {
+        if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_STREAM {
+            WasiProto::Tcp
+        } else if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_DGRAM {
+            WasiProto::Udp
+        } else {
+            WasiProto::Unknown
+        }
+    }
+}

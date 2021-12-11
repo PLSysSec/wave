@@ -41,11 +41,11 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     let argc = 0;
     let env_buffer = Vec::new();
     let envc = 0;
-    let empty = NetEndpoint {
-        protocol: 0,
-        addr: 0,
-        port: 0,
-    };
+    // let empty = NetEndpoint {
+    //     protocol: WasiProto::Unknown,
+    //     addr: 0,
+    //     port: 0,
+    // };
     // let netlist = [
     //     NetEndpoint {
     //         protocol: 0,
@@ -190,31 +190,24 @@ impl VmCtx {
         // self.homedir.as_bytes().to_vec()
     }
 
-    pub fn in_netlist(&self, domain: u32, ty: u32, proto: u32, addr: u32, port: u32) -> bool {
-        let protocol = if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_STREAM {
-            1
-        } else if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_DGRAM {
-            2
-        } else {
-            return false;
-        };
+    #[pure]
+    pub fn in_netlist(&self, proto: WasiProto, addr: u32, port: u32) -> bool {
+        // let target = NetEndpoint {
+        //     protocol,
+        //     addr,
+        //     port,
+        // };
 
-        let target = NetEndpoint {
-            protocol,
-            addr,
-            port,
-        };
-
-        if self.matches_netlist_entry(&target, 0) {
+        if self.matches_netlist_entry(proto, addr, port, 0) {
             return true;
         }
-        if self.matches_netlist_entry(&target, 1) {
+        if self.matches_netlist_entry(proto, addr, port, 1) {
             return true;
         }
-        if self.matches_netlist_entry(&target, 2) {
+        if self.matches_netlist_entry(proto, addr, port, 2) {
             return true;
         }
-        if self.matches_netlist_entry(&target, 3) {
+        if self.matches_netlist_entry(proto, addr, port, 3) {
             return true;
         }
 

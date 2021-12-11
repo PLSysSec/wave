@@ -1405,19 +1405,29 @@ pub fn wasi_fd_readdir(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(sock_domain_to_posix, sock_type_to_posix)]
-#[external_methods(create)]
+#[external_methods(create_sock)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
-    // Should we keep socket fd and file fd seperate?
+    // We only allow TCP and UDP, which can both be identified using protocol=0 when
+    // domain.ty are (AF_INET,SOCK_STREAM) or (AF_INET,SOCK_DGRAM) respectively
+    if protocol != 0 {
+        return Err(Einval);
+    }
+
+    let protocol = protocol as i32;
     // convert from wasi constants to posix constants
     let domain = sock_domain_to_posix(domain)?;
     let ty = sock_type_to_posix(ty)?;
 
-    let res = trace_socket(ctx, domain, ty, protocol as i32)?;
-    // check domain == AF_INET
-    // check ty == SOCK_STREAM || ty == SOCK_DGRAM
-    ctx.fdmap.create(res.into())
+    let wasi_proto = WasiProto::new(domain, ty, protocol);
+    if matches!(wasi_proto, WasiProto::Unknown) {
+        return Err(Einval);
+    }
+    let res = trace_socket(ctx, domain, ty, protocol)?;
+
+    ctx.fdmap.create_sock(res.into(), wasi_proto)
+    // ctx.fdmap.create(res.into())
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -1459,8 +1469,12 @@ pub fn wasi_sock_connect(
         sin_zero: [0; 8],
     };
 
-    let (domain, ty, protocol) = ctx.fdmap.sockinfo[usize::from(fd)]?;
-    if !ctx.in_netlist(domain, ty, protocol, sin_addr_in, sin_port.into()) {
+    let protocol = ctx.fdmap.sockinfo[usize::from(fd)]?;
+    if matches!(protocol, WasiProto::Unknown) {
+        return Err(Enotcapable);
+    }
+    //fd_proto(fd, protocol);// TODO: do this better?
+    if !ctx.in_netlist(protocol, sin_addr_in, sin_port.into()) {
         return Err(Enotcapable);
     }
 

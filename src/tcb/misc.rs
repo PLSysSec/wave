@@ -125,10 +125,24 @@ pub fn string_to_vec_u8(s: &String) -> Vec<u8> {
 #[trusted]
 pub fn empty_netlist() -> Netlist {
     let empty = NetEndpoint {
-        protocol: 0,
+        protocol: WasiProto::Unknown,
         addr: 0,
         port: 0,
     };
 
     [empty, empty, empty, empty]
 }
+
+// uninterpreted ghost function to attach
+// #[pure]
+// #[trusted]
+// pub fn fd_proto(fd: HostFd) -> WasiProto {
+//     unimplemented!()
+// }
+
+// #[pure]
+// #[trusted]
+// #[ensures(fd_proto(fd) == proto)]
+// pub fn tag_proto(fd: HostFd, proto: WasiProto) -> WasiProto {
+//     unimplemented!()
+// }

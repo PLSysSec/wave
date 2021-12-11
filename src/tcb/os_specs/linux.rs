@@ -511,7 +511,7 @@ pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 // TODO: finish spec
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port) if ip == addr.sin_addr.s_addr as usize && port == addr.sin_port as usize))]
 pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> isize {
     let __start_ts = start_timer();
     let result =

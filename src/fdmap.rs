@@ -107,6 +107,13 @@ impl FdMap {
         Ok(s_fd)
     }
 
+    pub fn create_sock(&mut self, k: HostFd, proto: WasiProto) -> RuntimeResult<SboxFd> {
+        let s_fd = self.pop_fd()?;
+        self.m[s_fd as usize] = Ok(k);
+        self.sockinfo[s_fd as usize] = Ok(proto);
+        Ok(s_fd)
+    }
+
     #[requires(k < MAX_SBOX_FDS)]
     // #[with_ghost_var(trace: &mut Trace)]
     // #[external_call(Err)]
