@@ -18,7 +18,6 @@ mod fdmap;
 mod os;
 mod runtime;
 pub mod tcb;
-mod tests;
 mod types;
 pub mod verifier_interface;
 #[cfg(not(feature = "verify"))]

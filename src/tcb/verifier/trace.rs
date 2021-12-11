@@ -23,6 +23,10 @@ macro_rules! effect {
         }
     };
 }*/
+
+#[cfg(feature = "test")]
+use crate::predicate;
+
 //TODO: wrap into a single variadic macro / predicate?
 #[cfg(feature = "verify")]
 predicate! {

@@ -1,4 +1,4 @@
 pub mod misc;
 pub mod os_specs;
-#[cfg(any(test, feature = "verify"))]
+#[cfg(any(feature = "fuzz", feature = "verify"))]
 pub mod verifier;

@@ -301,7 +301,7 @@ impl<EI: Debug> EncodeQuickCheck for common::Assertion<EI, syn::Expr, Arg> {
                 tokens.extend(typeck_call);
             }*/
             x => {
-                unimplemented!("{:?}", x);
+                unimplemented!("Havent implemented assertion kind: {:?}", x);
             }
         }
     }
@@ -412,7 +412,7 @@ fn expr_contains_string(expr: &syn::Expr, keyword: &str) -> bool {
 
 fn expr_to_old_id(expr: &syn::Expr) -> String {
     let tokens = quote::quote! {#expr};
-    let mut res = tokens.to_string().replace(" ", "_").replace(".", "dot");
+    let mut res = tokens.to_string().replace("()", "method").replace(" ", "_").replace(".", "dot");
     res.push_str("_old");
     res
 }
@@ -428,9 +428,9 @@ fn filter_args(args: &mut Punctuated<Expr, syn::token::Comma>) {
                 _ => unimplemented!("Call arguments must be simple paths! {:?}", expr),
             };
             if path.path.is_ident("trace") {
-                None
+              None
             } else {
-                Some(expr.clone())
+              Some(expr.clone())
             }
         })
         .collect();

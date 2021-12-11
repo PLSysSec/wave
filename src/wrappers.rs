@@ -1,8 +1,8 @@
 use crate::os::*;
 use crate::runtime::*;
 use crate::tcb::misc::{bitwise_or, fresh_stat};
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::external_specs::result::*;
+//#[cfg(feature = "verify")]
+//use crate::tcb::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;

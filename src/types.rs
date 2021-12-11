@@ -729,3 +729,12 @@ pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
     }
     return Err(RuntimeError::Enotsup);
 }
+
+#[derive(Clone)]
+pub struct Stat(pub libc::stat);
+
+impl From<libc::stat> for Stat {
+    fn from(stat: libc::stat) -> Self {
+        Stat(stat)
+    }
+}

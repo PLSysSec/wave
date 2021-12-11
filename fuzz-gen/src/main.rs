@@ -16,6 +16,7 @@ use quote::{quote, quote_spanned, ToTokens};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::read_to_string;
+use std::path::Path;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{
@@ -66,6 +67,13 @@ pub struct Method {
 }
 
 impl CheckableItem {
+    pub fn attrs(&self) -> &Vec<syn::Attribute> {
+        match self {
+            CheckableItem::Fn(item) => &item.func.attrs,
+            CheckableItem::Method(item) => &item.func.attrs,
+        }
+    }
+
     pub fn attrs_mut(&mut self) -> &mut Vec<syn::Attribute> {
         match self {
             CheckableItem::Fn(item) => &mut item.func.attrs,
@@ -85,6 +93,17 @@ impl CheckableItem {
             CheckableItem::Fn(item) => Some(&item.func.block),
             CheckableItem::Method(item) => Some(&item.func.block),
         }
+    }
+
+    pub fn is_trusted(&self) -> bool {
+        //Attribute { pound_token: Pound, style: Outer, bracket_token: Bracket, path: Path { leading_colon: None, segments: [PathSegment { ident: Ident(requires), arguments: None }] }, tokens: TokenStream [Group { delimiter: Parenthesis, stream: TokenStream [Ident { sym: trace_safe }, Group { delimiter: Parenthesis, stream: TokenStream [Ident { sym: trace }, Punct { char: ',', spacing: Alone }, Ident { sym: ctx }, Punct { char: '.', spacing: Alone }, Ident { sym: memlen }] }, Punct { char: '&', spacing: Joint }, Punct { char: '&', spacing: Alone }, Ident { sym: ctx_safe }, Group { delimiter: Parenthesis, stream: TokenStream [Ident { sym: ctx }] }] }] }
+
+        for attr in self.attrs() {
+            if attr.path.is_ident("trusted") {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -183,6 +202,7 @@ impl ToTokens for QcFunction {
         tokens.extend(quote! {
             #[quickcheck_macros::quickcheck]
             fn #qc_name(#new_args) -> TestResult {
+                init(); // must not panic...
                 #convs
                 #(#pres)*
                 #mats
@@ -246,6 +266,7 @@ impl QcMethod {
         tokens.extend(quote! {
             #[quickcheck_macros::quickcheck]
             fn #name(#new_args) -> TestResult {
+                init(); // must not panic...
                 #convs
                 let mut ctx = fresh_ctx(".".to_string());
                 ctx.#method_ident(#(#call_args),*)
@@ -359,7 +380,67 @@ fn main() -> std::io::Result<()> {
     // 1. need to handle fresh context...
     // 2.
     // 1. no after_expiry support
-    let contents = read_to_string("test.rs")?;
+    //let contents = read_to_string("test.rs")?;
+    //let tokens: proc_macro2::TokenStream = contents.parse().unwrap();
+    //let file: syn::File = syn::parse2(tokens).unwrap();
+
+    //// convert functions and methods into common type for processing...
+    //let mut fns = vec![];
+    //for item in file.items.into_iter() {
+    //    match item {
+    //        syn::Item::Fn(item_fn) => fns.push(CheckableItem::Fn(Function { func: item_fn })),
+    //        syn::Item::Impl(item_impl) => {
+    //            for impl_item in item_impl.items {
+    //                match impl_item {
+    //                    ImplItem::Method(method) => fns.push(CheckableItem::Method(Method {
+    //                        receiver: *item_impl.self_ty.clone(),
+    //                        func: method,
+    //                    })),
+    //                    _ => {}
+    //                }
+    //            }
+    //        }
+    //        _ => {}
+    //    }
+    //}
+
+    let mut qc_module = QcModule::new();
+    let src_path = Path::new("../src");
+    process_directory(&src_path, &mut qc_module)?;
+    ////let quickcheck_functions = vec![];
+    //for mut ffn in fns {
+    //    qc_module.append(&mut ffn);
+    //}
+
+    let tokens = quote! {
+        #qc_module
+    };
+    println!("{:?}", tokens.to_string());
+
+    Ok(())
+}
+
+fn process_directory(path: &Path, qc: &mut QcModule) -> std::io::Result<()> {
+    let entries = std::fs::read_dir(path)?;
+    for entry in entries {
+        let path = entry?.path();
+        if path.is_dir() {
+            process_directory(&path, qc);
+        } else {
+            process_file(&path, qc);
+        }
+    }
+
+    Ok(())
+}
+
+fn process_file(file_path: &Path, qc: &mut QcModule) -> std::io::Result<()> {
+    // skip trace file...
+    if file_path.to_str().unwrap().contains("trace") {
+        return Ok(());
+    }
+
+    let contents = read_to_string(file_path)?;
     let tokens: proc_macro2::TokenStream = contents.parse().unwrap();
     let file: syn::File = syn::parse2(tokens).unwrap();
 
@@ -382,67 +463,15 @@ fn main() -> std::io::Result<()> {
             _ => {}
         }
     }
-
-    let mut qc_module = QcModule::new();
     //let quickcheck_functions = vec![];
     for mut ffn in fns {
-        qc_module.append(&mut ffn);
+        if ffn.is_trusted() {
+            qc.append(&mut ffn);
+        }
     }
 
-    let tokens = quote! {
-        #qc_module
-    };
-    println!("{:?}", tokens.to_string());
-    /*let fn_name = &ffn.sig().ident;
-    let qc_name = syn::Ident::new(&format!("check_{}", fn_name), fn_name.span());
-    let qc_inputs: Vec<&FnArg> = ffn.sig().inputs.iter().collect();
-    // HACK: for now just assume all methods are on ctx..I think this is true?
-    let (is_ctx_method, args) = match &qc_inputs[0] {
-        FnArg::Receiver(recv) => (true, &qc_inputs[1..]),
-        _ => (false, &qc_inputs[..]),
-    };
-
-    let ctx_init = if is_ctx_method {
-        quote! { let mut ctx = fresh_ctx(".".to_string()) }
-    } else {
-        TokenStream::new()
-    };
-
-    println!("inputs: {:?}", args[0]);
-    let quickcheck_function = quote! {
-        #[quickcheck_macros::quickcheck]
-        fn #qc_name(#(#args),*) -> TestResult {
-            #ctx_init;
-            #(#pres)*
-            let r = ctx.memcpy_to_sandbox(dst, &src, n);
-            #(#posts)*
-            TestResult::passed();
-        }
-    };
-    println!("{:?}", quickcheck_function.to_string());*/
-
-    /*for attr in test {
-        /*match attr.0 {
-            SpecAttributeKind::Requires | SpecAttributeKind::Ensures => { println!("{:?}", attr.1.to_string()); let mut parser = Parser::from_token_stream(attr.1.clone());
-                let assertion: untyped::Assertion = parser.extract_assertion().unwrap().into();
-                let mut statements = proc_macro2::TokenStream::new();
-                assertion.encode_type_check(&mut statements);
-                println!("{:?}", quote!{#statements});
-                /*let test2: common::Assertion<(), syn::Expr, Arg> = syn::parse2(attr.1.clone()).unwrap();*/
-                /*println!("{:?}", test2);
-                match *test2.kind {
-                    common::AssertionKind::Expr(expression) => {
-                        let testt = expression.expr;
-                        println!("{:?}", quote!{#testt}.to_string())},
-                    _ => {}
-                };*/
-            },
-            _ => {}
-        };
-    }*/*/
-    //}
-
     Ok(())
+
 }
 
 pub type GeneratedResult = syn::Result<Vec<syn::Expr>>;
