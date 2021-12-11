@@ -180,6 +180,7 @@ pub enum EffectType {
     Shutdown,
     FdAccess,
     PathAccess,
+    NetAccess,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -187,6 +188,7 @@ pub struct Effect {
     pub typ: EffectType,
     pub f1: usize,
     pub f2: usize,
+    pub f3: usize,
 }
 
 // TODO: I think this has to become a proc macro if we don't wanna expand every case manually...
@@ -197,6 +199,7 @@ macro_rules! effect {
             typ: EffectType::$typ,
             f1: 0,
             f2: 0,
+            f3: 0,
         }
     };
     ($typ:ident, $f1:pat) => {
@@ -204,6 +207,7 @@ macro_rules! effect {
             typ: EffectType::$typ,
             f1: $f1,
             f2: 0,
+            f3: 0,
         }
     };
     ($typ:ident, $f1:pat, $f2:pat) => {
@@ -211,6 +215,15 @@ macro_rules! effect {
             typ: EffectType::$typ,
             f1: $f1,
             f2: $f2,
+            f3: 0,
+        }
+    };
+    ($typ:ident, $f1:pat, $f2:pat, $f3:pat) => {
+        Effect {
+            typ: EffectType::$typ,
+            f1: $f1,
+            f2: $f2,
+            f3: $f4,
         }
     };
 }

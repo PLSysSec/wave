@@ -31,6 +31,13 @@ impl VmCtx {
         }
         Err(RuntimeError::Eacces)
     }
+
+    #[requires(idx < 4)]
+    #[pure]
+    #[trusted]
+    pub fn matches_netlist_entry(&self, target: &NetEndpoint, idx: usize) -> bool {
+        target == &self.netlist[0]
+    }
 }
 
 /// Convert relative path to absolute path

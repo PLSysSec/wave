@@ -199,21 +199,25 @@ impl VmCtx {
             return false;
         };
 
-        // let target = NetEndpoint {protocol, addr, port};
-        // let e0 = self.netlist[0];
-        // let e1 = self.netlist[1];
-        // let e2 = self.netlist[2];
-        // let e3 = self.netlist[3];
-        // if domain == self.netlist[0].protocol {return true;}
-        // if domain == e1.protocol && ty == e1.addr && port == e1.port {return true;}
-        // if domain == e2.protocol && ty == e2.addr && port == e2.port {return true;}
-        // if domain == e3.protocol && ty == e3.addr && port == e3.port {return true;}
-        // if target == self.netlist[0].domain {return true;}
-        // if target == self.netlist[1]{return true;}
-        // if target == self.netlist[2]{return true;}
-        // if target == self.netlist[3]{return true;}
+        let target = NetEndpoint {
+            protocol,
+            addr,
+            port,
+        };
 
-        return true;
-        // return target == self.netlist[0] || target == self.netlist[1] || target == self.netlist[2] || target == self.netlist[3];
+        if self.matches_netlist_entry(&target, 0) {
+            return true;
+        }
+        if self.matches_netlist_entry(&target, 1) {
+            return true;
+        }
+        if self.matches_netlist_entry(&target, 2) {
+            return true;
+        }
+        if self.matches_netlist_entry(&target, 3) {
+            return true;
+        }
+
+        return false;
     }
 }
