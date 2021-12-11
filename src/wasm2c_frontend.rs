@@ -30,8 +30,6 @@ use crate::stats::stats::output_syscall_perf_results;
 
 trace::init_depth_var!();
 
-//TODO: figure out how to remove the dummy trace(logging)s
-
 /// Used for FFI. (wasm2c frontend)
 /// Initialize a vmctx with a memory that points to memptr
 /// TODO: depulicate with fresh_ctx()
@@ -109,7 +107,6 @@ fn ctx_from_memptr(
     }
 }
 
-// TODO: let us pass through what the homedir is from the cmdline
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn veriwasi_init(
@@ -780,7 +777,6 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
 
 #[no_mangle]
 #[trace(logging)]
-// TODO: pass through path_len
 pub extern "C" fn Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
     ctx: *const *mut VmCtx,
     old_fd: u32,

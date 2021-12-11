@@ -1,4 +1,4 @@
-use crate::tcb::misc::{clone_vec_u8, get_homedir_fd};
+use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
@@ -20,7 +20,6 @@ use RuntimeError::*;
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned, clone)]
 #[external_calls(open, forget, get_homedir_fd)]
-#[trusted]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
@@ -47,28 +46,29 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         addr: 0,
         port: 0,
     };
-    let netlist = [
-        NetEndpoint {
-            protocol: 0,
-            addr: 0,
-            port: 0,
-        },
-        NetEndpoint {
-            protocol: 0,
-            addr: 0,
-            port: 0,
-        },
-        NetEndpoint {
-            protocol: 0,
-            addr: 0,
-            port: 0,
-        },
-        NetEndpoint {
-            protocol: 0,
-            addr: 0,
-            port: 0,
-        },
-    ];
+    // let netlist = [
+    //     NetEndpoint {
+    //         protocol: 0,
+    //         addr: 0,
+    //         port: 0,
+    //     },
+    //     NetEndpoint {
+    //         protocol: 0,
+    //         addr: 0,
+    //         port: 0,
+    //     },
+    //     NetEndpoint {
+    //         protocol: 0,
+    //         addr: 0,
+    //         port: 0,
+    //     },
+    //     NetEndpoint {
+    //         protocol: 0,
+    //         addr: 0,
+    //         port: 0,
+    //     },
+    // ];
+    let netlist = empty_netlist();
     VmCtx {
         mem,
         memlen,
@@ -185,9 +185,9 @@ impl VmCtx {
         Some(())
     }
 
-    #[trusted]
     pub fn get_homedir(&self) -> Vec<u8> {
-        self.homedir.as_bytes().to_vec()
+        string_to_vec_u8(&self.homedir)
+        // self.homedir.as_bytes().to_vec()
     }
 
     pub fn in_netlist(&self, domain: u32, ty: u32, proto: u32, addr: u32, port: u32) -> bool {

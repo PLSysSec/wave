@@ -1,4 +1,7 @@
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::*;
 use crate::types::*;
+use extra_args::with_ghost_var;
 use prusti_contracts::*;
 use std::os::unix::io::AsRawFd;
 use std::vec::Vec;
@@ -111,4 +114,21 @@ pub fn get_homedir_fd(s: &String) -> i32 {
     //when it gets out of scope
     std::mem::forget(homedir_file);
     homedir_fd
+}
+
+#[trusted]
+pub fn string_to_vec_u8(s: &String) -> Vec<u8> {
+    s.as_bytes().to_vec()
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+pub fn empty_netlist() -> Netlist {
+    let empty = NetEndpoint {
+        protocol: 0,
+        addr: 0,
+        port: 0,
+    };
+
+    [empty, empty, empty, empty]
 }
