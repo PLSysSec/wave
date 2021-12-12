@@ -112,7 +112,7 @@ pub fn wasm2c_marshal_and_writeback_fdstat(
     match res {
         Ok(r) => {
             ctx_ref.write_u16(addr, r.fs_filetype.to_wasi() as u16);
-            ctx_ref.write_u16(addr + 2, r.fs_flags.to_posix() as u16);
+            ctx_ref.write_u16(addr + 2, r.fs_flags.to_os_flags() as u16);
             ctx_ref.write_u64(addr + 8, r.fs_rights_base);
             ctx_ref.write_u64(addr + 16, r.fs_rights_inheriting);
             0

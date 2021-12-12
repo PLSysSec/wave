@@ -18,7 +18,7 @@ use RuntimeError::*;
 // Modifies: fdmap
 // TODO: fdmap trace fix
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path, create, to_posix)]
+#[external_methods(resolve_path, create, to_os_flags)]
 #[external_calls(from, bitwise_or)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
@@ -49,10 +49,10 @@ pub fn wasi_path_open(
     let host_pathname = ctx.resolve_path(host_buffer)?;
     let dirflags_posix = dirflags.to_posix();
     let oflags_posix = oflags.to_posix();
-    let fdflags_posix = fdflags.to_posix();
+    let fdflags_posix = fdflags.to_os_flags();
     let flags = bitwise_or(
         bitwise_or(dirflags.to_posix(), oflags.to_posix()),
-        fdflags.to_posix(),
+        fdflags.to_os_flags(),
     );
 
     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
@@ -263,7 +263,7 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     // TODO: put rights in once those are implemented
     let result = FdStat {
         fs_filetype: (filetype as libc::mode_t).into(),
-        fs_flags: FdFlags::from_posix(mode_flags as i32), //(mode_flags as libc::c_int).into(),
+        fs_flags: FdFlags::from_os_flags(mode_flags as i32), //(mode_flags as libc::c_int).into(),
         fs_rights_base: 0, // TODO: convert read and write from mode flags to the proper masks?
         fs_rights_inheriting: u64::MAX, //TODO: we should pass in homedir rights
     };
@@ -273,7 +273,7 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 //TODO: need wasm layout for FdFlags to read from ptr
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from)]
-#[external_methods(to_posix)]
+#[external_methods(to_os_flags)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // can only adjust Fdflags using set_flags, not O_flags or any other flags
@@ -285,7 +285,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
     }
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
-    let posix_flags = flags.to_posix();
+    let posix_flags = flags.to_os_flags();
 
     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
     Ok(())
@@ -1385,7 +1385,7 @@ pub fn wasi_fd_readdir(
         out_buf.extend_from_slice(&out_namlen_bytes);
 
         // Copy type
-        let d_type = Filetype::from(d_type as u32);
+        let d_type = Filetype::from(d_type as libc::mode_t);
         let out_type_bytes: [u8; 4] = (d_type.to_wasi() as u32).to_le_bytes();
         out_buf.extend_from_slice(&out_type_bytes);
 
@@ -1457,12 +1457,15 @@ pub fn wasi_sock_connect(
     let sin_family = ctx.read_u16(addr as usize);
     let sin_port = ctx.read_u16(addr as usize + 2);
     let sin_addr_in = ctx.read_u32(addr as usize + 4);
-    let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
+    let sin_family = sock_domain_to_posix(sin_family as u32)? as libc::sa_family_t;
     // We can directly use sockaddr_in since we already know all socks are inet
     let sin_addr = libc::in_addr {
         s_addr: sin_addr_in,
     };
     let saddr = libc::sockaddr_in {
+        // i'll be lazy, should refactor to os-specific code...
+        #[cfg(target_os = "macos")]
+        sin_len: 0,
         sin_family,
         sin_port,
         sin_addr,

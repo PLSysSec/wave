@@ -1,4 +1,4 @@
-use crate::tcb::os_specs::linux::*;
+use crate::tcb::os_specs::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
