@@ -471,7 +471,7 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
             ret
         },
         libc::CLOCK_PROCESS_CPUTIME_ID => {
-            let mut ru: libc::rusage = std::mem::zeroed();
+            let mut ru: libc::rusage = unsafe { std::mem::zeroed() };
             let ret = unsafe { syscall!(GETRUSAGE, libc::RUSAGE_SELF, &mut ru as *mut libc::rusage) as isize };
             // from https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwj-rZepot_0AhVtFjQIHasdDq4QFnoECAMQAQ&url=https%3A%2F%2Fopensource.apple.com%2Fsource%2Fxnu%2Fxnu-344%2Fbsd%2Fsys%2Ftime.h&usg=AOvVaw3WH-hjCN8NBpw9CTx_3Eer
             let mut sum_sec = ru.ru_utime.tv_sec + ru.ru_stime.tv_sec;
