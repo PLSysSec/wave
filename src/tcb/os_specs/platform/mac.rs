@@ -12,22 +12,26 @@ use syscall::syscall;
 
 macro_rules! save_and_change_cwd {
     ($fd:ident) => {
-        // TODO: better error handling
-        let cwd = vec![b'.'];
-        // TODO: check flags
-        let cwd_fd = unsafe { syscall!(OPEN, cwd.as_ptr(), 0) };
-        assert!(saved_cwd_fd > 0); // REPLACE LATER
-        let res = unsafe { syscall!(FCHDIR, $fd) };
-        assert!(res == 0); // REPLACE LATER
-        cwd_fd
+        {
+            // TODO: better error handling
+            let cwd = vec![b'.'];
+            // TODO: check flags
+            let cwd_fd = unsafe { syscall!(OPEN, cwd.as_ptr(), 0) };
+            assert!(saved_cwd_fd > 0); // REPLACE LATER
+            let res = unsafe { syscall!(FCHDIR, $fd) };
+            assert!(res == 0); // REPLACE LATER
+            cwd_fd
+        }
     }
 }
 
 macro_rules! restore_cwd {
     ($cwd_fd:ident) => {
-        // restore working directory
-        let res = unsafe { syscall!(FCHDIR, $cwd_fd) };
-        assert!(res == 0); // REPLACE LATER
+        {
+            // restore working directory
+            let res = unsafe { syscall!(FCHDIR, $cwd_fd) };
+            assert!(res == 0); // REPLACE LATER
+        }
     }
 }
 
