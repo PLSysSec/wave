@@ -17,7 +17,7 @@ macro_rules! save_and_change_cwd {
             let cwd = vec![b'.'];
             // TODO: check flags
             let cwd_fd = unsafe { syscall!(OPEN, cwd.as_ptr(), 0) };
-            assert!(saved_cwd_fd > 0); // REPLACE LATER
+            assert!(cwd_fd > 0); // REPLACE LATER
             let res = unsafe { syscall!(FCHDIR, $fd) };
             assert!(res == 0); // REPLACE LATER
             cwd_fd
