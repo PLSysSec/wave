@@ -13,7 +13,7 @@ impl From<Advice> for i32 {
 impl TryFrom<i32> for Advice {
     type Error = RuntimeError;
     fn try_from(advice: i32) -> RuntimeResult<Self> {
-        Ok(Advice::Normal),
+        Ok(Advice::Normal)
     }
 }
 
