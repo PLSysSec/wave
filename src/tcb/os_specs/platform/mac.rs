@@ -168,7 +168,7 @@ pub fn os_allocate(fd: usize, offset: i64, len: i64) -> isize {
         fst_bytesalloc: 0,
     };
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(FCNTL, fd, libc::F_PREALLOCATE, &fstore as *mut libc::fstore_t) as isize };
+    let result = unsafe { syscall!(FCNTL, fd, libc::F_PREALLOCATE, &fstore as *const libc::fstore_t) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("allocate", __start_ts, __end_ts);
     result
@@ -436,10 +436,10 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
                 tv_sec: 0,
                 tv_usec: 0,
             };
-            let ret = unsafe { syscall!(GETTIMEOFDAY, (&mut tv).as_mut_ptr(), 0) as isize };
+            let ret = unsafe { syscall!(GETTIMEOFDAY, &mut tv as *mut libc::timval, 0) as isize };
             // TODO: refactor -> timeval_to_timespec function or macro...
             spec.tv_sec = tv.tv_sec;
-            spec.tv_nsec = tv.tv_usec * 1000;
+            spec.tv_nsec = (tv.tv_usec * 1000) as i64;
             ret
         },
         libc::CLOCK_MONOTONIC => {
@@ -452,13 +452,13 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
             let mut tv_size = std::mem::size_of::<libc::timeval>() as libc::size_t;
             let sysctl_name = vec![libc::CTL_KERN, libc::KERN_BOOTTIME];
             // 	T_ASSERT_POSIX_SUCCESS(sysctlbyname("kern.boottime", &bt_tv, &len, NULL, 0), NULL);
-            let ret = unsafe { syscall!(__SYSCTL, sysctl_name.as_ptr(), sysct_name.len(), (&mut boot_tv).as_mut_ptr(), (&tv_size).as_ptr(), 0, 0) as isize };
+            let ret = unsafe { syscall!(__SYSCTL, sysctl_name.as_ptr(), sysctl_name.len(), &mut boot_tv as *mut libc::timeval, &tv_size as *const usize, 0, 0) as isize };
             assert!(ret == 0); // TODO: ERROR HANDLING
             let mut real_tv = libc::timeval {
                 tv_sec: 0,
                 tv_usec: 0,
             };
-            let ret = unsafe { syscall!(GETTIMEOFDAY, (&mut real_tv).as_mut_ptr(), 0) as isize };
+            let ret = unsafe { syscall!(GETTIMEOFDAY, &mut real_tv as *mut libc::timeval, 0) as isize };
             // from https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwj-rZepot_0AhVtFjQIHasdDq4QFnoECAMQAQ&url=https%3A%2F%2Fopensource.apple.com%2Fsource%2Fxnu%2Fxnu-344%2Fbsd%2Fsys%2Ftime.h&usg=AOvVaw3WH-hjCN8NBpw9CTx_3Eer
             let mut diff_sec = real_tv.tv_sec - boot_tv.tv_sec;
             let mut diff_usec = real_tv.tv_usec - boot_tv.tv_usec;
@@ -467,21 +467,21 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
                 diff_usec += 1_000_000;
             }
             spec.tv_sec = diff_sec;
-            spec.tv_nsec = diff_usec * 1000;
+            spec.tv_nsec = (diff_usec * 1000) as i64;
             ret
         },
         libc::CLOCK_PROCESS_CPUTIME_ID => {
             let mut ru: libc::rusage = std::mem::zeroed();
-            let ret = unsafe { syscall!(GETRUSAGE, RUSAGE_SELF, (&mut ru).as_mut_ptr()) as isize };
+            let ret = unsafe { syscall!(GETRUSAGE, libc::RUSAGE_SELF, &mut ru as *mut libc::rusage) as isize };
             // from https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwj-rZepot_0AhVtFjQIHasdDq4QFnoECAMQAQ&url=https%3A%2F%2Fopensource.apple.com%2Fsource%2Fxnu%2Fxnu-344%2Fbsd%2Fsys%2Ftime.h&usg=AOvVaw3WH-hjCN8NBpw9CTx_3Eer
-            let mut sum_sec = ru.ru_uime.tv_sec + ru.ru_stime.tv_sec;
+            let mut sum_sec = ru.ru_utime.tv_sec + ru.ru_stime.tv_sec;
             let mut sum_usec = ru.ru_utime.tv_usec + ru.ru_stime.tv_usec;
             if sum_usec > 1_000_000 {
                 sum_sec += 1;
                 sum_usec -= 1_000_000;
             }
             spec.tv_sec = sum_sec;
-            spec.tv_nsec = sum_usec * 1000;
+            spec.tv_nsec = (sum_usec * 1000) as i64;
             ret
         },
         libc::CLOCK_THREAD_CPUTIME_ID => {
@@ -492,7 +492,7 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
             // TODO: handle error...
             0
         }
-    }
+    };
     let __end_ts = stop_timer();
     push_syscall_result("clock_get_time", __start_ts, __end_ts);
     result
@@ -511,7 +511,7 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
             spec.tv_sec = 0;
             0
         },
-        libc::CLOCK_THREAD_CPUTIME_ID {
+        libc::CLOCK_THREAD_CPUTIME_ID => {
             //TODO: annoying
             0
         },
