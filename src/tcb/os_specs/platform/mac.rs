@@ -41,7 +41,7 @@ macro_rules! restore_cwd {
 #[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
 pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
     let __start_ts = start_timer();
-    let cwd = save_and_change_cwd!(fd);
+    let cwd = save_and_change_cwd!(dirfd);
     let result = unsafe { syscall!(OPEN, dirfd, pathname.as_ptr(), flags) as isize };
     restore_cwd!(cwd);
     let __end_ts = stop_timer();
@@ -436,7 +436,7 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
                 tv_sec: 0,
                 tv_usec: 0,
             };
-            let ret = unsafe { syscall!(GETTIMEOFDAY, &mut tv as *mut libc::timval, 0) as isize };
+            let ret = unsafe { syscall!(GETTIMEOFDAY, &mut tv as *mut libc::timeval, 0) as isize };
             // TODO: refactor -> timeval_to_timespec function or macro...
             spec.tv_sec = tv.tv_sec;
             spec.tv_nsec = (tv.tv_usec * 1000) as i64;
