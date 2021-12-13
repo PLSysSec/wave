@@ -7,9 +7,14 @@ use extra_args::with_ghost_var;
 use prusti_contracts::*;
 use syscall::syscall;
 
-/// This module contains our syscall specifications
-/// These functions must be trusted because we don't know what the os actually does
-/// on a syscall
+#[cfg_attr(target_os = "linux",
+           path="platform/linux.rs")]
+#[cfg_attr(target_os = "macos",
+           path="platform/mac.rs")]
+mod platform;
+pub use platform::*;
+
+// Common implementations between operating systems
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
