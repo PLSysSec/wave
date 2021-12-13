@@ -74,7 +74,7 @@ pub fn os_allocate(fd: usize, offset: i64, len: i64) -> isize {
 #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(FSTATAT, fd, path.as_ptr(), stat as *mut libc::stat, flags) as isize };
+    let result = unsafe { syscall!(FSTATAT64, fd, path.as_ptr(), stat as *mut libc::stat, flags) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("fstatat", __start_ts, __end_ts);
     result

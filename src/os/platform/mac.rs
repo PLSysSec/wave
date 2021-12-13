@@ -52,10 +52,8 @@ pub fn trace_utimensat(
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> RuntimeResult<usize> {
-    let os_fd: usize = fd.into();
-    let os_path: Vec<u8> = pathname.into();
-    let r = os_utimensat(os_fd, os_path, specs, flags);
-    RuntimeError::from_syscall_ret(r)
+    // TODO:
+    Ok(0)
 }
 
 // Inspired from https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
@@ -89,7 +87,7 @@ pub fn trace_clock_get_time(
             };
             let ret = os_getboottime(&mut boot_tv);
             if ret != 0 {
-                return ret;
+                return RuntimeError::from_syscall_ret(ret);
             }
             let mut real_tv = libc::timeval {
                 tv_sec: 0,
@@ -111,7 +109,7 @@ pub fn trace_clock_get_time(
             let mut ru: libc::rusage = fresh_rusage();
             let ret = os_rusageself(&mut ru);
             if ret != 0 {
-                return ret;
+                return RuntimeError::from_syscall_ret(ret);
             }
             // from https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwj-rZepot_0AhVtFjQIHasdDq4QFnoECAMQAQ&url=https%3A%2F%2Fopensource.apple.com%2Fsource%2Fxnu%2Fxnu-344%2Fbsd%2Fsys%2Ftime.h&usg=AOvVaw3WH-hjCN8NBpw9CTx_3Eer
             let mut sum_sec = ru.ru_utime.tv_sec + ru.ru_stime.tv_sec;
@@ -128,14 +126,14 @@ pub fn trace_clock_get_time(
             let ret = os_thread_selfusage();
             if ret == 0 {
                 // TODO: -1 probably wrong...
-                return -1;
+                return RuntimeError::from_syscall_ret(-1);
             }
-            spec.tv_sec = ret / 1_000_000_000;
-            spec.tv_nsec = ret & 1_000_000_000;
+            spec.tv_sec = ret as i64 / 1_000_000_000;
+            spec.tv_nsec = ret as i64 % 1_000_000_000;
             0
         },
         _ => {
-            return Err(RuntimeError::EINVAL);
+            return Err(RuntimeError::Einval);
         }
     };
     RuntimeError::from_syscall_ret(r)
@@ -159,7 +157,7 @@ pub fn trace_clock_get_res(
             Ok(0)
         },
         _ => {
-            Err(RuntimeError::EINVAL)
+            Err(RuntimeError::Einval)
         }
     }
 }
@@ -189,6 +187,6 @@ pub fn trace_nanosleep(
     req: &libc::timespec,
     rem: &mut libc::timespec,
 ) -> RuntimeResult<usize> {
-    let r = os_nanosleep(req, rem);
-    RuntimeError::from_syscall_ret(r)
+    // TODO:
+    Ok(0)
 }
