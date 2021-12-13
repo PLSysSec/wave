@@ -18,7 +18,7 @@ use RuntimeError::*;
 // Modifies: fdmap
 // TODO: fdmap trace fix
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path, create, to_os_flags)]
+#[external_methods(resolve_path, create, to_posix, to_os_flags)]
 #[external_calls(from, bitwise_or)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
@@ -243,7 +243,7 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(fresh_stat, from_posix)]
+#[external_calls(fresh_stat, from_posix, from_os_flags)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {

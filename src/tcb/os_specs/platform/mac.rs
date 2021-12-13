@@ -186,7 +186,7 @@ pub fn os_thread_selfusage() -> isize {
 // TODO: this result handling is screwed up
 //#[ensures(no_effect!(old(trace), trace))]
 #[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_getdirentries(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
+pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
     // TODO: safe to put 0 in for basep? TODO...
     let result = unsafe {

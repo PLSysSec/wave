@@ -4,11 +4,59 @@
 use crate::tcb::os_specs::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
+use crate::tcb::misc::fresh_rusage;
 use crate::types::*;
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 use extra_args::with_ghost_var;
 use prusti_contracts::*;
 use syscall::syscall;
+
+// Call does not exist on Mac. Just do nothing...
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_advise(
+    ctx: &VmCtx,
+    fd: HostFd,
+    offset: i64,
+    len: i64,
+    advice: i32,
+) -> RuntimeResult<usize> {
+    Ok(0)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(specs.capacity() >= 2)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
+pub fn trace_futimens(
+    ctx: &VmCtx,
+    fd: HostFd,
+    specs: &Vec<libc::timespec>,
+) -> RuntimeResult<usize> {
+    // TODO
+    Ok(0)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(specs.capacity() >= 2)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+pub fn trace_utimensat(
+    ctx: &VmCtx,
+    fd: HostFd,
+    pathname: SandboxedPath,
+    specs: &Vec<libc::timespec>,
+    flags: libc::c_int,
+) -> RuntimeResult<usize> {
+    let os_fd: usize = fd.into();
+    let os_path: Vec<u8> = pathname.into();
+    let r = os_utimensat(os_fd, os_path, specs, flags);
+    RuntimeError::from_syscall_ret(r)
+}
 
 // Inspired from https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
 #[with_ghost_var(trace: &mut Trace)]
@@ -106,12 +154,41 @@ pub fn trace_clock_get_res(
     // all this has brought me is sadness
     match clock_id {
         libc::CLOCK_REALTIME | libc::CLOCK_MONOTONIC | libc::CLOCK_PROCESS_CPUTIME_ID | libc::CLOCK_THREAD_CPUTIME_ID => {
-            spec->tv_nsec = 1_000;
-            spec->tv_sec = 0;
+            spec.tv_nsec = 1_000;
+            spec.tv_sec = 0;
             Ok(0)
         },
         _ => {
             Err(RuntimeError::EINVAL)
         }
     }
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
+#[requires(cnt < ctx.memlen)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, count)))]
+pub fn trace_getrandom(
+    ctx: &mut VmCtx,
+    ptr: SboxPtr,
+    cnt: usize,
+    flags: u32,
+) -> RuntimeResult<usize> {
+    // TODO
+    Ok(0)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn trace_nanosleep(
+    ctx: &VmCtx,
+    req: &libc::timespec,
+    rem: &mut libc::timespec,
+) -> RuntimeResult<usize> {
+    let r = os_nanosleep(req, rem);
+    RuntimeError::from_syscall_ret(r)
 }
