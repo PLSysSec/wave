@@ -27,6 +27,10 @@ quickcheck_macros = "1.0.0"
 # Used for computing stats on benchmarks
 statistical = "1.0.0"
 
+[target.'cfg(macos)'.dependencies]
+mach2 = "0.4.0"
+security-framework-sys = "2.4.2"
+
 [features]
 verify = ["extra_args/enable"] # feature for when we're verifying
 #fuzzing = []

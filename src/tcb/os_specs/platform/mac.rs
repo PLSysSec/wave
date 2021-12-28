@@ -7,6 +7,9 @@ use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use syscall::syscall;
 
+use security_framework_sys::random::{SecRandomCopyBytes, kSecRandomDefault};
+use mach2::mach_time::{mach_wait_until, mach_timebase_info, mach_timebase_info_data_t};
+
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
@@ -85,9 +88,8 @@ pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -
 #[requires(specs.capacity() >= 2)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
+pub fn os_futimes(fd: usize, specs: &Vec<libc::timeval>) -> isize {
     let __start_ts = start_timer();
-    // TODO: check ret
     let result = unsafe { syscall!(FUTIMES, fd, specs.as_ptr()) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("futimens", __start_ts, __end_ts);
@@ -115,6 +117,23 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 //    push_syscall_result("utimensat", __start_ts, __end_ts);
 //    result
 //}*/
+
+// TODO: no utimesat syscall, will need to do cwd trick...
+//https://man7.org/linux/man-pages/man2/utimensat.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(specs.capacity() >= 2)]
+#[trusted]
+#[ensures(two_effects!(old(trace), trace, effect!(PathAccess)))]
+pub fn os_utimes(
+    pathname: Vec<u8>,
+    specs: &Vec<libc::timeval>,
+) -> isize {
+    // TODO: no path resultion flags here, not sure if that will be an issue
+    let result =
+        unsafe { syscall!(UTIMES, pathname.as_ptr(), specs.as_ptr()) as isize };
+    result
+}
+
 
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
@@ -166,18 +185,48 @@ pub fn os_thread_selfusage() -> isize {
     push_syscall_result("thread_selfusage", __start_ts, __end_ts);
     result
 }
-///*#[with_ghost_var(trace: &mut Trace)]
-//#[requires(buf.len() >= cnt)]
-//#[ensures(result >= 0 ==> buf.len() >= result as usize)]
-//#[ensures(result >= 0 ==> result as usize <= cnt)]
-//#[trusted]
-//#[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-//pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
-//    // no native syscall, just open /dev/random and read bytes
-//    // TODO...
-//    0
-//}*/
-//
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(buf.len() >= cnt)]
+#[ensures(result >= 0 ==> buf.len() >= result as usize)]
+#[ensures(result >= 0 ==> result as usize <= cnt)]
+#[trusted]
+#[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
+    // no native syscall, use mac's secure random framework.
+    // May also just read from /dev/random, but then its subject to File Descriptor exhaustion.
+
+    // TODO: handle return value
+    unsafe { SecRandomCopyBytes(kSecRandomDefault, cnt, bytes.as_mut_ptr()) }
+    0
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn os_timebase_info(info: &mut mach_timebase_info_data_t) -> isize {
+    // TODO: handle return value
+    let result = unsafe {
+        mach_timebase_info(info as mach_timebase_info_t) as isize
+    };
+    result
+}
+
+// https://opensource.apple.com/source/xnu/xnu-7195.81.3/osfmk/kern/clock.c.auto.html
+// Waits until the deadline (in absolute time, mach ticks) has passed
+// To use, you should call os_timebase_info for the conversion between mach_ticks and
+// nanoseconds first.
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn os_wait_until(deadline: u64) -> isize {
+    // TODO: handle return value
+    let result = unsafe {
+        mach_wait_until(deadline) as isize
+    };
+    result
+}
+
 #[with_ghost_var(trace: &mut Trace)]
 #[external_method(set_len)]
 #[trusted]
@@ -189,6 +238,7 @@ pub fn os_thread_selfusage() -> isize {
 pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
     // TODO: safe to put 0 in for basep? TODO...
+    // TODO: ensure directory entry format is correct...
     let result = unsafe {
         let result = syscall!(GETDIRENTRIES, fd, dirp.as_mut_ptr(), 0);
         dirp.set_len(result);
@@ -196,5 +246,16 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     };
     let __end_ts = stop_timer();
     push_syscall_result("getdirentries", __start_ts, __end_ts);
+    result
+}
+
+// TODO: should log the effect of changing the working directory
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(no_effect!(old(trace), trace))]
+pub fn os_fchdir(fd: usize) -> isize {
+    let result = unsafe {
+        syscall!(FCHDIR, fd) as isize
+    };
     result
 }

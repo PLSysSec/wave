@@ -423,3 +423,20 @@ pub fn trace_connect(
     let r = os_connect(os_fd, addr, addrlen);
     RuntimeError::from_syscall_ret(r)
 }
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
+#[requires(cnt < ctx.memlen)]
+#[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
+#[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, count)))]
+pub fn trace_getrandom(
+    ctx: &mut VmCtx,
+    ptr: SboxPtr,
+    cnt: usize,
+    flags: u32,
+) -> RuntimeResult<usize> {
+    let slice = ctx.slice_mem_mut(ptr, cnt as u32);
+    let r = os_getrandom(slice, cnt, flags);
+    RuntimeError::from_syscall_ret(r)
+}
