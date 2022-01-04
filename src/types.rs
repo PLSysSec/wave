@@ -751,6 +751,7 @@ pub type Netlist = [NetEndpoint; 4];
 // Higher level protocols
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
+#[repr(C)]
 pub enum WasiProto {
     Tcp,
     Udp,
