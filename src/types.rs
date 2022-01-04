@@ -63,6 +63,8 @@ pub enum RuntimeError {
     Eexist,
     Enotempty,
     Enotsup,
+    Enotcapable,
+    Enotsock,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -84,6 +86,8 @@ impl From<RuntimeError> for u32 {
             RuntimeError::Eexist => 20,
             RuntimeError::Enotempty => 55,
             RuntimeError::Enotsup => 58,
+            RuntimeError::Enotcapable => 76,
+            RuntimeError::Enotsock => 57,
         };
         result as u32
     }
@@ -122,6 +126,7 @@ impl RuntimeError {
             libc::EIO => Self::Eio,
             libc::ENOSPC => Self::Enospc,
             libc::EACCES => Self::Eacces,
+            libc::ENOTSOCK => Self::Enotsock,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
         };
 
@@ -134,6 +139,7 @@ pub struct SyscallRet(usize);
 
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
+    pub sockinfo: Vec<RuntimeResult<WasiProto>>,
     pub reserve: Vec<SboxFd>,
     pub counter: SboxFd,
 }
@@ -149,6 +155,7 @@ pub struct VmCtx {
     pub env_buffer: Vec<u8>,
     pub envc: usize,
     pub log_path: String,
+    pub netlist: Netlist,
 }
 
 pub struct SandboxedPath(Vec<u8>);
@@ -725,4 +732,40 @@ pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
         return Ok(libc::SOCK_DGRAM);
     }
     return Err(RuntimeError::Enotsup);
+}
+
+// protocol 1 = TCP 2 = UDP
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
+#[repr(C)]
+pub struct NetEndpoint {
+    // domain: u32,
+    // ty: u32,
+    pub protocol: WasiProto,
+    pub addr: u32,
+    pub port: u32,
+}
+
+pub type Netlist = [NetEndpoint; 4];
+
+// Higher level protocols
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
+pub enum WasiProto {
+    Tcp,
+    Udp,
+    Unknown,
+}
+
+impl WasiProto {
+    // domain and type are enough to identify tcp and udp, the only protocols allowed
+    pub fn new(domain: i32, ty: i32, _family: i32) -> Self {
+        if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_STREAM {
+            WasiProto::Tcp
+        } else if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_DGRAM {
+            WasiProto::Udp
+        } else {
+            WasiProto::Unknown
+        }
+    }
 }

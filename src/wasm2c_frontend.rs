@@ -30,8 +30,6 @@ use crate::stats::stats::output_syscall_perf_results;
 
 trace::init_depth_var!();
 
-//TODO: figure out how to remove the dummy trace(logging)s
-
 /// Used for FFI. (wasm2c frontend)
 /// Initialize a vmctx with a memory that points to memptr
 /// TODO: depulicate with fresh_ctx()
@@ -46,6 +44,7 @@ fn ctx_from_memptr(
     env: *mut u8,
     envc: usize,
     log_path: *mut c_char,
+    netlist: *const Netlist,
 ) -> VmCtx {
     //env_logger::init();
     // let builder = env_logger::Builder::from_default_env()
@@ -89,6 +88,10 @@ fn ctx_from_memptr(
         }
     }
 
+    let netlist = transmut_netlist(netlist);
+
+    println!("netlist = {:?}", netlist);
+
     VmCtx {
         mem,
         memlen,
@@ -100,10 +103,10 @@ fn ctx_from_memptr(
         env_buffer,
         envc,
         log_path,
+        netlist,
     }
 }
 
-// TODO: let us pass through what the homedir is from the cmdline
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn veriwasi_init(
@@ -115,8 +118,11 @@ pub extern "C" fn veriwasi_init(
     env: *mut u8,
     envc: usize,
     log_path: *mut c_char,
+    netlist: *const Netlist,
 ) -> *mut VmCtx {
-    let ctx = ctx_from_memptr(memptr, memsize, homedir, args, argc, env, envc, log_path);
+    let ctx = ctx_from_memptr(
+        memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
+    );
     let result = Box::into_raw(Box::new(ctx));
     result
 }
@@ -771,7 +777,6 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_remove_directoryZ_iiii(
 
 #[no_mangle]
 #[trace(logging)]
-// TODO: pass through path_len
 pub extern "C" fn Z_wasi_snapshot_preview1Z_path_renameZ_iiiiiii(
     ctx: *const *mut VmCtx,
     old_fd: u32,

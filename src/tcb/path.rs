@@ -31,6 +31,30 @@ impl VmCtx {
         }
         Err(RuntimeError::Eacces)
     }
+
+    #[requires(idx < 4)]
+    #[pure]
+    #[trusted]
+    pub fn matches_netlist_entry(
+        &self,
+        protocol: WasiProto,
+        addr: u32,
+        port: u32,
+        idx: usize,
+    ) -> bool {
+        NetEndpoint {
+            protocol,
+            addr,
+            port,
+        } == self.netlist[idx]
+    }
+
+    #[requires(idx < 4)]
+    #[pure]
+    #[trusted]
+    pub fn addr_matches_netlist_entry(&self, addr: u32, port: u32, idx: usize) -> bool {
+        addr == self.netlist[idx].addr && port == self.netlist[idx].port
+    }
 }
 
 /// Convert relative path to absolute path

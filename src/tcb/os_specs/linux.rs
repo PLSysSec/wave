@@ -480,9 +480,9 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> isize {
 #[trusted]
 #[requires(dirp.capacity() >= count)]
 #[ensures(no_effect!(old(trace), trace))]
-// TODO: what effect should this have?
 // TODO: this result handling is screwed up
 //#[ensures(no_effect!(old(trace), trace))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
@@ -499,8 +499,6 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(no_effect!(old(trace), trace))]
-// TODO: finish spec
-//#[ensures(two_effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
 pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SOCKET, domain, ty, protocol) as isize };
@@ -512,9 +510,8 @@ pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
 //https://man7.org/linux/man-pages/man2/connect.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(no_effect!(old(trace), trace))]
 // TODO: finish spec
-// #[ensures(two_effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port) if ip == addr.sin_addr.s_addr as usize && port == addr.sin_port as usize))]
 pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> isize {
     let __start_ts = start_timer();
     let result =

@@ -4,8 +4,6 @@ use crate::types::*;
 use extra_args::with_ghost_var;
 use prusti_contracts::*;
 
-// TODO: should these turn err or -err ?
-
 #[with_ghost_var(trace: &mut Trace)]
 pub fn wasm2c_marshal<T>(res: RuntimeResult<T>) -> u32 {
     match res {

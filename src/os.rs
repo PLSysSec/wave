@@ -481,12 +481,11 @@ pub fn trace_poll(
     RuntimeError::from_syscall_ret(r)
 }
 
-//TODO: not sure what the spec for this is yet.
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(dirp.capacity() >= count)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 // pub fn os_getdents64(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
 //buf: &mut Vec<u8>
 pub fn trace_getdents64(
@@ -503,7 +502,6 @@ pub fn trace_getdents64(
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// TODO: finish spec
 #[ensures(no_effect!(old(trace), trace))]
 pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> RuntimeResult<usize> {
     let r = os_socket(domain, ty, protocol);
@@ -511,10 +509,11 @@ pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> Runtime
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+// #[requires(addr.sin_addr.s_addr addr.sin_port)]
+#[requires(ctx.addr_in_netlist(addr.sin_addr.s_addr, addr.sin_port as u32))]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-// TODO: finish spec
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port)))]
 pub fn trace_connect(
     ctx: &VmCtx,
     sockfd: HostFd,

@@ -25,6 +25,7 @@ impl FdMap {
     pub fn new() -> Self {
         FdMap {
             m: vec![Err(Ebadf); MAX_SBOX_FDS as usize],
+            sockinfo: vec![Err(Enotsock); MAX_SBOX_FDS as usize], // these are the host protocol domain/ty/family numbers
             reserve: Vec::new(),
             counter: 0,
         }
@@ -103,6 +104,13 @@ impl FdMap {
     pub fn create(&mut self, k: HostFd) -> RuntimeResult<SboxFd> {
         let s_fd = self.pop_fd()?;
         self.m[s_fd as usize] = Ok(k);
+        Ok(s_fd)
+    }
+
+    pub fn create_sock(&mut self, k: HostFd, proto: WasiProto) -> RuntimeResult<SboxFd> {
+        let s_fd = self.pop_fd()?;
+        self.m[s_fd as usize] = Ok(k);
+        self.sockinfo[s_fd as usize] = Ok(proto);
         Ok(s_fd)
     }
 

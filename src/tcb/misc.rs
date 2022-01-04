@@ -1,5 +1,9 @@
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::*;
 use crate::types::*;
+use extra_args::with_ghost_var;
 use prusti_contracts::*;
+use std::os::unix::io::AsRawFd;
 use std::vec::Vec;
 
 // Trusted because I can't get the verifier to understand that
@@ -91,3 +95,54 @@ pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
 pub fn push_dirent_name(out_buf: &mut Vec<u8>, buf: &Vec<u8>, start: usize, len: usize) {
     out_buf.extend_from_slice(&buf[start + 19..start + 19 + len])
 }
+
+// Trusted because I need to convince prusti that clone does not alter
+// the length of vectors
+#[trusted]
+#[ensures(result.len() == old(vec.len()))]
+pub fn clone_vec_u8(vec: &Vec<u8>) -> Vec<u8> {
+    vec.clone()
+}
+
+// TODO: should probably fail more elegantly than this
+#[trusted]
+pub fn get_homedir_fd(s: &String) -> i32 {
+    let homedir_file = std::fs::File::open(s).unwrap();
+    let homedir_fd = homedir_file.as_raw_fd();
+
+    //Need to forget file to make sure it does not get auto-closed
+    //when it gets out of scope
+    std::mem::forget(homedir_file);
+    homedir_fd
+}
+
+#[trusted]
+pub fn string_to_vec_u8(s: &String) -> Vec<u8> {
+    s.as_bytes().to_vec()
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+pub fn empty_netlist() -> Netlist {
+    let empty = NetEndpoint {
+        protocol: WasiProto::Unknown,
+        addr: 0,
+        port: 0,
+    };
+
+    [empty, empty, empty, empty]
+}
+
+// uninterpreted ghost function to attach
+// #[pure]
+// #[trusted]
+// pub fn fd_proto(fd: HostFd) -> WasiProto {
+//     unimplemented!()
+// }
+
+// #[pure]
+// #[trusted]
+// #[ensures(fd_proto(fd) == proto)]
+// pub fn tag_proto(fd: HostFd, proto: WasiProto) -> WasiProto {
+//     unimplemented!()
+// }
