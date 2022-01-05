@@ -23,7 +23,8 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_args_sizes_get_veriwasi(ctx: *
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_veriwasi(ctx: *const *mut VmCtx, x: i32) {
-    Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx, x as u32)
+    panic!("this is an exit!")
+    //Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx, x as u32)
 }
 
 #[no_mangle]
