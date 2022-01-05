@@ -18,6 +18,7 @@ mod fdmap;
 mod os;
 mod runtime;
 //#[cfg(not(feature = "verify"))]
+pub mod lucet_frontend;
 pub mod stats;
 pub mod tcb;
 mod tests;
@@ -25,7 +26,6 @@ pub mod types;
 pub mod verifier_interface;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;
-pub mod lucet_frontend;
 mod writeback;
 // #[with_ghost_var(trace: &mut Trace)]
 mod wrappers;

@@ -422,7 +422,12 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
 // Not supporting this because rights are getting removed
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(ctx: *const *mut VmCtx, a: u32, b: u64, c: u64) -> u32 {
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(
+    ctx: *const *mut VmCtx,
+    a: u32,
+    b: u64,
+    c: u64,
+) -> u32 {
     unimplemented!()
 }
 
