@@ -20,10 +20,16 @@
 
 #define LINEAR_MEM_SIZE 4294965096
 
+typedef enum WasiProto {
+  Tcp,
+  Udp,
+  Unknown,
+} WasiProto;
+
 typedef struct VmCtx VmCtx;
 
 typedef struct NetEndpoint {
-  uint32_t protocol;
+  enum WasiProto protocol;
   uint32_t addr;
   uint32_t port;
 } NetEndpoint;
@@ -37,6 +43,256 @@ typedef uint32_t SboxFd;
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+int32_t hostcall_wasi_snapshot_preview1_args_get_veriwasi(void *ctx,
+                                                          int32_t argv,
+                                                          int32_t argv_buf);
+
+int32_t hostcall_wasi_snapshot_preview1_args_sizes_get_veriwasi(void *ctx,
+                                                                int32_t pargc,
+                                                                int32_t pargv_buf_size);
+
+void hostcall_wasi_snapshot_preview1_proc_exit_veriwasi(void *ctx,
+                                                        int32_t x);
+
+int32_t hostcall_wasi_snapshot_preview1_environ_sizes_get_veriwasi(void *ctx,
+                                                                   int32_t pcount,
+                                                                   int32_t pbuf_size);
+
+int32_t hostcall_wasi_snapshot_preview1_environ_get_veriwasi(void *ctx,
+                                                             int32_t __environ,
+                                                             int32_t environ_buf);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_prestat_get_veriwasi(void *ctx,
+                                                                int32_t fd,
+                                                                int32_t prestat);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_write_veriwasi(void *ctx,
+                                                          int32_t fd,
+                                                          int32_t iov,
+                                                          int32_t iovcnt,
+                                                          int32_t pnum);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_read_veriwasi(void *ctx,
+                                                         int32_t fd,
+                                                         int32_t iov,
+                                                         int32_t iovcnt,
+                                                         int32_t pnum);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_close_veriwasi(void *ctx,
+                                                          int32_t fd);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_seek_veriwasi(void *ctx,
+                                                         int32_t fd,
+                                                         int64_t offset,
+                                                         int32_t whence,
+                                                         int32_t new_offset);
+
+int32_t hostcall_wasi_snapshot_preview1_clock_time_get_veriwasi(void *ctx,
+                                                                int32_t clock_id,
+                                                                int64_t precision,
+                                                                int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_clock_res_get_veriwasi(void *ctx,
+                                                               int32_t clock_id,
+                                                               int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_advise_veriwasi(void *ctx,
+                                                           int32_t v_fd,
+                                                           int64_t offset,
+                                                           int64_t len,
+                                                           int32_t advice);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_allocate_veriwasi(void *ctx,
+                                                             int32_t v_fd,
+                                                             int64_t offset,
+                                                             int64_t len);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_datasync_veriwasi(void *ctx,
+                                                             int32_t v_fd);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_fdstat_get_veriwasi(void *ctx,
+                                                               int32_t v_fd,
+                                                               int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_fdstat_set_flags_veriwasi(void *ctx,
+                                                                     int32_t v_fd,
+                                                                     int32_t flags);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_fdstat_set_rights_veriwasi(void *ctx,
+                                                                      int32_t a,
+                                                                      int64_t b,
+                                                                      int64_t c);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_filestat_get_veriwasi(void *ctx,
+                                                                 int32_t v_fd,
+                                                                 int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_filestat_set_size_veriwasi(void *ctx,
+                                                                      int32_t v_fd,
+                                                                      int64_t size);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_filestat_set_times_veriwasi(void *ctx,
+                                                                       int32_t v_fd,
+                                                                       int64_t atim,
+                                                                       int64_t mtim,
+                                                                       int32_t fst_flags);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_pread_veriwasi(void *ctx,
+                                                          int32_t fd,
+                                                          int32_t iovs,
+                                                          int32_t iov_len,
+                                                          int64_t offset,
+                                                          int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_prestat_dir_name_veriwasi(void *ctx,
+                                                                     int32_t fd,
+                                                                     int32_t path,
+                                                                     int32_t path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_pwrite_veriwasi(void *ctx,
+                                                           int32_t fd,
+                                                           int32_t iovs,
+                                                           int32_t iov_len,
+                                                           int64_t offset,
+                                                           int32_t retptr);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_readdir_veriwasi(void *ctx,
+                                                            int32_t fd,
+                                                            int32_t buf,
+                                                            int32_t buf_len,
+                                                            int64_t cookie,
+                                                            int32_t retptr);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_renumber_veriwasi(void *ctx,
+                                                             int32_t from,
+                                                             int32_t to);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_sync_veriwasi(void *ctx,
+                                                         int32_t fd);
+
+int32_t hostcall_wasi_snapshot_preview1_fd_tell_veriwasi(void *ctx,
+                                                         int32_t fd,
+                                                         int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_path_create_directory_veriwasi(void *ctx,
+                                                                       int32_t fd,
+                                                                       int32_t pathname,
+                                                                       int32_t path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_path_filestat_get_veriwasi(void *ctx,
+                                                                   int32_t fd,
+                                                                   int32_t flags,
+                                                                   int32_t path,
+                                                                   int32_t path_len,
+                                                                   int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_path_filestat_set_times_veriwasi(void *ctx,
+                                                                         int32_t fd,
+                                                                         int32_t flags,
+                                                                         int32_t path,
+                                                                         int32_t path_len,
+                                                                         int64_t atim,
+                                                                         int64_t mtim,
+                                                                         int32_t fst_flags);
+
+int32_t hostcall_wasi_snapshot_preview1_path_link_veriwasi(void *ctx,
+                                                           int32_t old_fd,
+                                                           int32_t old_flags,
+                                                           int32_t old_path,
+                                                           int32_t old_path_len,
+                                                           int32_t new_fd,
+                                                           int32_t new_path,
+                                                           int32_t new_path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_path_open_veriwasi(void *ctx,
+                                                           int32_t fd,
+                                                           int32_t dirflags,
+                                                           int32_t path,
+                                                           int32_t path_len,
+                                                           int32_t oflags,
+                                                           int64_t fs_rights_base,
+                                                           int64_t _fs_rights_inheriting,
+                                                           int32_t fdflags,
+                                                           int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_path_readlink_veriwasi(void *ctx,
+                                                               int32_t fd,
+                                                               int32_t path,
+                                                               int32_t path_len,
+                                                               int32_t buf,
+                                                               int32_t buf_len,
+                                                               int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_path_remove_directory_veriwasi(void *ctx,
+                                                                       int32_t fd,
+                                                                       int32_t path,
+                                                                       int32_t path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_path_rename_veriwasi(void *ctx,
+                                                             int32_t old_fd,
+                                                             int32_t old_path,
+                                                             int32_t old_path_len,
+                                                             int32_t new_fd,
+                                                             int32_t new_path,
+                                                             int32_t new_path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_path_symlink_veriwasi(void *ctx,
+                                                              int32_t old_path,
+                                                              int32_t old_path_len,
+                                                              int32_t fd,
+                                                              int32_t path,
+                                                              int32_t path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_path_unlink_file_veriwasi(void *ctx,
+                                                                  int32_t fd,
+                                                                  int32_t path,
+                                                                  int32_t path_len);
+
+int32_t hostcall_wasi_snapshot_preview1_poll_oneoff_veriwasi(void *ctx,
+                                                             int32_t in_ptr,
+                                                             int32_t out_ptr,
+                                                             int32_t nsubscriptions,
+                                                             int32_t retptr);
+
+int32_t hostcall_wasi_snapshot_preview1_proc_raise_veriwasi(void *ctx,
+                                                            int32_t signal);
+
+int32_t hostcall_wasi_snapshot_preview1_random_get_veriwasi(void *ctx,
+                                                            int32_t buf,
+                                                            int32_t buf_len);
+
+int32_t hostcall_wasi_snapshot_preview1_sched_yield_veriwasi(void *ctx);
+
+int32_t hostcall_wasi_snapshot_preview1_sock_recv_veriwasi(void *ctx,
+                                                           int32_t fd,
+                                                           int32_t ri_data,
+                                                           int32_t ri_data_count,
+                                                           int32_t ri_flags,
+                                                           int32_t out0,
+                                                           int32_t out1);
+
+int32_t hostcall_wasi_snapshot_preview1_sock_send_veriwasi(void *ctx,
+                                                           int32_t fd,
+                                                           int32_t si_data,
+                                                           int32_t si_data_count,
+                                                           int32_t si_flags,
+                                                           int32_t out);
+
+int32_t hostcall_wasi_snapshot_preview1_sock_shutdown_veriwasi(void *ctx,
+                                                               int32_t fd,
+                                                               int32_t how);
+
+int32_t hostcall_wasi_snapshot_preview1_socket_veriwasi(void *ctx,
+                                                        int32_t domain,
+                                                        int32_t ty,
+                                                        int32_t protocol,
+                                                        int32_t retptr);
+
+int32_t hostcall_wasi_snapshot_preview1_sock_connect_veriwasi(void *ctx,
+                                                              int32_t sockfd,
+                                                              int32_t addr,
+                                                              int32_t addrlen);
 
 struct VmCtx *veriwasi_init(uint8_t *memptr,
                             intptr_t memsize,
@@ -124,6 +380,11 @@ uint32_t Z_wasi_snapshot_preview1Z_fd_fdstat_getZ_iii(void *ctx,
 uint32_t Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(void *ctx,
                                                             uint32_t v_fd,
                                                             uint32_t flags);
+
+uint32_t _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(void *ctx,
+                                                               uint32_t a,
+                                                               uint64_t b,
+                                                               uint64_t c);
 
 uint32_t Z_wasi_snapshot_preview1Z_fd_filestat_getZ_iii(void *ctx,
                                                         uint32_t v_fd,
