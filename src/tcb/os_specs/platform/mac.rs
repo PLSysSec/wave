@@ -8,7 +8,7 @@ use prusti_contracts::*;
 use syscall::syscall;
 
 use security_framework_sys::random::{SecRandomCopyBytes, kSecRandomDefault};
-use mach2::mach_time::{mach_wait_until, mach_timebase_info, mach_timebase_info_data_t};
+use mach2::mach_time::{mach_wait_until, mach_timebase_info, mach_timebase_info_t, mach_timebase_info_data_t};
 
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
@@ -197,7 +197,7 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     // May also just read from /dev/random, but then its subject to File Descriptor exhaustion.
 
     // TODO: handle return value
-    unsafe { SecRandomCopyBytes(kSecRandomDefault, cnt, bytes.as_mut_ptr()) }
+    unsafe { SecRandomCopyBytes(kSecRandomDefault, cnt, buf.as_mut_ptr()) }
     0
 }
 

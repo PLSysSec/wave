@@ -27,7 +27,7 @@ quickcheck_macros = "1.0.0"
 # Used for computing stats on benchmarks
 statistical = "1.0.0"
 
-[target.'cfg(macos)'.dependencies]
+[target.'cfg(target_os = "macos")'.dependencies]
 mach2 = "0.4.0"
 security-framework-sys = "2.4.2"
 

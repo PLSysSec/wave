@@ -45,7 +45,7 @@ pub fn trace_futimes(
     timevals[0].tv_usec = specs[0].tv_nsec / 1000;
     timevals[1].tv_sec = specs[1].tv_sec;
     timevals[1].tv_usec = specs[1].tv_nsec / 1000;
-    let r = os_futimens(os_fd, timevals);
+    let r = os_futimes(os_fd, timevals);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -208,7 +208,7 @@ pub fn trace_nanosleep(
     // TODO: handle errors
     os_timebase_info(&mut timebase_info);
     // TODO: do we need to worry about overflow?
-    let mach_ticks = (nanos * numer) * denom;
+    let mach_ticks = (nanos * timebase_info.numer) * timebase_info.denom;
     // TODO: handle errors
     os_wait_until(mach_ticks);
     Ok(())
