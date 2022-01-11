@@ -33,7 +33,7 @@ pub fn trace_advise(
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
-pub fn trace_futimes(
+pub fn trace_futimens(
     ctx: &VmCtx,
     fd: HostFd,
     specs: &Vec<libc::timespec>,
@@ -42,10 +42,10 @@ pub fn trace_futimes(
     let mut timevals: Vec<libc::timeval> = Vec::new();
     timevals.reserve_exact(2);
     timevals[0].tv_sec = specs[0].tv_sec;
-    timevals[0].tv_usec = specs[0].tv_nsec / 1000;
+    timevals[0].tv_usec = (specs[0].tv_nsec / 1000) as i32;
     timevals[1].tv_sec = specs[1].tv_sec;
-    timevals[1].tv_usec = specs[1].tv_nsec / 1000;
-    let r = os_futimes(os_fd, timevals);
+    timevals[1].tv_usec = (specs[1].tv_nsec / 1000) as i32;
+    let r = os_futimes(os_fd, &timevals);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -70,12 +70,12 @@ pub fn trace_utimensat(
     let mut timevals: Vec<libc::timeval> = Vec::new();
     timevals.reserve_exact(2);
     timevals[0].tv_sec = specs[0].tv_sec;
-    timevals[0].tv_usec = specs[0].tv_nsec / 1000;
+    timevals[0].tv_usec = (specs[0].tv_nsec / 1000) as i32;
     timevals[1].tv_sec = specs[1].tv_sec;
-    timevals[1].tv_usec = specs[1].tv_nsec / 1000;
+    timevals[1].tv_usec = (specs[1].tv_nsec / 1000) as i32;
     // TODO: handle error
     let r = os_fchdir(os_fd);
-    let result = os_utimes(os_path, timevals);
+    let result = os_utimes(os_path, &timevals);
     // TODO: handle error
     // go back to homedir fd
     //let r = os_fchdir(fd);
@@ -208,8 +208,8 @@ pub fn trace_nanosleep(
     // TODO: handle errors
     os_timebase_info(&mut timebase_info);
     // TODO: do we need to worry about overflow?
-    let mach_ticks = (nanos * timebase_info.numer) * timebase_info.denom;
-    // TODO: handle errors
-    os_wait_until(mach_ticks);
-    Ok(())
+    let mach_ticks = (nanos * timebase_info.numer) * timebase_info.denom as i64;
+    // TODO: handle errors and type cast
+    os_wait_until(mach_ticks as u64);
+    Ok(0)
 }

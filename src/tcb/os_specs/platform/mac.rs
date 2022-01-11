@@ -197,7 +197,7 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     // May also just read from /dev/random, but then its subject to File Descriptor exhaustion.
 
     // TODO: handle return value
-    unsafe { SecRandomCopyBytes(kSecRandomDefault, cnt, buf.as_mut_ptr()) }
+    unsafe { SecRandomCopyBytes(kSecRandomDefault, cnt, buf.as_mut_ptr() as *mut c_void); }
     0
 }
 
