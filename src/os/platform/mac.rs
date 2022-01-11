@@ -79,7 +79,7 @@ pub fn trace_utimensat(
     // TODO: handle error
     // go back to homedir fd
     //let r = os_fchdir(fd);
-    result
+    RuntimeError::from_syscall_ret(r)
 }
 
 // Inspired from https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
@@ -208,7 +208,7 @@ pub fn trace_nanosleep(
     // TODO: handle errors
     os_timebase_info(&mut timebase_info);
     // TODO: do we need to worry about overflow?
-    let mach_ticks = (nanos * timebase_info.numer) * timebase_info.denom as i64;
+    let mach_ticks = (nanos * timebase_info.numer as i64) * timebase_info.denom as i64;
     // TODO: handle errors and type cast
     os_wait_until(mach_ticks as u64);
     Ok(0)

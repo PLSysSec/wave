@@ -6,6 +6,7 @@ use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effe
 use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use syscall::syscall;
+use core::ffi::c_void;
 
 use security_framework_sys::random::{SecRandomCopyBytes, kSecRandomDefault};
 use mach2::mach_time::{mach_wait_until, mach_timebase_info, mach_timebase_info_t, mach_timebase_info_data_t};
