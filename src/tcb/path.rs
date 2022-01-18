@@ -46,7 +46,14 @@ impl VmCtx {
             protocol,
             addr,
             port,
-        } == self.netlist[0]
+        } == self.netlist[idx]
+    }
+
+    #[requires(idx < 4)]
+    #[pure]
+    #[trusted]
+    pub fn addr_matches_netlist_entry(&self, addr: u32, port: u32, idx: usize) -> bool {
+        addr == self.netlist[idx].addr && port == self.netlist[idx].port
     }
 }
 

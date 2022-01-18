@@ -192,12 +192,6 @@ impl VmCtx {
 
     #[pure]
     pub fn in_netlist(&self, proto: WasiProto, addr: u32, port: u32) -> bool {
-        // let target = NetEndpoint {
-        //     protocol,
-        //     addr,
-        //     port,
-        // };
-
         if self.matches_netlist_entry(proto, addr, port, 0) {
             return true;
         }
@@ -212,5 +206,131 @@ impl VmCtx {
         }
 
         return false;
+    }
+
+    #[pure]
+    pub fn addr_in_netlist(&self, addr: u32, port: u32) -> bool {
+        if self.addr_matches_netlist_entry(addr, port, 0) {
+            return true;
+        }
+        if self.addr_matches_netlist_entry(addr, port, 1) {
+            return true;
+        }
+        if self.addr_matches_netlist_entry(addr, port, 2) {
+            return true;
+        }
+        if self.addr_matches_netlist_entry(addr, port, 3) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// read u16 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(from_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
+    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 2) if addr == start as usize))]
+    // #[trusted]
+    pub fn read_u16(&self, start: usize) -> u16 {
+        let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
+        u16::from_le_bytes(bytes)
+    }
+
+    /// read u32 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(from_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
+    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 4) if addr == start as usize))]
+    // #[trusted]
+    pub fn read_u32(&self, start: usize) -> u32 {
+        let bytes: [u8; 4] = [
+            self.mem[start],
+            self.mem[start + 1],
+            self.mem[start + 2],
+            self.mem[start + 3],
+        ];
+        u32::from_le_bytes(bytes)
+    }
+
+    /// read u64 from wasm linear memory
+    // Not thrilled about this implementation, but it works
+    // TODO: need to test different implementatiosn for this function
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(from_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
+    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 8) if addr == start as usize))]
+    // #[trusted]
+    pub fn read_u64(&self, start: usize) -> u64 {
+        let bytes: [u8; 8] = [
+            self.mem[start],
+            self.mem[start + 1],
+            self.mem[start + 2],
+            self.mem[start + 3],
+            self.mem[start + 4],
+            self.mem[start + 5],
+            self.mem[start + 6],
+            self.mem[start + 7],
+        ];
+        u64::from_le_bytes(bytes)
+    }
+
+    /// write u16 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_methods(to_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
+    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
+    // #[trusted]
+    pub fn write_u16(&mut self, start: usize, v: u16) {
+        let bytes: [u8; 2] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+    }
+
+    /// write u32 to wasm linear memory
+    // Not thrilled about this implementation, but it works
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_methods(to_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
+    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
+    // #[trusted]
+    pub fn write_u32(&mut self, start: usize, v: u32) {
+        let bytes: [u8; 4] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+        self.mem[start + 2] = bytes[2];
+        self.mem[start + 3] = bytes[3];
+    }
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_methods(to_le_bytes)]
+    #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
+    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
+    // #[trusted]
+    pub fn write_u64(&mut self, start: usize, v: u64) {
+        let bytes: [u8; 8] = v.to_le_bytes();
+        self.mem[start] = bytes[0];
+        self.mem[start + 1] = bytes[1];
+        self.mem[start + 2] = bytes[2];
+        self.mem[start + 3] = bytes[3];
+        self.mem[start + 4] = bytes[4];
+        self.mem[start + 5] = bytes[5];
+        self.mem[start + 6] = bytes[6];
+        self.mem[start + 7] = bytes[7];
     }
 }

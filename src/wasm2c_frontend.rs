@@ -47,9 +47,9 @@ fn ctx_from_memptr(
     netlist: *const Netlist,
 ) -> VmCtx {
     //env_logger::init();
-    let builder = env_logger::Builder::from_default_env()
-        .format_timestamp_nanos()
-        .init();
+    // let builder = env_logger::Builder::from_default_env()
+    //     .format_timestamp_nanos()
+    //     .init();
 
     // println!(
     //     "homedir = {:?} args = {:?} env = {:?} log_path = {:?}",
@@ -420,11 +420,16 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_fdstat_set_flagsZ_iii(
 }
 
 // Not supporting this because rights are getting removed
-// #[no_mangle]
-// #[trace(logging)]
-// pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(ctx: *const *mut VmCtx, a: u32, b: u64, c: u64) -> u32 {
-//     unimplemented!()
-// }
+#[no_mangle]
+#[trace(logging)]
+pub extern "C" fn _Z_wasi_snapshot_preview1Z_fd_fdstat_set_rightsZ_iijj(
+    ctx: *const *mut VmCtx,
+    a: u32,
+    b: u64,
+    c: u64,
+) -> u32 {
+    unimplemented!()
+}
 
 #[no_mangle]
 #[trace(logging)]

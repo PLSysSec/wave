@@ -17,12 +17,14 @@ use syscall::syscall;
 mod platform;
 pub use platform::*;
 
+//https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
 pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags) as isize };
+    // all created files should be rdwr
+    let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags, 0o666) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("openat", __start_ts, __end_ts);
     result
@@ -316,6 +318,27 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> isize {
     result
 }
 
+//https://man7.org/linux/man-pages/man2/getdents64.2.html
+//  long syscall(SYS_getdents, unsigned int fd, struct linux_dirent *dirp, unsigned int count);
+#[with_ghost_var(trace: &mut Trace)]
+#[external_method(set_len)]
+#[trusted]
+#[requires(dirp.capacity() >= count)]
+#[ensures(no_effect!(old(trace), trace))]
+// TODO: this result handling is screwed up
+//#[ensures(no_effect!(old(trace), trace))]
+#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
+pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe {
+        let result = syscall!(GETDENTS64, fd, dirp.as_mut_ptr(), count);
+        dirp.set_len(result);
+        result as isize
+    };
+    let __end_ts = stop_timer();
+    push_syscall_result("getdents64", __start_ts, __end_ts);
+    result
+}
 
 //https://man7.org/linux/man-pages/man2/socket.2.html
 #[with_ghost_var(trace: &mut Trace)]

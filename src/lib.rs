@@ -18,10 +18,11 @@ mod fdmap;
 mod os;
 mod runtime;
 //#[cfg(not(feature = "verify"))]
+pub mod lucet_frontend;
 pub mod stats;
 pub mod tcb;
 mod tests;
-mod types;
+pub mod types;
 pub mod verifier_interface;
 #[cfg(not(feature = "verify"))]
 pub mod wasm2c_frontend;

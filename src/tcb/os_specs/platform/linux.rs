@@ -172,25 +172,3 @@ pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> isize {
     push_syscall_result("nanosleep", __start_ts, __end_ts);
     result
 }
-
-//https://man7.org/linux/man-pages/man2/getdents64.2.html
-//  long syscall(SYS_getdents, unsigned int fd, struct linux_dirent *dirp, unsigned int count);
-#[with_ghost_var(trace: &mut Trace)]
-#[external_method(set_len)]
-#[trusted]
-#[requires(dirp.capacity() >= count)]
-#[ensures(no_effect!(old(trace), trace))]
-// TODO: this result handling is screwed up
-//#[ensures(no_effect!(old(trace), trace))]
-#[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe {
-        let result = syscall!(GETDENTS64, fd, dirp.as_mut_ptr(), count);
-        dirp.set_len(result);
-        result as isize
-    };
-    let __end_ts = stop_timer();
-    push_syscall_result("getdents64", __start_ts, __end_ts);
-    result
-}

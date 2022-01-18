@@ -410,6 +410,7 @@ pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> Runtime
 
 #[with_ghost_var(trace: &mut Trace)]
 // #[requires(addr.sin_addr.s_addr addr.sin_port)]
+#[requires(ctx.addr_in_netlist(addr.sin_addr.s_addr, addr.sin_port as u32))]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port)))]

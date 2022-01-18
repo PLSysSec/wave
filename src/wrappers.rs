@@ -1432,7 +1432,7 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(sock_domain_to_posix, from)]
-#[external_methods(in_netlist)]
+#[external_methods(addr_in_netlist)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 pub fn wasi_sock_connect(
@@ -1477,7 +1477,7 @@ pub fn wasi_sock_connect(
         return Err(Enotcapable);
     }
     //fd_proto(fd, protocol);// TODO: do this better?
-    if !ctx.in_netlist(protocol, sin_addr_in, sin_port.into()) {
+    if !ctx.addr_in_netlist(sin_addr_in, sin_port as u32) {
         return Err(Enotcapable);
     }
 
