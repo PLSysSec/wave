@@ -46,10 +46,12 @@ verify-debug:
 # Generate C/Cpp bindings for veriwasi
 # wasm2c expects to pass a void pointer instead of a VmCtx pointer 
 # (which cbindgen generates), so I just use a sed command to replace it :)
+# Need to do temporary file with sed because Mac doesn't support -i flag
 bindings:
 	mkdir -p bindings
-	cbindgen --config cbindgen.toml --crate veriwasi --lang c --output bindings/veriwasi.h
-	sed -i 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/veriwasi.h
+	cbindgen --config cbindgen.toml --crate veriwasi --lang c --output bindings/veriwasi_tmp.h
+	sed 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/veriwasi_tmp.h > bindings/veriwasi.h
+	rm bindings/veriwasi_tmp.h
 
 wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build
