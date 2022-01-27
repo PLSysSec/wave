@@ -17,7 +17,7 @@ extern crate prusti_contracts;
 mod fdmap;
 mod os;
 mod runtime;
-//#[cfg(not(feature = "verify"))]
+#[cfg(not(feature = "verify"))]
 pub mod lucet_frontend;
 pub mod stats;
 pub mod tcb;

@@ -46,15 +46,7 @@ fn ctx_from_memptr(
     log_path: *mut c_char,
     netlist: *const Netlist,
 ) -> VmCtx {
-    //env_logger::init();
-    // let builder = env_logger::Builder::from_default_env()
-    //     .format_timestamp_nanos()
-    //     .init();
 
-    // println!(
-    //     "homedir = {:?} args = {:?} env = {:?} log_path = {:?}",
-    //     homedir, args, env, log_path
-    // );
     let memlen = LINEAR_MEM_SIZE;
     let mem = ffi_load_vec(memptr, memlen);
     let mut fdmap = FdMap::new();
@@ -90,7 +82,7 @@ fn ctx_from_memptr(
 
     let netlist = transmut_netlist(netlist);
 
-    println!("netlist = {:?}", netlist);
+    println!("fdmap = {:?}, homedir = {:?}, arg_buffer = {:?}, argc = {:?}, env_buffer = {:?}, envc = {:?}", fdmap, homedir, arg_buffer, argc, env_buffer, envc);
 
     VmCtx {
         mem,
