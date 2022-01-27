@@ -151,7 +151,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 // #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> one_effect!(old(trace), trace, Effect::FdAccess))]
 // #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
-pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u64> {
     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
 
     if v_fd >= MAX_SBOX_FDS {
@@ -160,14 +160,14 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
 
     let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_seek(ctx, fd, v_filedelta, whence.into())?;
-    Ok(ret as u32)
+    Ok(ret as u64)
 }
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
-pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
 
@@ -356,31 +356,52 @@ pub fn wasi_fd_filestat_set_times(
 
     let mut specs: Vec<libc::timespec> = Vec::new();
     specs.reserve_exact(2);
-    let atim_nsec = if fst_flags.atim() {
-        atim.nsec() as i64
+
+    let atim_spec = if fst_flags.atim() {
+        libc::timespec::from(atim)
     } else {
-        if fst_flags.atim_now() {
+        let atim_nsec = if fst_flags.atim_now() {
             libc::UTIME_NOW
         } else {
             libc::UTIME_OMIT
+        };
+        libc::timespec {
+            tv_sec: 0,
+            tv_nsec: atim_nsec,
         }
     };
-    let atim_spec = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: atim_nsec,
+    // let atim_spec = libc::timespec {
+    //     tv_sec: 0,
+    //     tv_nsec: atim_nsec,
+    // };
+    // let atime_spec = libc::timespec::from(atim);
+
+
+    let mtim_spec = if fst_flags.mtim() {
+        libc::timespec::from(mtim)
+    } else {
+        let mtim_nsec = if fst_flags.mtim_now() {
+            libc::UTIME_NOW
+        } else {
+            libc::UTIME_OMIT
+        };
+        libc::timespec {
+            tv_sec: 0,
+            tv_nsec: mtim_nsec,
+        }
     };
 
-    let mtim_nsec = if fst_flags.mtim() {
-        mtim.nsec() as i64
-    } else if fst_flags.mtim_now() {
-        libc::UTIME_NOW
-    } else {
-        libc::UTIME_OMIT
-    };
-    let mtim_spec = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: mtim_nsec,
-    };
+    // let mtim_nsec = if fst_flags.mtim() {
+    //     mtim.nsec() as i64
+    // } else if fst_flags.mtim_now() {
+    //     libc::UTIME_NOW
+    // } else {
+    //     libc::UTIME_OMIT
+    // };
+    // let mtim_spec = libc::timespec {
+    //     tv_sec: 0,
+    //     tv_nsec: mtim_nsec,
+    // };
 
     specs.push(atim_spec);
     specs.push(mtim_spec);
@@ -530,8 +551,8 @@ pub fn wasi_path_create_directory(
     let fd = ctx.fdmap.m[v_fd as usize]?;
     // TODO: wasi doesn't seem so specify what permissions should be?
     //       I will use rw------- cause it seems sane.
-    let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
-    let res = trace_mkdirat(ctx, fd, host_pathname, mode)?;
+    //let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
+    let res = trace_mkdirat(ctx, fd, host_pathname, 0o766)?;
     Ok(())
 }
 
@@ -1359,7 +1380,7 @@ pub fn wasi_fd_readdir(
         let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
 
         // If we would overflow - don't :)
-        if d_reclen < 19 || (in_idx + d_reclen as usize) >= host_buf.len() {
+        if d_reclen < 19 || (in_idx + d_reclen as usize) > host_buf.len() {
             break;
         }
 
