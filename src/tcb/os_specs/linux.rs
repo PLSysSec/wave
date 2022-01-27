@@ -16,7 +16,7 @@ use syscall::syscall;
 #[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
 pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags) as isize };
+    let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags, 0o666) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("openat", __start_ts, __end_ts);
     result
