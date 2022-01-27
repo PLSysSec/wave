@@ -288,7 +288,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(
     let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_seek(ctx_ref, fd, offset as i64, whence);
-    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, new_offset as usize, r);
+    let retval = wasm2c_marshal_and_writeback_u64(ctx_ref, new_offset as usize, r);
     let end = stop_timer();
     push_hostcall_result("fd_seek", start, end);
     retval
@@ -593,7 +593,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_tellZ_iii(
     let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
     let r = wasi_fd_tell(ctx_ref, fd);
-    let retval = wasm2c_marshal_and_writeback_u32(ctx_ref, out as usize, r);
+    let retval = wasm2c_marshal_and_writeback_u64(ctx_ref, out as usize, r);
     let end = stop_timer();
     push_hostcall_result("fd_tell", start, end);
     retval
