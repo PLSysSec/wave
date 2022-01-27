@@ -137,6 +137,7 @@ impl RuntimeError {
 #[repr(transparent)]
 pub struct SyscallRet(usize);
 
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
     pub sockinfo: Vec<RuntimeResult<WasiProto>>,

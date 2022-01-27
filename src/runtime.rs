@@ -41,33 +41,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     let argc = 0;
     let env_buffer = Vec::new();
     let envc = 0;
-    // let empty = NetEndpoint {
-    //     protocol: WasiProto::Unknown,
-    //     addr: 0,
-    //     port: 0,
-    // };
-    // let netlist = [
-    //     NetEndpoint {
-    //         protocol: 0,
-    //         addr: 0,
-    //         port: 0,
-    //     },
-    //     NetEndpoint {
-    //         protocol: 0,
-    //         addr: 0,
-    //         port: 0,
-    //     },
-    //     NetEndpoint {
-    //         protocol: 0,
-    //         addr: 0,
-    //         port: 0,
-    //     },
-    //     NetEndpoint {
-    //         protocol: 0,
-    //         addr: 0,
-    //         port: 0,
-    //     },
-    // ];
+
     let netlist = empty_netlist();
     VmCtx {
         mem,
