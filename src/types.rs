@@ -65,12 +65,15 @@ pub enum RuntimeError {
     Enotsup,
     Enotcapable,
     Enotsock,
+    Enotdir,
+    Eloop,
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
 // Apparently wasi errors are not actually the same numbers as posix errors :(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
+// WASI constants: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-bottom-half/headers/public/wasi/api.h#L117-L497
 impl From<RuntimeError> for u32 {
     fn from(item: RuntimeError) -> Self {
         let result = match item {
@@ -88,6 +91,8 @@ impl From<RuntimeError> for u32 {
             RuntimeError::Enotsup => 58,
             RuntimeError::Enotcapable => 76,
             RuntimeError::Enotsock => 57,
+            RuntimeError::Enotdir => 54,
+            RuntimeError::Eloop => 32,
         };
         result as u32
     }
@@ -112,7 +117,7 @@ impl RuntimeError {
         }
 
         // We support no syscalls that return negative values, so something has gone wronge
-        if ret <= 4096 {
+        if ret <= -4096 {
             return Err(Self::Einval);
         }
 
@@ -127,6 +132,10 @@ impl RuntimeError {
             libc::ENOSPC => Self::Enospc,
             libc::EACCES => Self::Eacces,
             libc::ENOTSOCK => Self::Enotsock,
+            libc::ENOTDIR => Self::Enotdir,
+            libc::ELOOP => Self::Eloop,
+            libc::EEXIST => Self::Eexist,
+            libc::ENOTEMPTY => Self::Enotempty,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
         };
 
@@ -137,6 +146,7 @@ impl RuntimeError {
 #[repr(transparent)]
 pub struct SyscallRet(usize);
 
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
     pub sockinfo: Vec<RuntimeResult<WasiProto>>,
@@ -158,6 +168,7 @@ pub struct VmCtx {
     pub netlist: Netlist,
 }
 
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct SandboxedPath(Vec<u8>);
 impl From<SandboxedPath> for Vec<u8> {
     fn from(w: SandboxedPath) -> Vec<u8> {
