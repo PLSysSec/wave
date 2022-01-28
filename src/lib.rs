@@ -15,10 +15,10 @@ extern crate prusti_contracts;
 //use extra_args::dummy_macro as trusted;
 
 mod fdmap;
-mod os;
-mod runtime;
 #[cfg(not(feature = "verify"))]
 pub mod lucet_frontend;
+mod os;
+mod runtime;
 pub mod stats;
 pub mod tcb;
 mod tests;

@@ -326,6 +326,7 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+#[external_calls(from)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
 #[external_methods(reserve_exact, push)] // Vec methods
 #[requires(trace_safe(trace, ctx.memlen) && ctx_safe(ctx))]
@@ -375,7 +376,6 @@ pub fn wasi_fd_filestat_set_times(
     //     tv_nsec: atim_nsec,
     // };
     // let atime_spec = libc::timespec::from(atim);
-
 
     let mtim_spec = if fst_flags.mtim() {
         libc::timespec::from(mtim)

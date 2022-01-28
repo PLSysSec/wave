@@ -3,44 +3,34 @@ use crate::types::*;
 use crate::wasm2c_frontend::*;
 use crate::wrappers::*;
 use crate::writeback::*;
+use std::panic;
 use trace::trace;
 use RuntimeError::*;
-use std::panic;
 
 trace::init_depth_var!();
 
 // Helpers for building initial VmCtx
 // Intended to make lucet integration cleaner
 
-pub fn redirect_stdout(
-    ctx: &mut VmCtx,
-    new_stdout: i32,
-) -> () {
+pub fn redirect_stdout(ctx: &mut VmCtx, new_stdout: i32) -> () {
     ctx.fdmap.m[1] = Ok((new_stdout as usize).into())
 }
 
-pub fn add_arg(
-    ctx: &mut VmCtx,
-    arg: String,
-) -> () {
+pub fn add_arg(ctx: &mut VmCtx, arg: String) -> () {
     if ctx.argc != 0 {
         ctx.arg_buffer.push(0);
-    }    
+    }
     ctx.argc += 1;
     ctx.arg_buffer.extend(arg.into_bytes());
 }
 
-pub fn add_env_var(
-    ctx: &mut VmCtx,
-    env_var: String,
-) -> () {
+pub fn add_env_var(ctx: &mut VmCtx, env_var: String) -> () {
     if ctx.envc != 0 {
         ctx.env_buffer.push(0);
-    }    
+    }
     ctx.envc += 1;
     ctx.env_buffer.extend(env_var.into_bytes());
 }
-
 
 #[no_mangle]
 #[trace(logging)]
@@ -62,7 +52,6 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_args_sizes_get_veriwasi(
     Z_wasi_snapshot_preview1Z_args_sizes_getZ_iii(ctx, pargc as u32, pargv_buf_size as u32) as i32
 }
 
-
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_veriwasi(
@@ -74,7 +63,6 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_veriwasi(
     //panic::resume_unwind(Box::new("this is an exit!"))
     //Z_wasi_snapshot_preview1Z_proc_exitZ_vi(ctx, x as u32)
 }
-
 
 #[no_mangle]
 #[trace(logging)]

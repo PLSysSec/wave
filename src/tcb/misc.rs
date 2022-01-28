@@ -81,7 +81,7 @@ pub fn fresh_stat() -> libc::stat {
 
 #[trusted]
 #[requires(len >= 19)]
-#[requires(buf.len() > start + len)]
+#[requires(buf.len() >= start + len)]
 #[ensures(result < old(len))]
 pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
     buf[start + 19..start + len]

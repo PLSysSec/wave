@@ -46,7 +46,6 @@ fn ctx_from_memptr(
     log_path: *mut c_char,
     netlist: *const Netlist,
 ) -> VmCtx {
-
     let memlen = LINEAR_MEM_SIZE;
     let mem = ffi_load_vec(memptr, memlen);
     let mut fdmap = FdMap::new();
