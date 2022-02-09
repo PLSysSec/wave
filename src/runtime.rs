@@ -61,14 +61,14 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
     // TODO: can I eliminate this in favor os in_lin_mem_usize?
-    #[with_ghost_var(trace: &mut Trace)]
+    #[with_ghost_var(trace: &Trace)]
     #[pure]
     #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
         (ptr as usize) < self.memlen
     }
 
-    #[with_ghost_var(trace: &mut Trace)]
+    #[with_ghost_var(trace: &Trace)]
     #[pure]
     #[ensures((result == true) ==> ptr < self.memlen)]
     pub fn in_lin_mem_usize(&self, ptr: usize) -> bool {
@@ -78,7 +78,7 @@ impl VmCtx {
     /// Check whether buffer is entirely within sandbox
     // Can I eliminate this in favor of fits_in_lin_mem_usize
     #[pure]
-    #[with_ghost_var(trace: &mut Trace)]
+    #[with_ghost_var(trace: &Trace)]
     #[ensures(result == true ==> (buf as usize) < self.memlen && (buf <= buf + cnt) && (cnt as usize) < self.memlen)]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         let total_size = (buf as usize) + (cnt as usize);
@@ -89,7 +89,7 @@ impl VmCtx {
     }
 
     #[pure]
-    #[with_ghost_var(trace: &mut Trace)]
+    #[with_ghost_var(trace: &Trace)]
     #[ensures(result == true ==> buf < self.memlen && (buf <= buf + cnt) && cnt < self.memlen)]
     pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> bool {
         let total_size = buf + cnt;
@@ -103,8 +103,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(reserve_exact)]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
@@ -116,8 +118,10 @@ impl VmCtx {
     /// Copy buffer from from host to sandbox
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some)]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     #[ensures(self.memlen == old(self.memlen))]
     pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
         if src.len() < n as usize || !self.fits_in_lin_mem(dst, n) {
@@ -131,8 +135,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some, clone_vec_u8)]
     #[requires(self.arg_buffer.len() == (n as usize) )]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
@@ -147,8 +153,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some, clone_vec_u8)]
     #[requires(self.env_buffer.len() == (n as usize) )]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
         if !self.fits_in_lin_mem(dst, n) {
             return None;
@@ -205,8 +213,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(from_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 2) if addr == start as usize))]
     // #[trusted]
     pub fn read_u16(&self, start: usize) -> u16 {
@@ -219,8 +229,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(from_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 4) if addr == start as usize))]
     // #[trusted]
     pub fn read_u32(&self, start: usize) -> u32 {
@@ -239,8 +251,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(from_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 8) if addr == start as usize))]
     // #[trusted]
     pub fn read_u64(&self, start: usize) -> u64 {
@@ -262,8 +276,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
     // #[trusted]
     pub fn write_u16(&mut self, start: usize, v: u16) {
@@ -277,8 +293,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
     // #[trusted]
     pub fn write_u32(&mut self, start: usize, v: u32) {
@@ -292,8 +310,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
-    #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
     // #[trusted]
     pub fn write_u64(&mut self, start: usize, v: u64) {

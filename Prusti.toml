@@ -1,5 +1,6 @@
 counterexample = false
 check_overflows = false
 assert_timeout = 0
-extra_verifier_args = [ "--checkTimeout=50",  "--z3SaturationTimeout=500" ]
-dump_debug_info = true
+extra_verifier_args = [ "--checkTimeout=50",  "--z3SaturationTimeout=500", "--numberOfParallelVerifiers=1" ]
+enable_cache=true
+cache_path="./prusti_cache"
