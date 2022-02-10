@@ -92,11 +92,8 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
         body_invariant!(trace_safe(trace, ctx.memlen));
 
         let start = (iovs + i * 8) as usize;
-        if !ctx.fits_in_lin_mem_usize(start, 8) {
-            return Err(Eoverflow);
-        }
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
+        let (ptr, len) = ctx.read_u32_pair(start)?;
+
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
@@ -124,11 +121,8 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
         body_invariant!(trace_safe(trace, ctx.memlen));
 
         let start = (iovs + i * 8) as usize;
-        if !ctx.fits_in_lin_mem_usize(start, 8) {
-            return Err(Eoverflow);
-        }
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
+
+        let (ptr, len) = ctx.read_u32_pair(start)?;
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
@@ -393,11 +387,8 @@ pub fn wasi_fd_pread(
         body_invariant!(trace_safe(trace, ctx.memlen));
 
         let start = (iovs + i * 8) as usize;
-        if !ctx.fits_in_lin_mem_usize(start, 8) {
-            return Err(Eoverflow);
-        }
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
+
+        let (ptr, len) = ctx.read_u32_pair(start)?;
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
@@ -475,11 +466,8 @@ pub fn wasi_fd_pwrite(
         body_invariant!(trace_safe(trace, ctx.memlen));
 
         let start = (iovs + i * 8) as usize;
-        if !ctx.fits_in_lin_mem_usize(start, 8) {
-            return Err(Eoverflow);
-        }
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
+
+        let (ptr, len) = ctx.read_u32_pair(start)?;
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
@@ -992,11 +980,8 @@ pub fn wasi_sock_recv(
         body_invariant!(trace_safe(trace, ctx.memlen));
 
         let start = (ri_data + i * 8) as usize;
-        if !ctx.fits_in_lin_mem_usize(start, 8) {
-            return Err(Eoverflow);
-        }
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
+
+        let (ptr, len) = ctx.read_u32_pair(start)?;
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
@@ -1034,11 +1019,8 @@ pub fn wasi_sock_send(
         body_invariant!(trace_safe(trace, ctx.memlen));
 
         let start = (si_data + i * 8) as usize;
-        if !ctx.fits_in_lin_mem_usize(start, 8) {
-            return Err(Eoverflow);
-        }
-        let ptr = ctx.read_u32(start);
-        let len = ctx.read_u32(start + 4);
+
+        let (ptr, len) = ctx.read_u32_pair(start)?;
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
@@ -1125,7 +1107,7 @@ pub fn wasi_poll_oneoff(
 
                 let now = wasi_clock_time_get(ctx, clock_id)?;
                 let req: libc::timespec = if flags.subscription_clock_abstime() {
-                    // is absolute, wait the diff between timeout and noew
+                    // is absolute, wait the diff between timeout and now
                     // TODO: I assume we should check for underflow
                     (timeout - now).into()
                 } else {

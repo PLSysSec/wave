@@ -285,6 +285,21 @@ impl VmCtx {
         u64::from_le_bytes(bytes)
     }
 
+    /// read (u32,u32) from wasm linear memory
+    #[with_ghost_var(trace: &mut Trace)]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self.memlen))]
+    pub fn read_u32_pair(&self, start: usize) -> RuntimeResult<(u32, u32)> {
+        if !self.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let x1 = self.read_u32(start);
+        let x2 = self.read_u32(start + 4);
+        Ok((x1, x2))
+    }
+
     /// write u16 to wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
