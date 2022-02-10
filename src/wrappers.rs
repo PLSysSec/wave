@@ -423,9 +423,7 @@ pub fn wasi_prestat_dirname(
         return Err(Efault);
     }
 
-    let copy_ok = ctx
-        .copy_buf_to_sandbox(path, &dirname, dirname_len)
-        .ok_or(Efault)?;
+    ctx.copy_buf_to_sandbox(path, &dirname, dirname_len)?;
     Ok(())
 }
 
@@ -863,8 +861,7 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
 pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
     // 1. copy argv_buffer
     let argv_buf_len = ctx.arg_buffer.len() as u32;
-    ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)
-        .ok_or(Efault)?;
+    ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)?;
     // 2. copy in argv
     let mut idx: usize = 0;
     let mut start: u32 = 0;
@@ -907,8 +904,7 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
 pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
     // 1. copy argv_buffer
     let env_buf_len = ctx.env_buffer.len() as u32;
-    ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)
-        .ok_or(Efault)?;
+    ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)?;
     // 2. copy in argv
     let mut idx: usize = 0;
     let mut start: u32 = 0;
@@ -1272,9 +1268,7 @@ pub fn wasi_fd_readdir(
         out_idx += (24 + out_namlen) as usize
     }
 
-    let copy_ok = ctx
-        .copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)
-        .ok_or(Efault)?;
+    ctx.copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)?;
 
     Ok(out_buf.len() as u32)
 }

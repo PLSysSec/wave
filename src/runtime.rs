@@ -123,12 +123,17 @@ impl VmCtx {
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen))]
     #[ensures(self.memlen == old(self.memlen))]
-    pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
+    pub fn copy_buf_to_sandbox(
+        &mut self,
+        dst: SboxPtr,
+        src: &Vec<u8>,
+        n: u32,
+    ) -> RuntimeResult<()> {
         if src.len() < n as usize || !self.fits_in_lin_mem(dst, n) {
-            return None;
+            return Err(Efault);
         }
         self.memcpy_to_sandbox(dst, src, n);
-        Some(())
+        Ok(())
     }
 
     /// Copy arg buffer from from host to sandbox
@@ -139,14 +144,14 @@ impl VmCtx {
     #[requires(trace_safe(trace, self.memlen))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen))]
-    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
+    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> RuntimeResult<()> {
         if !self.fits_in_lin_mem(dst, n) {
-            return None;
+            return Err(Efault);
         }
         // let arg_buffer = self.arg_buffer.clone();
         let arg_buffer = clone_vec_u8(&self.arg_buffer);
         self.memcpy_to_sandbox(dst, &arg_buffer, n);
-        Some(())
+        Ok(())
     }
 
     /// Copy arg buffer from from host to sandbox
@@ -157,14 +162,14 @@ impl VmCtx {
     #[requires(trace_safe(trace, self.memlen))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self.memlen))]
-    pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
+    pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> RuntimeResult<()> {
         if !self.fits_in_lin_mem(dst, n) {
-            return None;
+            return Err(Efault);
         }
         // let env_buffer = self.env_buffer.clone();
         let env_buffer = clone_vec_u8(&self.env_buffer);
         self.memcpy_to_sandbox(dst, &env_buffer, n);
-        Some(())
+        Ok(())
     }
 
     #[with_ghost_var(trace: &mut Trace)]
