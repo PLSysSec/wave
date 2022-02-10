@@ -14,11 +14,11 @@ use std::mem;
 use RuntimeError::*;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
+// TODO: eliminate as many external_methods and external_calls as possible
 
 // Modifies: fdmap
-// TODO: fdmap trace fix
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path, create, to_posix)]
+#[external_methods(create, to_posix)]
 #[external_calls(from, bitwise_or)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -36,20 +36,10 @@ pub fn wasi_path_open(
     let dirflags = LookupFlags::new(dirflags);
     let oflags = OFlags::new(oflags);
     let fdflags = FdFlags::from(fdflags);
-    let test = 1;
 
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
+    let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
 
-    if v_dir_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_dir_fd as usize]?;
-
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
     let dirflags_posix = dirflags.to_posix();
     let oflags_posix = oflags.to_posix();
     let fdflags_posix = fdflags.to_posix();
@@ -79,6 +69,7 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
         return Err(Ebadf);
     }
     let fd = ctx.fdmap.m[v_fd as usize]?;
+
     ctx.fdmap.delete(v_fd);
     let result = trace_close(ctx, fd)?;
     Ok(result as u32)
@@ -92,11 +83,8 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
@@ -127,11 +115,8 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
@@ -166,12 +151,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 // #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u64> {
     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
-
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ret = trace_seek(ctx, fd, v_filedelta, whence.into())?;
     Ok(ret as u64)
 }
@@ -201,12 +181,8 @@ pub fn wasi_fd_advise(
     v_advice: u32,
 ) -> RuntimeResult<u32> {
     let advice = Advice::try_from(v_advice as i32)?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     // these casts could cause offset and len to become negative
     // I don't think this will be an issue as os_advise will throw an EINVAL error
     let ret = trace_advise(ctx, fd, offset as i64, len as i64, advice.into())?;
@@ -220,11 +196,8 @@ pub fn wasi_fd_advise(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     // these casts could cause offset and len to become negative
     // I don't think this will be an issue as os_advise will throw an EINVAL error
     let ret = trace_allocate(ctx, fd, offset as i64, len as i64)?;
@@ -239,27 +212,21 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_sync(ctx, fd)?;
     Ok(ret as u32)
 }
 
-// // modifies: None
+// modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_datasync(ctx, fd)?;
     Ok(ret as u32)
 }
@@ -272,11 +239,7 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut stat = fresh_stat();
     // TODO: double check, should this be fstat or fstat64?
@@ -306,19 +269,14 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 // can only adjust Fdflags using set_flags, not O_flags or any other flags
 pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
     let flags = FdFlags::from(v_flags as i32);
-
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let posix_flags = flags.to_posix();
 
     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
     Ok(())
 }
 
-// // modifies: None
+// modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(fresh_stat)]
 #[requires(ctx_safe(ctx))]
@@ -326,11 +284,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let mut stat = fresh_stat();
 
     let filetype = trace_fstat(ctx, fd, &mut stat)?;
@@ -347,11 +301,8 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
 pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let ret = trace_ftruncate(ctx, fd, size)?;
     Ok(())
 }
@@ -375,15 +326,8 @@ pub fn wasi_fd_filestat_set_times(
     let mtim = Timestamp::new(v_mtim);
     let fst_flags = FstFlags::new(v_fst_flags as u16);
 
-    // if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-    //     return Err(Einval);
-    // }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
     //       and handle here?
     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
@@ -404,11 +348,6 @@ pub fn wasi_fd_filestat_set_times(
             tv_nsec: atim_nsec,
         }
     };
-    // let atim_spec = libc::timespec {
-    //     tv_sec: 0,
-    //     tv_nsec: atim_nsec,
-    // };
-    // let atime_spec = libc::timespec::from(atim);
 
     let mtim_spec = if fst_flags.mtim() {
         libc::timespec::from(mtim)
@@ -424,29 +363,16 @@ pub fn wasi_fd_filestat_set_times(
         }
     };
 
-    // let mtim_nsec = if fst_flags.mtim() {
-    //     mtim.nsec() as i64
-    // } else if fst_flags.mtim_now() {
-    //     libc::UTIME_NOW
-    // } else {
-    //     libc::UTIME_OMIT
-    // };
-    // let mtim_spec = libc::timespec {
-    //     tv_sec: 0,
-    //     tv_nsec: mtim_nsec,
-    // };
-
     specs.push(atim_spec);
     specs.push(mtim_spec);
 
     let res = trace_futimens(ctx, fd, &specs)?;
-
     Ok(())
 }
 
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(reserve_exact, push, resolve_path)]
+#[external_methods(reserve_exact, push)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -458,11 +384,8 @@ pub fn wasi_fd_pread(
     iovcnt: u32,
     offset: u64,
 ) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
@@ -531,7 +454,7 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push, resolve_path)]
+#[external_methods(push)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -543,11 +466,8 @@ pub fn wasi_fd_pwrite(
     iovcnt: u32,
     offset: u64,
 ) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < iovcnt {
@@ -573,7 +493,7 @@ pub fn wasi_fd_pwrite(
 // TODO: should create fd for directory
 // modifies: adds hostfd for directory created
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push, resolve_path)]
+#[external_methods(push)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -584,19 +504,11 @@ pub fn wasi_path_create_directory(
     pathname: u32,
     path_len: u32,
 ) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
-    // TODO: wasi doesn't seem so specify what permissions should be?
-    //       I will use rw------- cause it seems sane.
-    //let mode = libc::S_IRUSR + libc::S_IWUSR; // using add cause | isn't supported
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
+    // wasi doesn't specify what permissions should be
+    // We use rw------- cause it seems sane.
     let res = trace_mkdirat(ctx, fd, host_pathname, 0o766)?;
     Ok(())
 }
@@ -605,7 +517,7 @@ pub fn wasi_path_create_directory(
 //       respect the fd.
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push, resolve_path)]
+#[external_methods(push)]
 #[external_calls(fresh_stat)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -619,17 +531,8 @@ pub fn wasi_path_filestat_get(
     path_len: u32,
 ) -> RuntimeResult<FileStat> {
     let flags = LookupFlags::new(flags);
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
-
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
     let mut stat = fresh_stat();
 
     let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_posix())?;
@@ -640,7 +543,6 @@ pub fn wasi_path_filestat_get(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
 #[external_methods(reserve_exact, push)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -663,17 +565,8 @@ pub fn wasi_path_filestat_set_times(
         return Err(Einval);
     }
 
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
-
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let mut specs: Vec<libc::timespec> = Vec::new();
     specs.reserve_exact(2);
@@ -714,7 +607,6 @@ pub fn wasi_path_filestat_set_times(
 // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -731,25 +623,10 @@ pub fn wasi_path_link(
 ) -> RuntimeResult<()> {
     let flags = LookupFlags::new(flags);
 
-    if v_old_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if v_new_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-        return Err(Eoverflow);
-    }
-    if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-        return Err(Eoverflow);
-    }
-
-    let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
-    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
-    let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
-    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
-    let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
-    let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
+    let old_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
+    let new_fd = ctx.fdmap.fd_to_native(v_new_fd)?;
+    let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
+    let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
 
     let res = trace_linkat(
         ctx,
@@ -765,7 +642,6 @@ pub fn wasi_path_link(
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, push)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -778,16 +654,8 @@ pub fn wasi_path_readlink(
     ptr: u32,
     len: u32,
 ) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
-
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
@@ -801,7 +669,6 @@ pub fn wasi_path_readlink(
 //TODO: should remove fd from map?
 //modifies: removes directory from fdmap
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -812,16 +679,8 @@ pub fn wasi_path_remove_directory(
     pathname: u32,
     path_len: u32,
 ) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
-
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let res = trace_unlinkat(ctx, fd, host_pathname, libc::AT_REMOVEDIR);
     // posix spec allows unlinkat to return EEXIST for a non-empty directory
@@ -836,7 +695,6 @@ pub fn wasi_path_remove_directory(
 
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -850,25 +708,10 @@ pub fn wasi_path_rename(
     new_pathname: u32,
     new_path_len: u32,
 ) -> RuntimeResult<()> {
-    if v_old_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if v_new_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-        return Err(Eoverflow);
-    }
-    if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-        return Err(Eoverflow);
-    }
-
-    let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
-    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
-    let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
-    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
-    let old_fd = ctx.fdmap.m[v_old_fd as usize]?;
-    let new_fd = ctx.fdmap.m[v_new_fd as usize]?;
+    let old_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
+    let new_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
+    let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
+    let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
 
     let res = trace_renameat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname)?;
     Ok(())
@@ -876,7 +719,6 @@ pub fn wasi_path_rename(
 
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -889,28 +731,15 @@ pub fn wasi_path_symlink(
     new_pathname: u32,
     new_path_len: u32,
 ) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if !ctx.fits_in_lin_mem(old_pathname, old_path_len) {
-        return Err(Eoverflow);
-    }
-    if !ctx.fits_in_lin_mem(new_pathname, new_path_len) {
-        return Err(Eoverflow);
-    }
-
-    let old_host_buffer = ctx.copy_buf_from_sandbox(old_pathname, old_path_len);
-    let old_host_pathname = ctx.resolve_path(old_host_buffer)?;
-    let new_host_buffer = ctx.copy_buf_from_sandbox(new_pathname, new_path_len);
-    let new_host_pathname = ctx.resolve_path(new_host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
+    let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
 
     let res = trace_symlinkat(ctx, old_host_pathname, fd, new_host_pathname)?;
     Ok(())
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(resolve_path)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -921,16 +750,8 @@ pub fn wasi_path_unlink_file(
     pathname: u32,
     path_len: u32,
 ) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    if !ctx.fits_in_lin_mem(pathname, path_len) {
-        return Err(Eoverflow);
-    }
-
-    let host_buffer = ctx.copy_buf_from_sandbox(pathname, path_len);
-    let host_pathname = ctx.resolve_path(host_buffer)?;
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let res = trace_unlinkat(ctx, fd, host_pathname, 0)?;
     Ok(())
@@ -1162,11 +983,8 @@ pub fn wasi_sock_recv(
     ri_data_count: u32,
     ri_flags: u32,
 ) -> RuntimeResult<(u32, u32)> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < ri_data_count {
@@ -1207,11 +1025,8 @@ pub fn wasi_sock_send(
     si_data_count: u32,
     si_flags: u32,
 ) -> RuntimeResult<u32> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let fd = ctx.fdmap.m[v_fd as usize]?;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < si_data_count {
@@ -1248,12 +1063,9 @@ pub fn wasi_sock_send(
 //#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::Shutdown) )] // we added 1 effect (add-only)
 // #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
 pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<()> {
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let how = SdFlags::new(v_how);
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+
     let res = trace_shutdown(ctx, fd, how.into())?;
     Ok(())
 }
@@ -1305,11 +1117,9 @@ pub fn wasi_poll_oneoff(
         match tag {
             0 => {
                 let clock_id = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                //let clock_id = clock_id.ok_or(Einval)?;
                 let timeout_bytes = ctx.read_u64((in_ptr + sub_offset + 24) as usize);
                 let timeout = Timestamp::new(timeout_bytes);
-                // let _precision: Timestamp =
-                //     Timestamp::new(ctx.read_u64((in_ptr + sub_offset + 32) as usize));
+
                 let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
                 // TODO: get clock time and use it to check if passed
 
@@ -1330,7 +1140,6 @@ pub fn wasi_poll_oneoff(
                 // TODO: handle multi-threaded case, in which nanosleep can be canceled by
                 //       signals... we shouldn't need to handle it now though...
                 let res = trace_nanosleep(ctx, &req, &mut rem)?;
-                //RuntimeError::from_syscall_ret(res)?;
 
                 // write the event output...
                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
@@ -1342,12 +1151,10 @@ pub fn wasi_poll_oneoff(
                 );
                 // clock event ignores fd_readwrite field.
             }
-            1 => {
+            1 | 2 => {
                 let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                if v_fd >= MAX_SBOX_FDS {
-                    return Err(Ebadf);
-                }
-                let fd = ctx.fdmap.m[v_fd as usize]?;
+                let fd = ctx.fdmap.fd_to_native(v_fd)?;
+
                 let host_fd: usize = fd.into();
 
                 let mut pollfd = libc::pollfd {
@@ -1363,39 +1170,10 @@ pub fn wasi_poll_oneoff(
                 ctx.write_u64((out_ptr + event_offset) as usize, userdata);
                 let errno = 0;
                 ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-                ctx.write_u16(
-                    (out_ptr + event_offset + 10) as usize,
-                    EventType::FdRead.into(),
-                );
+                ctx.write_u16((out_ptr + event_offset + 10) as usize, tag as u16);
                 // TODO: fd_readwrite member...need number of bytes available....
             }
-            2 => {
-                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                if v_fd >= MAX_SBOX_FDS {
-                    return Err(Ebadf);
-                }
-                let fd = ctx.fdmap.m[v_fd as usize]?;
-                let host_fd: usize = fd.into();
 
-                let mut pollfd = libc::pollfd {
-                    fd: host_fd as i32,
-                    events: libc::POLLIN,
-                    revents: 0,
-                };
-                let timeout = -1;
-
-                let res = trace_poll(ctx, &mut pollfd, timeout)?;
-
-                // write the event output...
-                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
-                let errno = 0;
-                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-                ctx.write_u16(
-                    (out_ptr + event_offset + 10) as usize,
-                    EventType::FdWrite.into(),
-                );
-                // TODO: fd_readwrite member...need number of bytes available....
-            }
             _ => {
                 return Err(Einval);
             }
@@ -1430,11 +1208,7 @@ pub fn wasi_fd_readdir(
     if cookie != 0 {
         return Err(Einval);
     }
-
-    if v_fd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    let fd = ctx.fdmap.m[v_fd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut host_buf: Vec<u8> = Vec::new();
     host_buf.reserve_exact(buf_len as usize);
@@ -1565,10 +1339,7 @@ pub fn wasi_sock_connect(
     addr: u32,
     addrlen: u32,
 ) -> RuntimeResult<()> {
-    if sockfd >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    let fd = ctx.fdmap.m[sockfd as usize]?;
+    let fd = ctx.fdmap.fd_to_native(sockfd)?;
 
     if addrlen != 16 {
         return Err(Einval);

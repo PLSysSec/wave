@@ -167,6 +167,20 @@ impl VmCtx {
         Some(())
     }
 
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_methods(resolve_path)]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(ctx_safe(self))]
+    pub fn translate_path(&self, path: SboxPtr, path_len: u32) -> RuntimeResult<SandboxedPath> {
+        if !self.fits_in_lin_mem(path, path_len) {
+            return Err(Eoverflow);
+        }
+        let host_buffer = self.copy_buf_from_sandbox(path, path_len);
+        self.resolve_path(host_buffer)
+    }
+
     pub fn get_homedir(&self) -> Vec<u8> {
         string_to_vec_u8(&self.homedir)
         // self.homedir.as_bytes().to_vec()

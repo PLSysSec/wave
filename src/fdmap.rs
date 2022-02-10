@@ -4,7 +4,7 @@ use crate::tcb::verifier::external_specs::vec::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use extra_args::{external_call, external_method, with_ghost_var};
+use extra_args::{external_call, external_calls, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::io::{stderr, stdin, stdout};
 use std::os::unix::io::AsRawFd;
@@ -59,15 +59,18 @@ impl FdMap {
         vec_checked_lookup(&self.m, index)
     }
 
+    #[with_ghost_var(trace: &Trace)]
+    #[external_calls(vec_checked_lookup)]
     // #[pure]
+    #[ensures(result.is_ok() ==> old(v_fd) < MAX_SBOX_FDS)]
     // TODO: this is the function we should be using - but for some reason prusti does not like it.
-    // pub fn checked_lookup(&self, idx: SboxFd) -> RuntimeResult<HostFd> {
-    //     if idx >= MAX_SBOX_FDS {
-    //         return Err(Ebadf);
-    //     }
-    //     // self.m[idx as usize]
-    //     vec_checked_lookup(&self.m, idx)
-    // }
+    pub fn fd_to_native(&self, v_fd: SboxFd) -> RuntimeResult<HostFd> {
+        if v_fd >= MAX_SBOX_FDS {
+            return Err(Ebadf);
+        }
+        // self.m[idx as usize]
+        vec_checked_lookup(&self.m, v_fd)
+    }
 
     #[pure]
     #[requires(index < MAX_SBOX_FDS)]
