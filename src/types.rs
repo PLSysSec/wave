@@ -731,7 +731,7 @@ pub fn sock_domain_to_posix(domain: u32) -> RuntimeResult<i32> {
     if domain == 1 {
         return Ok(libc::AF_INET);
     }
-    return Err(RuntimeError::Enotsup);
+    Err(RuntimeError::Enotsup)
 }
 
 //#[with_ghost_var(trace: &mut Trace)]
@@ -742,7 +742,7 @@ pub fn sock_type_to_posix(ty: u32) -> RuntimeResult<i32> {
     if ty == 5 {
         return Ok(libc::SOCK_DGRAM);
     }
-    return Err(RuntimeError::Enotsup);
+    Err(RuntimeError::Enotsup)
 }
 
 // protocol 1 = TCP 2 = UDP

@@ -51,7 +51,7 @@ fn ctx_from_memptr(
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
     let log_path = ffi_load_cstr(log_path).to_owned().clone();
-    let homedir = ffi_load_cstr(homedir).clone();
+    let homedir = &(*ffi_load_cstr(homedir).clone()); // Actually copy the inner string
     let homedir_file = std::fs::File::open(homedir).unwrap();
     let homedir_fd = homedir_file.as_raw_fd();
     if homedir_fd > 0 {
@@ -114,8 +114,7 @@ pub extern "C" fn veriwasi_init(
     let ctx = ctx_from_memptr(
         memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
     );
-    let result = Box::into_raw(Box::new(ctx));
-    result
+    Box::into_raw(Box::new(ctx)) // TODO: what is going on here?
 }
 
 // TODO: should probably manually drop stuff here and null out ptr
@@ -696,7 +695,7 @@ fn adjust_oflags(oflags: u32, fs_rights_base: u64) -> u32 {
         }
         return oflags | (1 << 4); // O_WRONLY
     }
-    return oflags;
+    oflags
 }
 
 #[no_mangle]

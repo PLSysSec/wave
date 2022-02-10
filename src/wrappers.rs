@@ -449,7 +449,7 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd == HOMEDIR_FD {
         return Ok(ctx.homedir.len() as u32);
     }
-    return Err(Ebadf);
+    Err(Ebadf)
 }
 
 // modifies: none
@@ -1374,5 +1374,5 @@ pub fn wasi_sock_connect(
     }
 
     let res = trace_connect(ctx, fd, &saddr, addrlen)?;
-    return Ok(());
+    Ok(())
 }

@@ -201,7 +201,7 @@ impl VmCtx {
             return true;
         }
 
-        return false;
+        false
     }
 
     #[pure]
@@ -219,7 +219,7 @@ impl VmCtx {
             return true;
         }
 
-        return false;
+        false
     }
 
     /// read u16 from wasm linear memory
