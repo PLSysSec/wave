@@ -26,7 +26,8 @@ predicate! {
                     Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe
                     Effect { typ: EffectType::FdAccess, ..  } => true,
                     Effect { typ: EffectType::PathAccess, ..  } => true,
-                    Effect { typ: EffectType::NetAccess, ..  } => true,
+                    Effect { typ: EffectType::NetAccess, f1: _proto, f2:addr, f3:port } => true, //  addr_in_netlist(netlist, addr as u32, port as u32),
+                    Effect { typ: EffectType::SockCreation, f1: domain, f2:ty, ..  } => true,//domain == (libc::AF_INET as usize) && (ty == (libc::SOCK_STREAM as usize) || ty == (libc::SOCK_DGRAM as usize))/*ctx.addr_in_netlist(addr as u32, port as u32)*/,
                 }
             ))
         )

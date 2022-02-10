@@ -566,18 +566,18 @@ pub fn trace_getdents64(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
+#[requires(domain == libc::AF_INET && (ty == libc::SOCK_STREAM || ty == libc::SOCK_DGRAM ))]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx.memlen))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(one_effect!(old(trace), trace, effect!(SockCreation, d, t) if d == domain as usize && t == ty as usize ))]
 pub fn trace_socket(ctx: &VmCtx, domain: i32, ty: i32, protocol: i32) -> RuntimeResult<usize> {
     let r = os_socket(domain, ty, protocol);
     RuntimeError::from_syscall_ret(r)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-// #[requires(addr.sin_addr.s_addr addr.sin_port)]
 #[requires(ctx.addr_in_netlist(addr.sin_addr.s_addr, addr.sin_port as u32))]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]

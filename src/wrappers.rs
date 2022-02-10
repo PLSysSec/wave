@@ -1320,6 +1320,10 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
     if matches!(wasi_proto, WasiProto::Unknown) {
         return Err(Einval);
     }
+    if !(domain == libc::AF_INET && (ty == libc::SOCK_STREAM || ty == libc::SOCK_DGRAM)) {
+        return Err(Einval);
+    }
+
     let res = trace_socket(ctx, domain, ty, protocol)?;
 
     ctx.fdmap.create_sock(res.into(), wasi_proto)
