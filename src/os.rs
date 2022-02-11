@@ -374,7 +374,7 @@ pub fn trace_symlinkat(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.capacity() >= 2)]
+#[requires(specs.len() >= 2)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]
@@ -391,7 +391,7 @@ pub fn trace_futimens(
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.capacity() >= 2)]
+#[requires(specs.len() >= 2)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
 #[ensures(ctx_safe(ctx))]

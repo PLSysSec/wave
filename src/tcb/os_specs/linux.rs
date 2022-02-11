@@ -333,7 +333,7 @@ pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>)
 
 //https://man7.org/linux/man-pages/man2/utimensat.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.capacity() >= 2)]
+#[requires(specs.len() >= 2)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
@@ -348,7 +348,7 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 
 //https://man7.org/linux/man-pages/man2/utimensat.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.capacity() >= 2)]
+#[requires(specs.len() >= 2)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_utimensat(

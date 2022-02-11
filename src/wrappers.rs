@@ -15,6 +15,7 @@ use RuntimeError::*;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
 // TODO: eliminate as many external_methods and external_calls as possible
+// TODO: add links to spec for each hostcall
 
 // Modifies: fdmap
 #[with_ghost_var(trace: &mut Trace)]
@@ -327,35 +328,9 @@ pub fn wasi_fd_filestat_set_times(
     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
 
     let mut specs: Vec<libc::timespec> = Vec::new();
-    specs.reserve_exact(2);
 
-    let atim_spec = if fst_flags.atim() {
-        libc::timespec::from(atim)
-    } else {
-        let atim_nsec = if fst_flags.atim_now() {
-            libc::UTIME_NOW
-        } else {
-            libc::UTIME_OMIT
-        };
-        libc::timespec {
-            tv_sec: 0,
-            tv_nsec: atim_nsec,
-        }
-    };
-
-    let mtim_spec = if fst_flags.mtim() {
-        libc::timespec::from(mtim)
-    } else {
-        let mtim_nsec = if fst_flags.mtim_now() {
-            libc::UTIME_NOW
-        } else {
-            libc::UTIME_OMIT
-        };
-        libc::timespec {
-            tv_sec: 0,
-            tv_nsec: mtim_nsec,
-        }
-    };
+    let atim_spec = atim.ts_to_native(fst_flags.atim(), fst_flags.atim_now());
+    let mtim_spec = mtim.ts_to_native(fst_flags.mtim(), fst_flags.mtim_now());
 
     specs.push(atim_spec);
     specs.push(mtim_spec);
@@ -541,12 +516,13 @@ pub fn wasi_path_filestat_set_times(
     path_len: u32,
     atim: u64,
     mtim: u64,
-    fst_flags: FstFlags,
+    fst_flags: FstFlags, // TODO: convert to fst flags inside function
 ) -> RuntimeResult<()> {
     let atim = Timestamp::new(atim);
     let mtim = Timestamp::new(mtim);
     let flags = LookupFlags::new(flags);
 
+    // TODO: should be bundled into fstflags conversion
     if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
         return Err(Einval);
     }
@@ -555,32 +531,9 @@ pub fn wasi_path_filestat_set_times(
     let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let mut specs: Vec<libc::timespec> = Vec::new();
-    specs.reserve_exact(2);
-    let atim_nsec = if fst_flags.atim() {
-        atim.nsec() as i64
-    } else {
-        if fst_flags.atim_now() {
-            libc::UTIME_NOW
-        } else {
-            libc::UTIME_OMIT
-        }
-    };
-    let atim_spec = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: atim_nsec,
-    };
 
-    let mtim_nsec = if fst_flags.mtim() {
-        mtim.nsec() as i64
-    } else if fst_flags.mtim_now() {
-        libc::UTIME_NOW
-    } else {
-        libc::UTIME_OMIT
-    };
-    let mtim_spec = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: mtim_nsec,
-    };
+    let atim_spec = atim.ts_to_native(fst_flags.atim(), fst_flags.atim_now());
+    let mtim_spec = mtim.ts_to_native(fst_flags.mtim(), fst_flags.mtim_now());
 
     specs.push(atim_spec);
     specs.push(mtim_spec);
@@ -831,6 +784,7 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     Ok(())
 }
 
+// TODO: condense both checks into one
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(shift)]
 #[requires(ctx_safe(ctx))]
@@ -869,8 +823,6 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
     while idx < ctx.arg_buffer.len() {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx.memlen));
-        // body_invariant!(idx < ctx.arg_buffer.len());
-        //body_invariant!(idx * 4 < cursor);
         // We have found an argument either when we find a trailing space, or if we started an arg
         // and ran out of space
         if !ctx.fits_in_lin_mem_usize((argv as usize) + cursor, 8) {
@@ -1115,8 +1067,6 @@ pub fn wasi_poll_oneoff(
                     tv_nsec: 0,
                 };
 
-                // TODO: handle multi-threaded case, in which nanosleep can be canceled by
-                //       signals... we shouldn't need to handle it now though...
                 let res = trace_nanosleep(ctx, &req, &mut rem)?;
 
                 // write the event output...
