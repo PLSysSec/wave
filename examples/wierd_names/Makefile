@@ -10,6 +10,12 @@ CFLAGS = --sysroot  $(WASILIBC_ROOT)/sysroot/
 LD = $(WASICLANG_ROOT)/bin/wasm-ld
 LDFLAGS = -Wl,--export-all -Wl,--growable-table
 
+#echo:
+#	echo $(CC)
+#	echo $(CFLAGS)
+#	echo $(LDFLAGS)
+#	echo $(WASM2C_BIN_ROOT)
+
 build: hello
 
 .PHONY: clean
@@ -18,6 +24,7 @@ clean:
 	$(RM) hello.wasm.c
 	$(RM) hello.wasm.h
 	$(RM) hello
+	$(RM) *.txt
 
 hello.wasm: hello.c
 	$(CC) $(CFLAGS) hello.c -o hello.wasm $(LDFLAGS)
@@ -29,4 +36,10 @@ hello: hello.wasm.c
 	gcc -shared -fPIC -O3 -o hello hello.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
 
 run: hello 
-	RUST_LOG=trace $(WASM2C_BIN_ROOT)/wasm2c-runner ./hello --homedir=.
+	RUST_LOG=trace $(WASM2C_BIN_ROOT)/wasm2c-runner ./hello
+
+myrun: hello 
+	$(WASM2C_BIN_ROOT)/wasm2c-runner ./hello --homedir=.
+
+run_clean: hello 
+	$(WASM2C_BIN_ROOT)/wasm2c-runner ./hello
