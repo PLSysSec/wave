@@ -17,6 +17,7 @@ use RuntimeError::*;
 // TODO: eliminate as many external_methods and external_calls as possible
 // TODO: add links to spec for each hostcall
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
 // Modifies: fdmap
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(create, to_posix)]
@@ -53,6 +54,7 @@ pub fn wasi_path_open(
     ctx.fdmap.create(fd.into())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_close
 // modifies: fdmap
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(delete)]
@@ -76,6 +78,7 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(result as u32)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_read
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, map_err)]
@@ -106,6 +109,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     Ok(num)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_write
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -135,6 +139,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     Ok(num)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_seek
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from_u32)]
@@ -151,6 +156,7 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
     Ok(ret as u64)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_tell
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -161,6 +167,7 @@ pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_advise
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(try_from)]
@@ -184,6 +191,7 @@ pub fn wasi_fd_advise(
     Ok(ret as u32)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_allocate
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -199,6 +207,7 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
     Ok(ret as u32)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_sync
 // modifies: none
 // TODO: should not return u32 at all?
 #[with_ghost_var(trace: &mut Trace)]
@@ -213,6 +222,7 @@ pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_datasync
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -226,6 +236,7 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(ret as u32)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_fdstat_get
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(fresh_stat, from_posix)]
@@ -253,6 +264,7 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     Ok(result)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_fdstat_set_flags
 //TODO: need wasm layout for FdFlags to read from ptr
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from)]
@@ -271,6 +283,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_filestat_get
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(fresh_stat)]
@@ -286,6 +299,7 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     Ok(stat.into())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_filestat_set_size
 // modifies: none
 // Note: WASI API says that size should be u64.
 // but ftruncate, which filestat_set_size is supposed to call used i64
@@ -302,6 +316,7 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_filestat_set_times
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
@@ -339,6 +354,7 @@ pub fn wasi_fd_filestat_set_times(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_pread
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, push)]
@@ -374,6 +390,7 @@ pub fn wasi_fd_pread(
     Ok(num)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#prestat_dirname
 // modifies: mem
 // If v_fd refers to a preopened directory (fd == 3), write the name to path
 #[with_ghost_var(trace: &mut Trace)]
@@ -402,6 +419,7 @@ pub fn wasi_prestat_dirname(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_prestat_get
 /// Must return ebadf if the file doesn't exist:
 /// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
 #[with_ghost_var(trace: &mut Trace)]
@@ -416,6 +434,7 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Err(Ebadf)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_pwrite
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
@@ -451,6 +470,7 @@ pub fn wasi_fd_pwrite(
     Ok(num)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_create_directory
 // TODO: should create fd for directory
 // modifies: adds hostfd for directory created
 #[with_ghost_var(trace: &mut Trace)]
@@ -474,6 +494,7 @@ pub fn wasi_path_create_directory(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_get
 // TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
 //       respect the fd.
 // modifies: None
@@ -500,6 +521,7 @@ pub fn wasi_path_filestat_get(
     Ok(stat.into())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_set_times
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
@@ -543,6 +565,7 @@ pub fn wasi_path_filestat_set_times(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_link
 // TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
@@ -578,6 +601,7 @@ pub fn wasi_path_link(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_readlink
 // modifies: mem
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, push)]
@@ -605,6 +629,7 @@ pub fn wasi_path_readlink(
     Ok(res)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_remove_directory
 //TODO: should remove fd from map?
 //modifies: removes directory from fdmap
 #[with_ghost_var(trace: &mut Trace)]
@@ -632,6 +657,7 @@ pub fn wasi_path_remove_directory(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_rename
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -656,6 +682,7 @@ pub fn wasi_path_rename(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_symlink
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -678,6 +705,7 @@ pub fn wasi_path_symlink(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_unlink_file
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -696,6 +724,7 @@ pub fn wasi_path_unlink_file(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_res_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from_u32)]
@@ -715,6 +744,7 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
     Ok(spec.into())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_time_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from_u32)]
@@ -738,6 +768,7 @@ pub fn wasi_clock_time_get(
     Ok(spec.into())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_exit
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -748,6 +779,7 @@ pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_raise
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -758,6 +790,7 @@ pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sched_yield
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -768,6 +801,7 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#random_get
 // modifies: memory
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact)]
@@ -784,6 +818,7 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_renumber
 // TODO: condense both checks into one
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(shift)]
@@ -806,6 +841,7 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#args_get
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -847,6 +883,7 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_get
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -884,6 +921,7 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#arg_sizes_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -895,6 +933,7 @@ pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_sizes_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -906,6 +945,7 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_recv
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact)]
 #[requires(ctx_safe(ctx))]
@@ -946,6 +986,7 @@ pub fn wasi_sock_recv(
     Ok((num, 0))
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_send
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx.memlen))]
@@ -981,6 +1022,7 @@ pub fn wasi_sock_send(
     Ok(num)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_shutdown
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -1000,6 +1042,7 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
     Ok(())
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#poll_oneoff
 // TODO: Do we need to check alignment on the pointers?
 // TODO: clean this up, pretty gross
 #[with_ghost_var(trace: &mut Trace)]
@@ -1113,6 +1156,7 @@ pub fn wasi_poll_oneoff(
     Ok(0)
 }
 
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_readdir
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(extend_from_slice, reserve_exact)]
 #[external_methods(to_le_bytes, to_wasi)]
@@ -1223,6 +1267,7 @@ pub fn wasi_fd_readdir(
     Ok(out_buf.len() as u32)
 }
 
+// No spec for this one since we added it
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(sock_domain_to_posix, sock_type_to_posix)]
 #[external_methods(create_sock)]
@@ -1256,6 +1301,7 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
     // ctx.fdmap.create(res.into())
 }
 
+// No spec for this one since we added it
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(sock_domain_to_posix, from)]
 #[external_methods(addr_in_netlist)]
