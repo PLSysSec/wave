@@ -12,8 +12,8 @@ impl VmCtx {
     // TODO: verify and make untrusted
     // #[with_ghost_var(trace: &mut Trace)]
     #[trusted]
-    // #[requires(trace_safe(trace, self.memlen) && ctx_safe(self))]
-    // #[ensures(trace_safe(trace, self.memlen) && ctx_safe(self))]
+    // #[requires(trace_safe(trace, self) && ctx_safe(self))]
+    // #[ensures(trace_safe(trace, self) && ctx_safe(self))]
     pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
         let path = PathBuf::from(OsString::from_vec(in_path));
         // println!("resolve_path: path = {:?}", path);
@@ -32,29 +32,36 @@ impl VmCtx {
         Err(RuntimeError::Eacces)
     }
 
-    #[requires(idx < 4)]
-    #[pure]
-    #[trusted]
-    pub fn matches_netlist_entry(
-        &self,
-        protocol: WasiProto,
-        addr: u32,
-        port: u32,
-        idx: usize,
-    ) -> bool {
-        NetEndpoint {
-            protocol,
-            addr,
-            port,
-        } == self.netlist[idx]
-    }
+    // #[requires(idx < 4)]
+    // #[pure]
+    // #[trusted]
+    // pub fn matches_netlist_entry(
+    //     &self,
+    //     protocol: WasiProto,
+    //     addr: u32,
+    //     port: u32,
+    //     idx: usize,
+    // ) -> bool {
+    //     NetEndpoint {
+    //         protocol,
+    //         addr,
+    //         port,
+    //     } == self.netlist[idx]
+    // }
 
-    #[requires(idx < 4)]
-    #[pure]
-    #[trusted]
-    pub fn addr_matches_netlist_entry(&self, addr: u32, port: u32, idx: usize) -> bool {
-        addr == self.netlist[idx].addr && port == self.netlist[idx].port
-    }
+    // #[requires(idx < 4)]
+    // #[pure]
+    // #[trusted]
+    // pub fn addr_matches_netlist_entry(&self, addr: u32, port: u32, idx: usize) -> bool {
+    //     addr == self.netlist[idx].addr && port == self.netlist[idx].port
+    // }
+}
+
+#[requires(idx < 4)]
+#[pure]
+#[trusted]
+pub fn addr_matches_netlist_entry(netlist: &Netlist, addr: u32, port: u32, idx: usize) -> bool {
+    addr == netlist[idx].addr && port == netlist[idx].port
 }
 
 /// Convert relative path to absolute path

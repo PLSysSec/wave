@@ -1,5 +1,6 @@
 use crate::no_effect;
 use crate::tcb::misc::*;
+use crate::tcb::path::addr_matches_netlist_entry;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use extra_args::{external_calls, external_methods, with_ghost_var};
@@ -780,6 +781,24 @@ pub struct NetEndpoint {
 }
 
 pub type Netlist = [NetEndpoint; 4];
+
+#[pure]
+pub fn addr_in_netlist(netlist: &Netlist, addr: u32, port: u32) -> bool {
+    if addr_matches_netlist_entry(&netlist, addr, port, 0) {
+        return true;
+    }
+    if addr_matches_netlist_entry(&netlist, addr, port, 1) {
+        return true;
+    }
+    if addr_matches_netlist_entry(&netlist, addr, port, 2) {
+        return true;
+    }
+    if addr_matches_netlist_entry(&netlist, addr, port, 3) {
+        return true;
+    }
+
+    false
+}
 
 // Higher level protocols
 #[derive(Clone, Copy, PartialEq, Eq)]

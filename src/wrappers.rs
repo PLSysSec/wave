@@ -23,9 +23,9 @@ use RuntimeError::*;
 #[external_methods(create, to_posix)]
 #[external_calls(from, bitwise_or)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_open(
     ctx: &mut VmCtx,
     v_dir_fd: u32,
@@ -59,9 +59,9 @@ pub fn wasi_path_open(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(delete)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // if args are not valid, nothing happens
 #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
 // #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> no_effect!(old(trace), trace))]
@@ -83,9 +83,9 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, map_err)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -93,7 +93,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     let mut i = 0;
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
 
         let start = (iovs + i * 8) as usize;
         let (ptr, len) = ctx.read_u32_pair(start)?;
@@ -113,9 +113,9 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -123,7 +123,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     let mut i = 0;
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
 
         let start = (iovs + i * 8) as usize;
 
@@ -144,9 +144,9 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from_u32)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> one_effect!(old(trace), trace, Effect::FdAccess))]
 // #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u64> {
@@ -160,9 +160,9 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
@@ -172,9 +172,9 @@ pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(try_from)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_advise(
     ctx: &VmCtx,
     v_fd: u32,
@@ -195,9 +195,9 @@ pub fn wasi_fd_advise(
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -212,9 +212,9 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 // TODO: should not return u32 at all?
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -226,9 +226,9 @@ pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -241,9 +241,9 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(fresh_stat, from_posix)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -270,9 +270,9 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 #[external_calls(from)]
 #[external_methods(to_posix)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // can only adjust Fdflags using set_flags, not O_flags or any other flags
 pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
     let flags = FdFlags::from(v_flags as i32);
@@ -288,9 +288,9 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(fresh_stat)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let mut stat = fresh_stat();
@@ -306,9 +306,9 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 // I'm keeping this as i64 since this does not cause any truncation
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -322,9 +322,9 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
 #[external_methods(reserve_exact, push)] // Vec methods
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_filestat_set_times(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -359,9 +359,9 @@ pub fn wasi_fd_filestat_set_times(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, push)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_pread(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -375,7 +375,7 @@ pub fn wasi_fd_pread(
     let mut i = 0;
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
 
         let start = (iovs + i * 8) as usize;
 
@@ -396,9 +396,9 @@ pub fn wasi_fd_pread(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(get_homedir)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_prestat_dirname(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -424,9 +424,9 @@ pub fn wasi_prestat_dirname(
 /// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd == HOMEDIR_FD {
         return Ok(ctx.homedir.len() as u32);
@@ -439,9 +439,9 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_pwrite(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -455,7 +455,7 @@ pub fn wasi_fd_pwrite(
     let mut i = 0;
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
 
         let start = (iovs + i * 8) as usize;
 
@@ -476,9 +476,9 @@ pub fn wasi_fd_pwrite(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_create_directory(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -502,9 +502,9 @@ pub fn wasi_path_create_directory(
 #[external_methods(push)]
 #[external_calls(fresh_stat)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_filestat_get(
     ctx: &VmCtx,
     v_fd: u32,
@@ -527,9 +527,9 @@ pub fn wasi_path_filestat_get(
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
 #[external_methods(reserve_exact, push)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_filestat_set_times(
     ctx: &VmCtx,
     v_fd: u32,
@@ -570,9 +570,9 @@ pub fn wasi_path_filestat_set_times(
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_link(
     ctx: &VmCtx,
     v_old_fd: u32,
@@ -606,9 +606,9 @@ pub fn wasi_path_link(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact, push)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_readlink(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -634,9 +634,9 @@ pub fn wasi_path_readlink(
 //modifies: removes directory from fdmap
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_remove_directory(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -661,9 +661,9 @@ pub fn wasi_path_remove_directory(
 // // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_rename(
     ctx: &VmCtx,
     v_old_fd: u32,
@@ -686,9 +686,9 @@ pub fn wasi_path_rename(
 //modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_symlink(
     ctx: &VmCtx,
     old_pathname: u32,
@@ -708,9 +708,9 @@ pub fn wasi_path_symlink(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_unlink_file
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_unlink_file(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -729,9 +729,9 @@ pub fn wasi_path_unlink_file(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from_u32)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
     let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
 
@@ -749,9 +749,9 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from_u32)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
     clock_id: u32,
@@ -771,9 +771,9 @@ pub fn wasi_clock_time_get(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_exit
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
     Ok(())
@@ -782,9 +782,9 @@ pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_raise
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
     Ok(())
@@ -793,9 +793,9 @@ pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sched_yield
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
     Ok(())
@@ -806,9 +806,9 @@ pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
@@ -823,9 +823,9 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(shift)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
     // 1. translate from fd
@@ -844,9 +844,9 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#args_get
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
     // 1. copy argv_buffer
@@ -858,7 +858,7 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
     let mut cursor: usize = 0;
     while idx < ctx.arg_buffer.len() {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
         // We have found an argument either when we find a trailing space, or if we started an arg
         // and ran out of space
         if !ctx.fits_in_lin_mem_usize((argv as usize) + cursor, 8) {
@@ -886,9 +886,9 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_get
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
     // 1. copy argv_buffer
@@ -900,7 +900,7 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
     let mut cursor: usize = 0;
     while idx < ctx.env_buffer.len() {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
         if !ctx.fits_in_lin_mem_usize((env as usize) + cursor, 8) {
             return Err(Eoverflow);
         }
@@ -925,9 +925,9 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
@@ -937,9 +937,9 @@ pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
@@ -949,9 +949,9 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_sock_recv(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -965,7 +965,7 @@ pub fn wasi_sock_recv(
     let mut i = 0;
     while i < ri_data_count {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
 
         let start = (ri_data + i * 8) as usize;
 
@@ -989,9 +989,9 @@ pub fn wasi_sock_recv(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_send
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_sock_send(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -1005,7 +1005,7 @@ pub fn wasi_sock_send(
     let mut i = 0;
     while i < si_data_count {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
 
         let start = (si_data + i * 8) as usize;
 
@@ -1026,9 +1026,9 @@ pub fn wasi_sock_send(
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // If sandbox does not own fd, no effects take place
 //#[ensures(v_fd >= MAX_SBOX_FDS || !ctx.fdmap.m[v_fd].is_err() ==> no_effect!(old(trace), trace))]
 // if args are valid, we do invoke an effect
@@ -1048,9 +1048,9 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(subscription_clock_abstime)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_poll_oneoff(
     ctx: &mut VmCtx,
     in_ptr: u32,
@@ -1073,7 +1073,7 @@ pub fn wasi_poll_oneoff(
     let mut i = 0;
     while i < nsubscriptions {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
         // TODO: refactor to use constants
         let sub_offset = i * 48;
         let event_offset = i * 32;
@@ -1162,9 +1162,9 @@ pub fn wasi_poll_oneoff(
 #[external_methods(to_le_bytes, to_wasi)]
 #[external_calls(from_le_bytes, from, first_null, push_dirent_name)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 // TODO: currently ignoring cookie
 // TODO: need to map posix filetypes to wasi filetypes
 // TODO: I'm not confident this works for multiple consecutive readdir calls to the same dir
@@ -1194,7 +1194,7 @@ pub fn wasi_fd_readdir(
 
     while in_idx < host_buf.len() && out_idx < host_buf.len() {
         body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx.memlen));
+        body_invariant!(trace_safe(trace, ctx));
         // Inode number
         let d_ino = u64::from_le_bytes([
             host_buf[in_idx + 0],
@@ -1272,9 +1272,9 @@ pub fn wasi_fd_readdir(
 #[external_calls(sock_domain_to_posix, sock_type_to_posix)]
 #[external_methods(create_sock)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
     // We only allow TCP and UDP, which can both be identified using protocol=0 when
     // domain.ty are (AF_INET,SOCK_STREAM) or (AF_INET,SOCK_DGRAM) respectively
@@ -1303,12 +1303,12 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 
 // No spec for this one since we added it
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(sock_domain_to_posix, from)]
-#[external_methods(addr_in_netlist)]
+#[external_calls(sock_domain_to_posix, from, addr_in_netlist)]
+//#[external_calls(addr_in_netlist)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasi_sock_connect(
     ctx: &mut VmCtx,
     sockfd: u32,
@@ -1345,7 +1345,7 @@ pub fn wasi_sock_connect(
         return Err(Enotcapable);
     }
     //fd_proto(fd, protocol);// TODO: do this better?
-    if !ctx.addr_in_netlist(sin_addr_in, sin_port as u32) {
+    if !addr_in_netlist(&ctx.netlist, sin_addr_in, sin_port as u32) {
         return Err(Enotcapable);
     }
 

@@ -14,9 +14,9 @@ pub fn wasm2c_marshal<T>(res: RuntimeResult<T>) -> u32 {
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_u32(
     ctx: &mut VmCtx,
     addr: usize,
@@ -37,9 +37,9 @@ pub fn wasm2c_marshal_and_writeback_u32(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_prestat(
     ctx: &mut VmCtx,
     addr: usize,
@@ -61,9 +61,9 @@ pub fn wasm2c_marshal_and_writeback_prestat(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_u64(
     ctx: &mut VmCtx,
     addr: usize,
@@ -84,9 +84,9 @@ pub fn wasm2c_marshal_and_writeback_u64(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_timestamp(
     ctx: &mut VmCtx,
     addr: usize,
@@ -107,9 +107,9 @@ pub fn wasm2c_marshal_and_writeback_timestamp(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_fdstat(
     ctx: &mut VmCtx,
     addr: usize,
@@ -133,9 +133,9 @@ pub fn wasm2c_marshal_and_writeback_fdstat(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_filestat(
     ctx: &mut VmCtx,
     addr: usize,
@@ -163,9 +163,9 @@ pub fn wasm2c_marshal_and_writeback_filestat(
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx.memlen))]
+#[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx.memlen))]
+#[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_u32_pair(
     ctx: &mut VmCtx,
     addr0: usize,
