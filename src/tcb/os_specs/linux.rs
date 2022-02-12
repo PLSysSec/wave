@@ -333,7 +333,7 @@ pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>)
 
 //https://man7.org/linux/man-pages/man2/utimensat.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.capacity() >= 2)]
+#[requires(specs.len() >= 2)]
 #[trusted]
 #[ensures(one_effect!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
@@ -348,7 +348,7 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 
 //https://man7.org/linux/man-pages/man2/utimensat.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.capacity() >= 2)]
+#[requires(specs.len() >= 2)]
 #[trusted]
 #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
 pub fn os_utimensat(
@@ -499,7 +499,7 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
 //https://man7.org/linux/man-pages/man2/socket.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(one_effect!(old(trace), trace, effect!(SockCreation, d, t) if d == (domain as usize) && t == (ty as usize) ))]
 pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SOCKET, domain, ty, protocol) as isize };

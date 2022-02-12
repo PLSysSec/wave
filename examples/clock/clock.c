@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   // __imported_wasi_snapshot_preview1_clock_res_get();
   struct timespec res_get;
   int result = clock_getres(2, &res_get);
-  printf("result = %d res_get.tv_sec = %lld res_get.tv_nsec = %lld\n", result, res_get.tv_sec, res_get.tv_nsec);
+  printf("result = %d res_get.tv_sec = %lld res_get.tv_nsec = %ld\n", result, res_get.tv_sec, res_get.tv_nsec);
 
 //   struct stat st = {0};
 //   if (stat("test_dir", &st) == -1) {

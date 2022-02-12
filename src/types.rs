@@ -1,8 +1,9 @@
 use crate::no_effect;
 use crate::tcb::misc::*;
+use crate::tcb::path::addr_matches_netlist_entry;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
-use extra_args::with_ghost_var;
+use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::ops::Sub;
@@ -270,6 +271,28 @@ impl Timestamp {
     pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
         let nanos = (sec * 1_000_000_000 + nsec) as u64;
         Timestamp(nanos)
+    }
+
+    /// This function converts a Wasi timestamp to a posix ns-timestamp
+    /// Specifically it encodes the logic around the UTIME_NOW and UTIME_OMIT
+    /// flag as described in https://man7.org/linux/man-pages/man2/utimensat.2.html
+    #[with_ghost_var(trace: &Trace)]
+    #[external_calls(from)]
+    pub fn ts_to_native(self, use_ts: bool, use_now: bool) -> libc::timespec {
+        if use_ts {
+            libc::timespec::from(self)
+        } else {
+            let nsec = if use_now {
+                libc::UTIME_NOW
+            } else {
+                libc::UTIME_OMIT
+            };
+            // when setting tv_nsec to a flag, tv_sec is ignored (see link above)
+            libc::timespec {
+                tv_sec: 0,
+                tv_nsec: nsec,
+            }
+        }
     }
 
     pub fn nsec(&self) -> u64 {
@@ -758,6 +781,24 @@ pub struct NetEndpoint {
 }
 
 pub type Netlist = [NetEndpoint; 4];
+
+#[pure]
+pub fn addr_in_netlist(netlist: &Netlist, addr: u32, port: u32) -> bool {
+    if addr_matches_netlist_entry(&netlist, addr, port, 0) {
+        return true;
+    }
+    if addr_matches_netlist_entry(&netlist, addr, port, 1) {
+        return true;
+    }
+    if addr_matches_netlist_entry(&netlist, addr, port, 2) {
+        return true;
+    }
+    if addr_matches_netlist_entry(&netlist, addr, port, 3) {
+        return true;
+    }
+
+    false
+}
 
 // Higher level protocols
 #[derive(Clone, Copy, PartialEq, Eq)]

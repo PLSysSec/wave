@@ -104,9 +104,9 @@ impl VmCtx {
     #[external_methods(reserve_exact)]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     #[ensures(result.len() == (n as usize) )]
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
@@ -119,16 +119,21 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some)]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     #[ensures(self.memlen == old(self.memlen))]
-    pub fn copy_buf_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) -> Option<()> {
+    pub fn copy_buf_to_sandbox(
+        &mut self,
+        dst: SboxPtr,
+        src: &Vec<u8>,
+        n: u32,
+    ) -> RuntimeResult<()> {
         if src.len() < n as usize || !self.fits_in_lin_mem(dst, n) {
-            return None;
+            return Err(Efault);
         }
         self.memcpy_to_sandbox(dst, src, n);
-        Some(())
+        Ok(())
     }
 
     /// Copy arg buffer from from host to sandbox
@@ -136,17 +141,17 @@ impl VmCtx {
     #[external_calls(Some, clone_vec_u8)]
     #[requires(self.arg_buffer.len() == (n as usize) )]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
-    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
+    #[ensures(trace_safe(trace, self))]
+    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> RuntimeResult<()> {
         if !self.fits_in_lin_mem(dst, n) {
-            return None;
+            return Err(Efault);
         }
         // let arg_buffer = self.arg_buffer.clone();
         let arg_buffer = clone_vec_u8(&self.arg_buffer);
         self.memcpy_to_sandbox(dst, &arg_buffer, n);
-        Some(())
+        Ok(())
     }
 
     /// Copy arg buffer from from host to sandbox
@@ -154,24 +159,24 @@ impl VmCtx {
     #[external_calls(Some, clone_vec_u8)]
     #[requires(self.env_buffer.len() == (n as usize) )]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
-    pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Option<()> {
+    #[ensures(trace_safe(trace, self))]
+    pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> RuntimeResult<()> {
         if !self.fits_in_lin_mem(dst, n) {
-            return None;
+            return Err(Efault);
         }
         // let env_buffer = self.env_buffer.clone();
         let env_buffer = clone_vec_u8(&self.env_buffer);
         self.memcpy_to_sandbox(dst, &env_buffer, n);
-        Some(())
+        Ok(())
     }
 
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(resolve_path)]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
+    #[ensures(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     pub fn translate_path(&self, path: SboxPtr, path_len: u32) -> RuntimeResult<SandboxedPath> {
         if !self.fits_in_lin_mem(path, path_len) {
@@ -186,41 +191,41 @@ impl VmCtx {
         // self.homedir.as_bytes().to_vec()
     }
 
-    #[pure]
-    pub fn in_netlist(&self, proto: WasiProto, addr: u32, port: u32) -> bool {
-        if self.matches_netlist_entry(proto, addr, port, 0) {
-            return true;
-        }
-        if self.matches_netlist_entry(proto, addr, port, 1) {
-            return true;
-        }
-        if self.matches_netlist_entry(proto, addr, port, 2) {
-            return true;
-        }
-        if self.matches_netlist_entry(proto, addr, port, 3) {
-            return true;
-        }
+    // #[pure]
+    // pub fn in_netlist(&self, proto: WasiProto, addr: u32, port: u32) -> bool {
+    //     if self.matches_netlist_entry(proto, addr, port, 0) {
+    //         return true;
+    //     }
+    //     if self.matches_netlist_entry(proto, addr, port, 1) {
+    //         return true;
+    //     }
+    //     if self.matches_netlist_entry(proto, addr, port, 2) {
+    //         return true;
+    //     }
+    //     if self.matches_netlist_entry(proto, addr, port, 3) {
+    //         return true;
+    //     }
 
-        false
-    }
+    //     false
+    // }
 
-    #[pure]
-    pub fn addr_in_netlist(&self, addr: u32, port: u32) -> bool {
-        if self.addr_matches_netlist_entry(addr, port, 0) {
-            return true;
-        }
-        if self.addr_matches_netlist_entry(addr, port, 1) {
-            return true;
-        }
-        if self.addr_matches_netlist_entry(addr, port, 2) {
-            return true;
-        }
-        if self.addr_matches_netlist_entry(addr, port, 3) {
-            return true;
-        }
+    // #[pure]
+    // pub fn addr_in_netlist(&self, addr: u32, port: u32) -> bool {
+    //     if self.addr_matches_netlist_entry(addr, port, 0) {
+    //         return true;
+    //     }
+    //     if self.addr_matches_netlist_entry(addr, port, 1) {
+    //         return true;
+    //     }
+    //     if self.addr_matches_netlist_entry(addr, port, 2) {
+    //         return true;
+    //     }
+    //     if self.addr_matches_netlist_entry(addr, port, 3) {
+    //         return true;
+    //     }
 
-        false
-    }
+    //     false
+    // }
 
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
@@ -228,11 +233,10 @@ impl VmCtx {
     #[external_calls(from_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 2) if addr == start as usize))]
-    // #[trusted]
     pub fn read_u16(&self, start: usize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
@@ -244,11 +248,10 @@ impl VmCtx {
     #[external_calls(from_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 4) if addr == start as usize))]
-    // #[trusted]
     pub fn read_u32(&self, start: usize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
@@ -266,11 +269,10 @@ impl VmCtx {
     #[external_calls(from_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 8) if addr == start as usize))]
-    // #[trusted]
     pub fn read_u64(&self, start: usize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
@@ -285,17 +287,31 @@ impl VmCtx {
         u64::from_le_bytes(bytes)
     }
 
+    /// read (u32,u32) from wasm linear memory
+    #[with_ghost_var(trace: &mut Trace)]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self))]
+    pub fn read_u32_pair(&self, start: usize) -> RuntimeResult<(u32, u32)> {
+        if !self.fits_in_lin_mem_usize(start, 8) {
+            return Err(Eoverflow);
+        }
+        let x1 = self.read_u32(start);
+        let x2 = self.read_u32(start + 4);
+        Ok((x1, x2))
+    }
+
     /// write u16 to wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
-    // #[trusted]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -308,11 +324,10 @@ impl VmCtx {
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
-    // #[trusted]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -325,11 +340,10 @@ impl VmCtx {
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
     #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self.memlen))]
+    #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self.memlen))]
+    #[ensures(trace_safe(trace, self))]
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
-    // #[trusted]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.mem[start] = bytes[0];

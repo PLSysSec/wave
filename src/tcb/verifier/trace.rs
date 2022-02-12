@@ -181,6 +181,7 @@ pub enum EffectType {
     FdAccess,
     PathAccess,
     NetAccess,
+    SockCreation,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
