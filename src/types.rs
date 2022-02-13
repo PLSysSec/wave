@@ -359,6 +359,14 @@ impl TryFrom<i32> for Advice {
             libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
             libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
             libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
+            // TODO: which of these is correct? I think probably the bottom
+            // 0 => Ok(Advice::Normal),
+            // 1 => Ok(Advice::Sequential),
+            // 2 => Ok(Advice::Random),
+            // 3 => Ok(Advice::WillNeed),
+            // 4 => Ok(Advice::DontNeed),
+            // 5 => Ok(Advice::NoReuse),
+
             _ => Err(RuntimeError::Einval),
         }
     }
@@ -624,7 +632,7 @@ impl FstFlags {
     }
 
     pub fn mtim_now(&self) -> bool {
-        nth_bit_set(self.0, 0)
+        nth_bit_set(self.0, 3)
     }
 }
 
