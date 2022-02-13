@@ -9,7 +9,7 @@ use quickcheck_macros;
 /*
 The goal of these experiments are to compare the correctness and performance of 7 different means 
 by which we could write data to mem.
-I will use this information to select an implementation for how veriwasi will read/write to memory.
+I will use this information to select an implementation for how wave will read/write to memory.
 The methods are:
     1. repeated 1-byte writes
     2. vector writer

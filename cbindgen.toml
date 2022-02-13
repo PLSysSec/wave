@@ -7,7 +7,7 @@ language = "C"
 
 # An optional name to use as an include guard
 # default: doesn't emit an include guard
-include_guard = "veriwasi_bindings_h"
+include_guard = "wave_bindings_h"
 
 # An optional string of text to output between major sections of the generated
 # file as a warning against manual editing

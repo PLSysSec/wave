@@ -100,7 +100,7 @@ fn ctx_from_memptr(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn veriwasi_init(
+pub extern "C" fn wave_init(
     memptr: *mut u8,
     memsize: isize,
     homedir: *const c_char,
@@ -119,7 +119,7 @@ pub extern "C" fn veriwasi_init(
 
 // TODO: should probably manually drop stuff here and null out ptr
 #[no_mangle]
-pub extern "C" fn veriwasi_cleanup(ctx: *const *mut VmCtx) {
+pub extern "C" fn wave_cleanup(ctx: *const *mut VmCtx) {
     // println!("Cleanup time!");
     output_hostcall_perf_results();
     output_syscall_perf_results();

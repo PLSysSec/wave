@@ -42,7 +42,7 @@ speedtest1.wasm.c: speedtest1.wasm
 	$(WASM2C_BIN_ROOT)/wasm2c -o speedtest1.wasm.c speedtest1.wasm
 
 speedtest1: speedtest1.wasm.c
-	gcc -g -shared -fPIC -Og -o speedtest1 speedtest1.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
+	gcc -g -shared -fPIC -Og -o speedtest1 speedtest1.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.so -I../../bindings
 
 run-wasmtime: speedtest1.wasm
 	wasmtime/target/debug/wasmtime --dir=. speedtest1.wasm 2>/dev/null
