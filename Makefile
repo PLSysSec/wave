@@ -43,13 +43,13 @@ verify:
 verify-debug:
 	PRUSTI_LOG=trace prusti-dev/target/debug/cargo-prusti --features verify
 
-# Generate C/Cpp bindings for veriwasi
+# Generate C/Cpp bindings for wave
 # wasm2c expects to pass a void pointer instead of a VmCtx pointer 
 # (which cbindgen generates), so I just use a sed command to replace it :)
 bindings:
 	mkdir -p bindings
-	cbindgen --config cbindgen.toml --crate veriwasi --lang c --output bindings/veriwasi.h
-	sed -i 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/veriwasi.h
+	cbindgen --config cbindgen.toml --crate wave --lang c --output bindings/wave.h
+	sed -i 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/wave.h
 
 wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build

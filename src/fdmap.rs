@@ -4,10 +4,10 @@ use crate::tcb::verifier::external_specs::vec::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use extra_args::{external_call, external_calls, external_method, with_ghost_var};
 use prusti_contracts::*;
 use std::io::{stderr, stdin, stdout};
 use std::os::unix::io::AsRawFd;
+use wave_macros::{external_call, external_calls, external_method, with_ghost_var};
 use RuntimeError::*;
 
 /*

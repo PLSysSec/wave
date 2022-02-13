@@ -5,12 +5,12 @@ use crate::tcb::verifier::external_specs::option::*;
 use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
-use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::io::AsRawFd;
 use std::path::{Component, Path, PathBuf};
+use wave_macros::{external_calls, external_methods, with_ghost_var};
 
 use RuntimeError::*;
 

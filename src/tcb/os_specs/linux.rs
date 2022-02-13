@@ -6,9 +6,9 @@ use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
-use extra_args::{external_call, external_method, with_ghost_var};
 use prusti_contracts::*;
 use syscall::syscall;
+use wave_macros::{external_call, external_method, with_ghost_var};
 
 //https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]

@@ -26,7 +26,7 @@ cp_and_insert.wasm.c: cp_and_insert.wasm
 	$(WASM2C_BIN_ROOT)/wasm2c -o cp_and_insert.wasm.c cp_and_insert.wasm
 
 cp_and_insert: cp_and_insert.wasm.c
-	gcc -shared -fPIC -O3 -o cp_and_insert cp_and_insert.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
+	gcc -shared -fPIC -O3 -o cp_and_insert cp_and_insert.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.so -I../../bindings
 
 run: cp_and_insert 
 	RUST_LOG=trace $(WASM2C_BIN_ROOT)/wasm2c-runner ./cp_and_insert --homedir=.

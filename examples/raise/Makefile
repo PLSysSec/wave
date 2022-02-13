@@ -25,7 +25,7 @@ raise.wasm.c: raise.wasm
 	$(WASM2C_BIN_ROOT)/wasm2c -o raise.wasm.c raise.wasm
 
 raise: raise.wasm.c
-	gcc -shared -fPIC -O3 -o raise raise.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
+	gcc -shared -fPIC -O3 -o raise raise.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.so -I../../bindings
 
 run: raise 
 	RUST_LOG=trace $(WASM2C_BIN_ROOT)/wasm2c-runner ./raise --homedir=.

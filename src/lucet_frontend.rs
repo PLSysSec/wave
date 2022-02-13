@@ -34,7 +34,7 @@ pub fn add_env_var(ctx: &mut VmCtx, env_var: String) -> () {
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_args_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_args_get_wave(
     ctx: *const *mut VmCtx,
     argv: i32,
     argv_buf: i32,
@@ -44,7 +44,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_args_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_args_sizes_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_args_sizes_get_wave(
     ctx: *const *mut VmCtx,
     pargc: i32,
     pargv_buf_size: i32,
@@ -54,10 +54,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_args_sizes_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_veriwasi(
-    ctx: *const *mut VmCtx,
-    x: i32,
-) {
+pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_wave(ctx: *const *mut VmCtx, x: i32) {
     std::panic::panic_any(3);
     //panic!(x);
     //panic::resume_unwind(Box::new("this is an exit!"))
@@ -66,7 +63,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_environ_sizes_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_environ_sizes_get_wave(
     ctx: *const *mut VmCtx,
     pcount: i32,
     pbuf_size: i32,
@@ -76,7 +73,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_environ_sizes_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_environ_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_environ_get_wave(
     ctx: *const *mut VmCtx,
     __environ: i32,
     environ_buf: i32,
@@ -86,7 +83,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_environ_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_prestat_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_prestat_get_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     prestat: i32,
@@ -96,7 +93,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_prestat_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_write_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_write_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     iov: i32,
@@ -114,7 +111,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_write_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_read_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_read_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     iov: i32,
@@ -127,7 +124,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_read_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_close_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_close_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
 ) -> i32 {
@@ -136,7 +133,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_close_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_seek_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_seek_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     offset: i64,
@@ -154,7 +151,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_seek_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_clock_time_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_clock_time_get_wave(
     ctx: *const *mut VmCtx,
     clock_id: i32,
     precision: i64,
@@ -170,7 +167,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_clock_time_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_clock_res_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_clock_res_get_wave(
     ctx: *const *mut VmCtx,
     clock_id: i32,
     out: i32,
@@ -180,7 +177,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_clock_res_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_advise_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_advise_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     offset: i64,
@@ -198,7 +195,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_advise_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_allocate_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_allocate_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     offset: i64,
@@ -209,7 +206,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_allocate_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_datasync_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_datasync_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
 ) -> i32 {
@@ -218,7 +215,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_datasync_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_get_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     out: i32,
@@ -228,7 +225,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_set_flags_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_set_flags_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     flags: i32,
@@ -238,7 +235,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_set_flags_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_set_rights_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_set_rights_wave(
     ctx: *const *mut VmCtx,
     a: i32,
     b: i64,
@@ -249,7 +246,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_fdstat_set_rights_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_get_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     out: i32,
@@ -259,7 +256,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_set_size_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_set_size_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     size: i64,
@@ -269,7 +266,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_set_size_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_set_times_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_set_times_wave(
     ctx: *const *mut VmCtx,
     v_fd: i32,
     atim: i64,
@@ -287,7 +284,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_filestat_set_times_veriwasi
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_pread_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_pread_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     iovs: i32,
@@ -307,7 +304,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_pread_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_prestat_dir_name_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_prestat_dir_name_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     path: i32,
@@ -323,7 +320,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_prestat_dir_name_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_pwrite_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_pwrite_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     iovs: i32,
@@ -343,7 +340,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_pwrite_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_readdir_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_readdir_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     buf: i32,
@@ -363,7 +360,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_readdir_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_renumber_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_renumber_wave(
     ctx: *const *mut VmCtx,
     from: i32,
     to: i32,
@@ -373,7 +370,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_renumber_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_sync_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_sync_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
 ) -> i32 {
@@ -382,7 +379,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_sync_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_tell_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_tell_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     out: i32,
@@ -392,7 +389,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_fd_tell_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_create_directory_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_create_directory_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     pathname: i32,
@@ -409,7 +406,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_create_directory_veriwasi
 // wasm2c and wasi-libc disagree about 4 vs 5 arguments
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_filestat_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_filestat_get_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     flags: i32,
@@ -430,7 +427,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_filestat_get_veriwasi(
 // wasi-libc and wasm2c disagree about whether this arg should exist
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_filestat_set_times_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_filestat_set_times_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     flags: i32,
@@ -454,7 +451,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_filestat_set_times_veriwa
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_link_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_link_wave(
     ctx: *const *mut VmCtx,
     old_fd: i32,
     old_flags: i32,
@@ -478,7 +475,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_link_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_open_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_open_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     dirflags: i32,
@@ -506,7 +503,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_open_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_readlink_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_readlink_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     path: i32,
@@ -528,7 +525,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_readlink_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_remove_directory_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_remove_directory_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     path: i32,
@@ -544,7 +541,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_remove_directory_veriwasi
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_rename_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_rename_wave(
     ctx: *const *mut VmCtx,
     old_fd: i32,
     old_path: i32,
@@ -566,7 +563,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_rename_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_symlink_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_symlink_wave(
     ctx: *const *mut VmCtx,
     old_path: i32,
     old_path_len: i32,
@@ -586,7 +583,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_symlink_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_path_unlink_file_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_path_unlink_file_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     path: i32,
@@ -598,7 +595,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_path_unlink_file_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_poll_oneoff_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_poll_oneoff_wave(
     ctx: *const *mut VmCtx,
     in_ptr: i32,
     out_ptr: i32,
@@ -616,7 +613,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_poll_oneoff_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_raise_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_raise_wave(
     ctx: *const *mut VmCtx,
     signal: i32,
 ) -> i32 {
@@ -625,7 +622,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_raise_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_random_get_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_random_get_wave(
     ctx: *const *mut VmCtx,
     buf: i32,
     buf_len: i32,
@@ -635,15 +632,13 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_random_get_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_sched_yield_veriwasi(
-    ctx: *const *mut VmCtx,
-) -> i32 {
+pub extern "C" fn hostcall_wasi_snapshot_preview1_sched_yield_wave(ctx: *const *mut VmCtx) -> i32 {
     Z_wasi_snapshot_preview1Z_sched_yieldZ_iv(ctx) as i32
 }
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_recv_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_recv_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     ri_data: i32,
@@ -665,7 +660,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_recv_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_send_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_send_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     si_data: i32,
@@ -685,7 +680,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_send_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_shutdown_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_shutdown_wave(
     ctx: *const *mut VmCtx,
     fd: i32,
     how: i32,
@@ -699,7 +694,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_shutdown_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_socket_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_socket_wave(
     ctx: *const *mut VmCtx,
     domain: i32,
     ty: i32,
@@ -717,7 +712,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_socket_veriwasi(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_connect_veriwasi(
+pub extern "C" fn hostcall_wasi_snapshot_preview1_sock_connect_wave(
     ctx: *const *mut VmCtx,
     sockfd: i32,
     addr: i32,

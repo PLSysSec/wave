@@ -26,7 +26,7 @@ fallocate.wasm.c: fallocate.wasm
 	$(WASM2C_BIN_ROOT)/wasm2c -o fallocate.wasm.c fallocate.wasm
 
 fallocate: fallocate.wasm.c
-	gcc -shared -fPIC -O3 -o fallocate fallocate.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libveriwasi.so -I../../bindings
+	gcc -shared -fPIC -O3 -o fallocate fallocate.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.so -I../../bindings
 
 run: fallocate 
 	RUST_LOG=trace $(WASM2C_BIN_ROOT)/wasm2c-runner ./fallocate --homedir=.

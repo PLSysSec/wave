@@ -3,10 +3,10 @@ use crate::tcb::misc::*;
 use crate::tcb::path::addr_matches_netlist_entry;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
-use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::ops::Sub;
+use wave_macros::{external_calls, external_methods, with_ghost_var};
 
 pub const MAX_SBOX_FDS: u32 = 8;
 // pub const MAX_SBOX_FDS_I32: i32 = 8;
@@ -359,6 +359,13 @@ impl TryFrom<i32> for Advice {
             libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
             libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
             libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
+            // TODO: which of these is correct? I think probably the bottom
+            // 0 => Ok(Advice::Normal),
+            // 1 => Ok(Advice::Sequential),
+            // 2 => Ok(Advice::Random),
+            // 3 => Ok(Advice::WillNeed),
+            // 4 => Ok(Advice::DontNeed),
+            // 5 => Ok(Advice::NoReuse),
             _ => Err(RuntimeError::Einval),
         }
     }
@@ -624,7 +631,7 @@ impl FstFlags {
     }
 
     pub fn mtim_now(&self) -> bool {
-        nth_bit_set(self.0, 0)
+        nth_bit_set(self.0, 3)
     }
 }
 

@@ -1,10 +1,10 @@
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use extra_args::with_ghost_var;
 use prusti_contracts::*;
 use std::os::unix::io::AsRawFd;
 use std::vec::Vec;
+use wave_macros::with_ghost_var;
 
 // Trusted because I can't get the verifier to understand that
 // this can't ever err and it is pretty clear it is correct.
