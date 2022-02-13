@@ -7,10 +7,10 @@ use crate::tcb::verifier::external_specs::result::*;
 use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, no_effect, one_effect};
-use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::{TryFrom, TryInto};
 use std::mem;
+use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops

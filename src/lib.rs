@@ -6,13 +6,9 @@
     unused_comparisons
 )]
 
-use extra_args::{external_call, external_method, with_ghost_var};
+use wave_macros::{external_call, external_method, with_ghost_var};
 
 extern crate prusti_contracts;
-
-// If we are fuzzing the trusted code, reinterpret the trusted annotation
-//#[cfg(feature = "fuzz_trusted")]
-//use extra_args::dummy_macro as trusted;
 
 mod fdmap;
 #[cfg(not(feature = "verify"))]

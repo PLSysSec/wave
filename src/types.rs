@@ -3,10 +3,10 @@ use crate::tcb::misc::*;
 use crate::tcb::path::addr_matches_netlist_entry;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
-use extra_args::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use std::convert::TryFrom;
 use std::ops::Sub;
+use wave_macros::{external_calls, external_methods, with_ghost_var};
 
 pub const MAX_SBOX_FDS: u32 = 8;
 // pub const MAX_SBOX_FDS_I32: i32 = 8;

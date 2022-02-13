@@ -1,8 +1,8 @@
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use extra_args::with_ghost_var;
 use prusti_contracts::*;
+use wave_macros::with_ghost_var;
 
 #[with_ghost_var(trace: &mut Trace)]
 pub fn wasm2c_marshal<T>(res: RuntimeResult<T>) -> u32 {

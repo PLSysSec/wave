@@ -3,9 +3,9 @@ use crate::tcb::os_specs::linux::*;
 use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
-use extra_args::with_ghost_var;
 use prusti_contracts::*;
 use syscall::syscall;
+use wave_macros::with_ghost_var;
 
 /// This module contains our syscall specifications
 /// These functions must be trusted because we don't know what the os actually does
