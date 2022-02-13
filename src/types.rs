@@ -366,7 +366,6 @@ impl TryFrom<i32> for Advice {
             // 3 => Ok(Advice::WillNeed),
             // 4 => Ok(Advice::DontNeed),
             // 5 => Ok(Advice::NoReuse),
-
             _ => Err(RuntimeError::Einval),
         }
     }

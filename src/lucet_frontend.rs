@@ -54,10 +54,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_args_sizes_get_wave(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_wave(
-    ctx: *const *mut VmCtx,
-    x: i32,
-) {
+pub extern "C" fn hostcall_wasi_snapshot_preview1_proc_exit_wave(ctx: *const *mut VmCtx, x: i32) {
     std::panic::panic_any(3);
     //panic!(x);
     //panic::resume_unwind(Box::new("this is an exit!"))
@@ -635,9 +632,7 @@ pub extern "C" fn hostcall_wasi_snapshot_preview1_random_get_wave(
 
 #[no_mangle]
 #[trace(logging)]
-pub extern "C" fn hostcall_wasi_snapshot_preview1_sched_yield_wave(
-    ctx: *const *mut VmCtx,
-) -> i32 {
+pub extern "C" fn hostcall_wasi_snapshot_preview1_sched_yield_wave(ctx: *const *mut VmCtx) -> i32 {
     Z_wasi_snapshot_preview1Z_sched_yieldZ_iv(ctx) as i32
 }
 
