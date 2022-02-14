@@ -14,6 +14,8 @@ predicate! {
     }
 }
 
+// TODO: make the memory-safety spec more convincing
+
 #[cfg(feature = "verify")]
 predicate! {
     pub fn trace_safe(trace: &Trace, ctx: &VmCtx) -> bool {

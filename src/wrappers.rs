@@ -15,7 +15,6 @@ use RuntimeError::*;
 
 // Note: Prusti can't really handle iterators, so we need to use while loops
 // TODO: eliminate as many external_methods and external_calls as possible
-// TODO: add links to spec for each hostcall
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
 // Modifies: fdmap
@@ -217,7 +216,6 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
     let ret = trace_sync(ctx, fd)?;
     Ok(ret as u32)
 }
@@ -265,7 +263,6 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_fdstat_set_flags
-//TODO: need wasm layout for FdFlags to read from ptr
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(from)]
 #[external_methods(to_posix)]
@@ -471,8 +468,7 @@ pub fn wasi_fd_pwrite(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_create_directory
-// TODO: should create fd for directory
-// modifies: adds hostfd for directory created
+// modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
 #[requires(ctx_safe(ctx))]
@@ -630,8 +626,7 @@ pub fn wasi_path_readlink(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_remove_directory
-//TODO: should remove fd from map?
-//modifies: removes directory from fdmap
+//modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
@@ -819,7 +814,6 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_renumber
-// TODO: condense both checks into one
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(shift)]
 #[requires(ctx_safe(ctx))]
@@ -828,15 +822,9 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
 #[ensures(trace_safe(trace, ctx))]
 #[ensures(no_effect!(old(trace), trace))]
 pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
-    // 1. translate from fd
-    if v_from >= MAX_SBOX_FDS {
+    if v_from >= MAX_SBOX_FDS || v_to >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
-    // 2. translate to fd
-    if v_to >= MAX_SBOX_FDS {
-        return Err(Ebadf);
-    }
-    // 3. delete from with to
     ctx.fdmap.shift(v_from, v_to);
     Ok(())
 }
@@ -1013,8 +1001,9 @@ pub fn wasi_sock_send(
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
         }
+        // Currently the flags field of trace_send must be set to 0:
+        // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md/#siflags
         let flags = 0;
-        // TODO: handle flags
         let result = trace_send(ctx, fd, ptr, len as usize, flags)?;
         num += result as u32;
         i += 1;
@@ -1113,12 +1102,12 @@ pub fn wasi_poll_oneoff(
                 let res = trace_nanosleep(ctx, &req, &mut rem)?;
 
                 // write the event output...
-                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
-                let errno = 0;
-                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-                ctx.write_u16(
-                    (out_ptr + event_offset + 10) as usize,
-                    EventType::Clock.into(),
+                let errno = 0; // TODO: errno
+                ctx.write_event(
+                    (out_ptr + event_offset) as usize,
+                    userdata,
+                    errno,
+                    tag as u16,
                 );
                 // clock event ignores fd_readwrite field.
             }
@@ -1130,19 +1119,21 @@ pub fn wasi_poll_oneoff(
 
                 let mut pollfd = libc::pollfd {
                     fd: host_fd as i32,
-                    events: libc::POLLIN,
-                    revents: 0,
+                    events: libc::POLLIN, // TODO: check if write is available as well?
+                    revents: 0,           // TODO: should check this somewhere?
                 };
                 let timeout = -1;
 
                 let res = trace_poll(ctx, &mut pollfd, timeout)?;
 
                 // write the event output...
-                ctx.write_u64((out_ptr + event_offset) as usize, userdata);
-                let errno = 0;
-                ctx.write_u16((out_ptr + event_offset + 8) as usize, errno); // TODO: errno
-                ctx.write_u16((out_ptr + event_offset + 10) as usize, tag as u16);
-                // TODO: fd_readwrite member...need number of bytes available....
+                let errno = 0; // TODO: errno
+                ctx.write_event(
+                    (out_ptr + event_offset) as usize,
+                    userdata,
+                    errno,
+                    tag as u16,
+                );
             }
 
             _ => {

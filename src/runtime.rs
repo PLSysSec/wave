@@ -191,42 +191,6 @@ impl VmCtx {
         // self.homedir.as_bytes().to_vec()
     }
 
-    // #[pure]
-    // pub fn in_netlist(&self, proto: WasiProto, addr: u32, port: u32) -> bool {
-    //     if self.matches_netlist_entry(proto, addr, port, 0) {
-    //         return true;
-    //     }
-    //     if self.matches_netlist_entry(proto, addr, port, 1) {
-    //         return true;
-    //     }
-    //     if self.matches_netlist_entry(proto, addr, port, 2) {
-    //         return true;
-    //     }
-    //     if self.matches_netlist_entry(proto, addr, port, 3) {
-    //         return true;
-    //     }
-
-    //     false
-    // }
-
-    // #[pure]
-    // pub fn addr_in_netlist(&self, addr: u32, port: u32) -> bool {
-    //     if self.addr_matches_netlist_entry(addr, port, 0) {
-    //         return true;
-    //     }
-    //     if self.addr_matches_netlist_entry(addr, port, 1) {
-    //         return true;
-    //     }
-    //     if self.addr_matches_netlist_entry(addr, port, 2) {
-    //         return true;
-    //     }
-    //     if self.addr_matches_netlist_entry(addr, port, 3) {
-    //         return true;
-    //     }
-
-    //     false
-    // }
-
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
@@ -354,5 +318,23 @@ impl VmCtx {
         self.mem[start + 5] = bytes[5];
         self.mem[start + 6] = bytes[6];
         self.mem[start + 7] = bytes[7];
+    }
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[requires(self.fits_in_lin_mem_usize(start, 12, trace))]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self))]
+    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
+    pub fn write_event(&mut self, start: usize, userdata: u64, errno: u16, tag: u16) {
+        // if !ctx.fits_in_lin_mem_usize(start, 12) {
+        //     return Err(Eoverflow);
+        // }
+        // write the event output...
+        self.write_u64(start, userdata);
+        self.write_u16(start, errno);
+        self.write_u16(start, tag);
+        // TODO: fd_readwrite member...need number of bytes available....
     }
 }
