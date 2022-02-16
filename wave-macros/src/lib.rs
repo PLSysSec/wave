@@ -4,11 +4,11 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::punctuated::Punctuated;
+//use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     parse_macro_input, Attribute, Expr, ExprCall, ExprMethodCall, ExprPath, FnArg, Ident, ItemFn,
-    Meta, NestedMeta, Pat, Path, PathArguments, PathSegment, Signature, Token, Type,
+    Meta, NestedMeta, Pat, Path, PathArguments, PathSegment, Signature, 
 };
 
 /// Right now macro should be used like:
@@ -17,7 +17,7 @@ use syn::{
 struct Args {
     decl: FnArg,
     var: Ident,
-    ty: Type,
+    //ty: Type,
     external_calls: Vec<Ident>,
     external_methods: Vec<Ident>,
 }
@@ -48,9 +48,9 @@ impl Args {
         expr
     }
 
-    fn ty(&self) -> Type {
-        self.ty.clone()
-    }
+    //fn ty(&self) -> Type {
+    //    self.ty.clone()
+    //}
 }
 
 fn pat_to_ident(pat: Pat) -> Result<Ident> {
@@ -94,11 +94,11 @@ impl Parse for Args {
         let decl = syn::FnArg::parse(input)?;
         if let FnArg::Typed(ref pat_ty) = decl {
             let var = pat_to_ident(*pat_ty.pat.clone())?;
-            let ty = *pat_ty.ty.clone();
+            //let ty = *pat_ty.ty.clone();
             return Ok(Args {
                 decl,
                 var,
-                ty,
+                //ty,
                 // Hardcoded external calls
                 external_calls: vec![
                     // Common calls
@@ -117,11 +117,6 @@ impl Parse for Args {
                     Ident::new("into", Span::call_site()),
                     Ident::new("len", Span::call_site()),
                     Ident::new("ok_or", Span::call_site()),
-                    // Pure methods: todo, handle pure methods better
-                    //Ident::new("fits_in_lin_mem", Span::call_site()),
-                    //Ident::new("fits_in_lin_mem_usize", Span::call_site()),
-                    //Ident::new("in_lin_mem", Span::call_site()),
-                    //Ident::new("in_lin_mem_usize", Span::call_site()),
                 ],
             });
         }
