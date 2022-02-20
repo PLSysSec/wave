@@ -179,7 +179,7 @@ pub enum EffectType {
     WriteN,
     Shutdown,
     FdAccess,
-    PathAccess,
+    PathAccessAt,
     NetAccess,
     SockCreation,
 }
