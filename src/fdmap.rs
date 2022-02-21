@@ -63,7 +63,6 @@ impl FdMap {
     #[external_calls(vec_checked_lookup)]
     // #[pure]
     #[ensures(result.is_ok() ==> old(v_fd) < MAX_SBOX_FDS)]
-    // TODO: this is the function we should be using - but for some reason prusti does not like it.
     pub fn fd_to_native(&self, v_fd: SboxFd) -> RuntimeResult<HostFd> {
         if v_fd >= MAX_SBOX_FDS {
             return Err(Ebadf);

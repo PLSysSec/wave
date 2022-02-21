@@ -53,10 +53,12 @@ fn ctx_from_memptr(
     let log_path = ffi_load_cstr(log_path).to_owned().clone();
     let homedir = &(*ffi_load_cstr(homedir).clone()); // Actually copy the inner string
     let homedir_file = std::fs::File::open(homedir).unwrap();
-    let homedir_fd = homedir_file.as_raw_fd();
-    if homedir_fd > 0 {
-        fdmap.create((homedir_fd as usize).into());
+    let homedir_host_fd = homedir_file.as_raw_fd() as usize;
+    if homedir_host_fd >= 0 {
+        fdmap.create((homedir_host_fd).into());
     }
+    // Should fail if homedir_fd <= 0
+
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
     std::mem::forget(homedir_file);
@@ -88,12 +90,13 @@ fn ctx_from_memptr(
         memlen,
         fdmap,
         homedir: homedir.to_owned(),
-        errno: Success,
+        homedir_host_fd: HostFd::from(homedir_host_fd), 
+        // errno: Success,
         arg_buffer,
         argc,
         env_buffer,
         envc,
-        log_path,
+        // log_path,
         netlist,
     }
 }

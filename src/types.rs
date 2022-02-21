@@ -32,16 +32,33 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 pub type SboxPtr = u32;
 
 // pub type HostFd = usize;
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct HostFd(usize);
+
+// Not using impl From, since Prusti has a hard time understanding
+// that those conversions are pure
+// impl HostFd {
+//     #[pure]
+//     fn into(self) -> usize {
+//         self.0
+//     }
+
+//     #[pure]
+//     fn from(w: usize) -> HostFd {
+//         HostFd(w)
+//     }
+// }
+
 impl From<HostFd> for usize {
+    //#[pure]
     fn from(w: HostFd) -> usize {
         w.0
     }
 }
 
 impl From<usize> for HostFd {
+    //#[pure]
     fn from(w: usize) -> HostFd {
         HostFd(w)
     }
@@ -72,7 +89,7 @@ pub enum RuntimeError {
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
-// Apparently wasi errors are not actually the same numbers as posix errors :(
+// Wasi errors are not actually the same numbers as posix errors
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
 // WASI constants: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-bottom-half/headers/public/wasi/api.h#L117-L497
 impl From<RuntimeError> for u32 {
@@ -160,12 +177,13 @@ pub struct VmCtx {
     pub memlen: usize,
     pub fdmap: FdMap,
     pub homedir: String,
-    pub errno: RuntimeError,
+    pub homedir_host_fd: HostFd,
+    // pub errno: RuntimeError,
     pub arg_buffer: Vec<u8>,
     pub argc: usize,
     pub env_buffer: Vec<u8>,
     pub envc: usize,
-    pub log_path: String,
+    // pub log_path: String,
     pub netlist: Netlist,
 }
 

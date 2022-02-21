@@ -19,17 +19,17 @@ use RuntimeError::*;
 //#[ensures(safe(&result))]
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned, clone)]
-#[external_calls(open, forget, get_homedir_fd)]
+#[external_calls(open, forget, get_homedir_fd, from)]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
-    let homedir_fd = get_homedir_fd(&homedir);
+    let homedir_host_fd = get_homedir_fd(&homedir) as usize;
     // let homedir_file = std::fs::File::open(&homedir).unwrap();
     // let homedir_fd = homedir_file.as_raw_fd();
-    if homedir_fd > 0 {
-        fdmap.create((homedir_fd as usize).into());
+    if homedir_host_fd >= 0 {
+        fdmap.create((homedir_host_fd).into());
     }
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
@@ -48,12 +48,13 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         memlen,
         fdmap,
         homedir,
-        errno: Success,
+        homedir_host_fd: HostFd::from(homedir_host_fd),
+        // errno: Success,
         arg_buffer,
         argc,
         env_buffer,
         envc,
-        log_path,
+        // log_path,
         netlist,
     }
 }
@@ -190,6 +191,14 @@ impl VmCtx {
         string_to_vec_u8(&self.homedir)
         // self.homedir.as_bytes().to_vec()
     }
+
+    // pub fn translate_homedir_fd() -> HostFd {
+    //     if v_fd != HOMEDIR_FD {
+    //         return Err(Enotcapable);
+    //     } 
+    //     assert!(v_fd == HOMEDIR_FD);
+    //     let fd = ctx.homedir_host_fd;
+    // }
 
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works

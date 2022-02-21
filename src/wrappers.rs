@@ -39,8 +39,20 @@ pub fn wasi_path_open(
     let fdflags = FdFlags::from(fdflags);
 
     let host_pathname = ctx.translate_path(pathname, path_len)?;
-    let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
+    // TODO: support arbitrary *at calls
+    // Currently they can only be based off our preopened dir
+    // (I've never seen a call that has attempted otherwise)
+    // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
+    // auto adjusts it to our home directory
+    if v_dir_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
 
+    // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
+
+    // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
+    // assert!(usize::from(fd) == usize::from(fd));
+    
     let dirflags_posix = dirflags.to_posix();
     let oflags_posix = oflags.to_posix();
     let fdflags_posix = fdflags.to_posix();
@@ -49,6 +61,9 @@ pub fn wasi_path_open(
         fdflags.to_posix(),
     );
 
+    assert!(v_dir_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+    // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
     ctx.fdmap.create(fd.into())
 }
@@ -481,7 +496,13 @@ pub fn wasi_path_create_directory(
     pathname: u32,
     path_len: u32,
 ) -> RuntimeResult<()> {
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    // let fd = ctx.fdmap.fd_to_native(v_fd)?;
+
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
 
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     // wasi doesn't specify what permissions should be
@@ -510,6 +531,12 @@ pub fn wasi_path_filestat_get(
 ) -> RuntimeResult<FileStat> {
     let flags = LookupFlags::new(flags);
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let mut stat = fresh_stat();
 
@@ -545,7 +572,13 @@ pub fn wasi_path_filestat_set_times(
         return Err(Einval);
     }
 
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    // let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+
     let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let mut specs: Vec<libc::timespec> = Vec::new();
@@ -581,8 +614,23 @@ pub fn wasi_path_link(
 ) -> RuntimeResult<()> {
     let flags = LookupFlags::new(flags);
 
-    let old_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
-    let new_fd = ctx.fdmap.fd_to_native(v_new_fd)?;
+    // let old_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
+    // let new_fd = ctx.fdmap.fd_to_native(v_new_fd)?;
+
+    if v_old_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_old_fd == HOMEDIR_FD);
+    let old_fd = ctx.homedir_host_fd;
+
+    if v_new_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_new_fd == HOMEDIR_FD);
+    let new_fd = ctx.homedir_host_fd;
+
+
+
     let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
     let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
 
@@ -613,7 +661,13 @@ pub fn wasi_path_readlink(
     ptr: u32,
     len: u32,
 ) -> RuntimeResult<u32> {
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    // let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+
     let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     if !ctx.fits_in_lin_mem(ptr, len) {
@@ -638,7 +692,13 @@ pub fn wasi_path_remove_directory(
     pathname: u32,
     path_len: u32,
 ) -> RuntimeResult<()> {
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    // let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+
     let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let res = trace_unlinkat(ctx, fd, host_pathname, libc::AT_REMOVEDIR);
@@ -668,10 +728,22 @@ pub fn wasi_path_rename(
     new_pathname: u32,
     new_path_len: u32,
 ) -> RuntimeResult<()> {
-    let old_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
-    let new_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
+    // let old_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
+    // let new_fd = ctx.fdmap.fd_to_native(v_old_fd)?;
     let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
     let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
+
+    if v_old_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_old_fd == HOMEDIR_FD);
+    let old_fd = ctx.homedir_host_fd;
+
+    if v_new_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_new_fd == HOMEDIR_FD);
+    let new_fd = ctx.homedir_host_fd;
 
     let res = trace_renameat(ctx, old_fd, old_host_pathname, new_fd, new_host_pathname)?;
     Ok(())
@@ -692,7 +764,13 @@ pub fn wasi_path_symlink(
     new_pathname: u32,
     new_path_len: u32,
 ) -> RuntimeResult<()> {
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    //let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+
     let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
     let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
 
@@ -712,7 +790,13 @@ pub fn wasi_path_unlink_file(
     pathname: u32,
     path_len: u32,
 ) -> RuntimeResult<()> {
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    // let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    } 
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+
     let host_pathname = ctx.translate_path(pathname, path_len)?;
 
     let res = trace_unlinkat(ctx, fd, host_pathname, 0)?;

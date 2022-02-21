@@ -7,7 +7,8 @@ predicate! {
     pub fn ctx_safe(ctx: &VmCtx) -> bool {
         ctx.memlen == LINEAR_MEM_SIZE &&
         // ctx.mem.len() == LINEAR_MEM_SIZE &&
-        ctx.homedir == HOMEDIR_FD &&
+        //ctx.homedir_host_host == ctx.fdmap[HOMEDIR_FD] &&
+        // ctx.fdmap.lookup(HOMEDIR_FD).is_ok() &&
         ctx.argc < 1024 &&
         ctx.envc < 1024 &&
         ctx.arg_buffer.len() < 1024 * 1024 &&
@@ -28,7 +29,7 @@ predicate! {
                     Effect { typ: EffectType::WriteN, f1: addr, f2: count, .. } => (addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
                     Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe
                     Effect { typ: EffectType::FdAccess, ..  } => true,
-                    Effect { typ: EffectType::PathAccessAt, f1: dir_fd, ..  } => true /*dir_fd == ctx.HOMEDIR_FD*/,
+                    Effect { typ: EffectType::PathAccessAt, f1: dir_fd, ..  } => dir_fd == ctx.homedir_host_fd.into(),
                     Effect { typ: EffectType::NetAccess, f1: _proto, f2:addr, f3:port } => addr_in_netlist(&ctx.netlist, addr as u32, port as u32),
                     Effect { typ: EffectType::SockCreation, f1: domain, f2:ty, ..  } => domain == (libc::AF_INET as usize) && (ty == (libc::SOCK_STREAM as usize) || ty == (libc::SOCK_DGRAM as usize)),
                 }
