@@ -29,7 +29,7 @@ predicate! {
                     Effect { typ: EffectType::WriteN, f1: addr, f2: count, .. } => (addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
                     Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe
                     Effect { typ: EffectType::FdAccess, ..  } => true,
-                    Effect { typ: EffectType::PathAccessAt, f1: dir_fd, ..  } => dir_fd == ctx.homedir_host_fd.into(),
+                    Effect { typ: EffectType::PathAccessAt, f1: dir_fd, ..  } => dir_fd == ctx.homedir_host_fd.to_raw(),
                     Effect { typ: EffectType::NetAccess, f1: _proto, f2:addr, f3:port } => addr_in_netlist(&ctx.netlist, addr as u32, port as u32),
                     Effect { typ: EffectType::SockCreation, f1: domain, f2:ty, ..  } => domain == (libc::AF_INET as usize) && (ty == (libc::SOCK_STREAM as usize) || ty == (libc::SOCK_DGRAM as usize)),
                 }

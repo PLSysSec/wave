@@ -13,7 +13,7 @@ trace::init_depth_var!();
 // Intended to make lucet integration cleaner
 
 pub fn redirect_stdout(ctx: &mut VmCtx, new_stdout: i32) -> () {
-    ctx.fdmap.m[1] = Ok((new_stdout as usize).into())
+    ctx.fdmap.m[1] = Ok(HostFd::from_raw(new_stdout as usize))
 }
 
 pub fn add_arg(ctx: &mut VmCtx, arg: String) -> () {

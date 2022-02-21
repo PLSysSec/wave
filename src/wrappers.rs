@@ -46,13 +46,13 @@ pub fn wasi_path_open(
     // auto adjusts it to our home directory
     if v_dir_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
 
     // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
 
     // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
     // assert!(usize::from(fd) == usize::from(fd));
-    
+
     let dirflags_posix = dirflags.to_posix();
     let oflags_posix = oflags.to_posix();
     let fdflags_posix = fdflags.to_posix();
@@ -64,8 +64,9 @@ pub fn wasi_path_open(
     assert!(v_dir_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
     // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
+    assert!(fd.to_raw() == ctx.homedir_host_fd.to_raw());
     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
-    ctx.fdmap.create(fd.into())
+    ctx.fdmap.create(HostFd::from_raw(fd))
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_close
@@ -500,7 +501,7 @@ pub fn wasi_path_create_directory(
 
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -533,7 +534,7 @@ pub fn wasi_path_filestat_get(
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -575,7 +576,7 @@ pub fn wasi_path_filestat_set_times(
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -619,17 +620,15 @@ pub fn wasi_path_link(
 
     if v_old_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_old_fd == HOMEDIR_FD);
     let old_fd = ctx.homedir_host_fd;
 
     if v_new_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_new_fd == HOMEDIR_FD);
     let new_fd = ctx.homedir_host_fd;
-
-
 
     let old_host_pathname = ctx.translate_path(old_pathname, old_path_len)?;
     let new_host_pathname = ctx.translate_path(new_pathname, new_path_len)?;
@@ -664,7 +663,7 @@ pub fn wasi_path_readlink(
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -695,7 +694,7 @@ pub fn wasi_path_remove_directory(
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -735,13 +734,13 @@ pub fn wasi_path_rename(
 
     if v_old_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_old_fd == HOMEDIR_FD);
     let old_fd = ctx.homedir_host_fd;
 
     if v_new_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_new_fd == HOMEDIR_FD);
     let new_fd = ctx.homedir_host_fd;
 
@@ -767,7 +766,7 @@ pub fn wasi_path_symlink(
     //let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -793,7 +792,7 @@ pub fn wasi_path_unlink_file(
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
-    } 
+    }
     assert!(v_fd == HOMEDIR_FD);
     let fd = ctx.homedir_host_fd;
 
@@ -1199,7 +1198,7 @@ pub fn wasi_poll_oneoff(
                 let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
                 let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-                let host_fd: usize = fd.into();
+                let host_fd: usize = fd.to_raw();
 
                 let mut pollfd = libc::pollfd {
                     fd: host_fd as i32,
@@ -1372,7 +1371,7 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 
     let res = trace_socket(ctx, domain, ty, protocol)?;
 
-    ctx.fdmap.create_sock(res.into(), wasi_proto)
+    ctx.fdmap.create_sock(HostFd::from_raw(res), wasi_proto)
     // ctx.fdmap.create(res.into())
 }
 
@@ -1415,7 +1414,7 @@ pub fn wasi_sock_connect(
         sin_zero: [0; 8],
     };
 
-    let protocol = ctx.fdmap.sockinfo[usize::from(fd)]?;
+    let protocol = ctx.fdmap.sockinfo[fd.to_raw()]?;
     if matches!(protocol, WasiProto::Unknown) {
         return Err(Enotcapable);
     }

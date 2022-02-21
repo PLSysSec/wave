@@ -55,7 +55,7 @@ fn ctx_from_memptr(
     let homedir_file = std::fs::File::open(homedir).unwrap();
     let homedir_host_fd = homedir_file.as_raw_fd() as usize;
     if homedir_host_fd >= 0 {
-        fdmap.create((homedir_host_fd).into());
+        fdmap.create(HostFd::from_raw(homedir_host_fd));
     }
     // Should fail if homedir_fd <= 0
 
@@ -90,7 +90,7 @@ fn ctx_from_memptr(
         memlen,
         fdmap,
         homedir: homedir.to_owned(),
-        homedir_host_fd: HostFd::from(homedir_host_fd), 
+        homedir_host_fd: HostFd::from_raw(homedir_host_fd),
         // errno: Success,
         arg_buffer,
         argc,

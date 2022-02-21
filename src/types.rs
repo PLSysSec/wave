@@ -38,31 +38,31 @@ pub struct HostFd(usize);
 
 // Not using impl From, since Prusti has a hard time understanding
 // that those conversions are pure
-// impl HostFd {
-//     #[pure]
-//     fn into(self) -> usize {
-//         self.0
-//     }
+impl HostFd {
+    #[pure]
+    pub(crate) fn to_raw(&self) -> usize {
+        self.0
+    }
 
-//     #[pure]
+    //#[pure]
+    pub(crate) fn from_raw(w: usize) -> HostFd {
+        HostFd(w)
+    }
+}
+
+// impl From<HostFd> for usize {
+//     //#[pure]
+//     fn from(w: HostFd) -> usize {
+//         w.0
+//     }
+// }
+
+// impl From<usize> for HostFd {
+//     //#[pure]
 //     fn from(w: usize) -> HostFd {
 //         HostFd(w)
 //     }
 // }
-
-impl From<HostFd> for usize {
-    //#[pure]
-    fn from(w: HostFd) -> usize {
-        w.0
-    }
-}
-
-impl From<usize> for HostFd {
-    //#[pure]
-    fn from(w: usize) -> HostFd {
-        HostFd(w)
-    }
-}
 
 pub type SboxFd = u32;
 

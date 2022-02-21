@@ -74,7 +74,7 @@ impl VmCtx {
     #[ensures(no_effect!(old(trace), trace))]
     #[ensures(as_sbox_ptr(result) == old(ptr as usize))]
     //#[after_expiry(old(self.netlist) == self.netlist)]
-    #[after_expiry(ctx_safe(self) && old(self.netlist) == self.netlist)]
+    #[after_expiry(ctx_safe(self) && old(self.netlist) == self.netlist && old(self.homedir_host_fd) == self.homedir_host_fd)]
     #[trusted]
     pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
         let start = ptr as usize;

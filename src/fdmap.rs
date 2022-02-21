@@ -45,9 +45,9 @@ impl FdMap {
         if (stdin_fd >= 0) && (stdout_fd >= 0) && (stderr_fd >= 0) {
             // upcasting i32 => usize is safe since we checked that it is positive
             // viper overflow checker would yell at us if this was not the case
-            self.create((stdin_fd as usize).into());
-            self.create((stdout_fd as usize).into());
-            self.create((stderr_fd as usize).into());
+            self.create(HostFd::from_raw(stdin_fd as usize));
+            self.create(HostFd::from_raw(stdout_fd as usize));
+            self.create(HostFd::from_raw(stderr_fd as usize));
             return Ok(());
         }
         Err(Emfile) // File descriptor failure

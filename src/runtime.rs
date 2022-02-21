@@ -29,7 +29,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     // let homedir_file = std::fs::File::open(&homedir).unwrap();
     // let homedir_fd = homedir_file.as_raw_fd();
     if homedir_host_fd >= 0 {
-        fdmap.create((homedir_host_fd).into());
+        fdmap.create(HostFd::from_raw(homedir_host_fd));
     }
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
@@ -48,7 +48,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         memlen,
         fdmap,
         homedir,
-        homedir_host_fd: HostFd::from(homedir_host_fd),
+        homedir_host_fd: HostFd::from_raw(homedir_host_fd),
         // errno: Success,
         arg_buffer,
         argc,
@@ -195,7 +195,7 @@ impl VmCtx {
     // pub fn translate_homedir_fd() -> HostFd {
     //     if v_fd != HOMEDIR_FD {
     //         return Err(Enotcapable);
-    //     } 
+    //     }
     //     assert!(v_fd == HOMEDIR_FD);
     //     let fd = ctx.homedir_host_fd;
     // }
