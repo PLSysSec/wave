@@ -105,6 +105,7 @@ impl Parse for Args {
                     Ident::new("Ok", Span::call_site()),
                     Ident::new("Err", Span::call_site()),
                     Ident::new("new", Span::call_site()),
+                    Ident::new("from_raw", Span::call_site()),
                     // Instrumentation
                     Ident::new("start_timer", Span::call_site()),
                     Ident::new("stop_timer", Span::call_site()),
@@ -117,6 +118,7 @@ impl Parse for Args {
                     Ident::new("into", Span::call_site()),
                     Ident::new("len", Span::call_site()),
                     Ident::new("ok_or", Span::call_site()),
+                    Ident::new("to_raw", Span::call_site()),
                 ],
             });
         }
