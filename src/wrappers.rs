@@ -208,16 +208,15 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_sync
 // modifies: none
-// TODO: should not return u32 at all?
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ret = trace_sync(ctx, fd)?;
-    Ok(ret as u32)
+    Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_datasync
@@ -331,13 +330,9 @@ pub fn wasi_fd_filestat_set_times(
 ) -> RuntimeResult<()> {
     let atim = Timestamp::new(v_atim);
     let mtim = Timestamp::new(v_mtim);
-    let fst_flags = FstFlags::new(v_fst_flags as u16);
+    let fst_flags = FstFlags::try_from(v_fst_flags as u16)?;
 
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-    // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
-    //       and handle here?
-    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
 
     let mut specs: Vec<libc::timespec> = Vec::new();
 
@@ -491,8 +486,6 @@ pub fn wasi_path_create_directory(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_get
-// TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
-//       respect the fd.
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
@@ -534,16 +527,12 @@ pub fn wasi_path_filestat_set_times(
     path_len: u32,
     atim: u64,
     mtim: u64,
-    fst_flags: FstFlags, // TODO: convert to fst flags inside function
+    v_fst_flags: u32,
 ) -> RuntimeResult<()> {
+    let fst_flags = FstFlags::try_from(v_fst_flags as u16)?;
     let atim = Timestamp::new(atim);
     let mtim = Timestamp::new(mtim);
     let flags = LookupFlags::new(flags);
-
-    // TODO: should be bundled into fstflags conversion
-    if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-        return Err(Einval);
-    }
 
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let host_pathname = ctx.translate_path(pathname, path_len)?;
@@ -562,7 +551,6 @@ pub fn wasi_path_filestat_set_times(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_link
-// TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]

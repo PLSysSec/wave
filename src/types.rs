@@ -613,10 +613,6 @@ impl OFlags {
 pub struct FstFlags(u16);
 
 impl FstFlags {
-    pub fn new(flags: u16) -> Self {
-        FstFlags(flags)
-    }
-
     // must impl flag checking as trusted due to bitwise ops not being supported by prusti
     pub fn atim(&self) -> bool {
         nth_bit_set(self.0, 0)
@@ -632,6 +628,18 @@ impl FstFlags {
 
     pub fn mtim_now(&self) -> bool {
         nth_bit_set(self.0, 3)
+    }
+}
+
+impl TryFrom<u16> for FstFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u16) -> RuntimeResult {
+        let result = FstFlags(flags);
+        if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
+            return Err(Einval);
+        }
+        Ok(result)
     }
 }
 
