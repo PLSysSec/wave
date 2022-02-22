@@ -16,7 +16,7 @@ use wave_macros::with_ghost_var;
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
+#[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, dir_fd)))]
 pub fn trace_openat(
     ctx: &VmCtx,
     dir_fd: HostFd,
@@ -207,7 +207,7 @@ pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> RuntimeRes
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
 pub fn trace_fstatat(
     ctx: &VmCtx,
     fd: HostFd,
@@ -262,7 +262,7 @@ pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> RuntimeR
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccess), effect!(PathAccess)))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccessAt, old_fd), effect!(PathAccessAt, new_fd)))]
 pub fn trace_linkat(
     ctx: &VmCtx,
     old_fd: HostFd,
@@ -284,7 +284,7 @@ pub fn trace_linkat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd)))]
 pub fn trace_mkdirat(
     ctx: &VmCtx,
     dir_fd: HostFd,
@@ -304,7 +304,7 @@ pub fn trace_mkdirat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(WriteN, addr, count)))]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd), effect!(WriteN, addr, count)))]
 pub fn trace_readlinkat(
     ctx: &mut VmCtx,
     dir_fd: HostFd,
@@ -324,7 +324,7 @@ pub fn trace_readlinkat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd)))]
 pub fn trace_unlinkat(
     ctx: &VmCtx,
     dir_fd: HostFd,
@@ -342,7 +342,7 @@ pub fn trace_unlinkat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, old_dir_fd), effect!(FdAccess), effect!(PathAccessAt, new_dir_fd)))]
 pub fn trace_renameat(
     ctx: &VmCtx,
     old_dir_fd: HostFd,
@@ -363,7 +363,7 @@ pub fn trace_renameat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(three_effects!(old(trace), trace,  effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace,  effect!(PathAccessAt, dir_fd), effect!(FdAccess)))]
 pub fn trace_symlinkat(
     ctx: &VmCtx,
     old_pathname: SandboxedPath,
@@ -400,7 +400,7 @@ pub fn trace_futimens(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
 pub fn trace_utimensat(
     ctx: &VmCtx,
     fd: HostFd,

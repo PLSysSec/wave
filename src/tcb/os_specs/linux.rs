@@ -13,7 +13,7 @@ use wave_macros::{external_call, external_method, with_ghost_var};
 //https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(one_effect!(old(trace), trace, effect!(PathAccess)))]
+#[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, dirfd)))]
 pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
     let __start_ts = start_timer();
     // all created files should be rdwr
@@ -167,7 +167,7 @@ pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> isize {
 //https://man7.org/linux/man-pages/man2/fstatat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
 pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
@@ -223,7 +223,7 @@ pub fn os_ftruncate(fd: usize, length: libc::off_t) -> isize {
 //https://man7.org/linux/man-pages/man2/linkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccess), effect!(PathAccess)))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccessAt, old_fd), effect!(PathAccessAt, new_fd)))]
 pub fn os_linkat(
     old_fd: usize,
     old_path: Vec<u8>,
@@ -250,7 +250,7 @@ pub fn os_linkat(
 //https://man7.org/linux/man-pages/man2/mkdirat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd)))]
 pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(MKDIRAT, dir_fd, pathname.as_ptr(), mode) as isize };
@@ -265,7 +265,7 @@ pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize
 #[ensures(result >= 0 ==> buf.len() == result as usize)]
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
-#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
 pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result =
@@ -278,7 +278,7 @@ pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usiz
 //https://man7.org/linux/man-pages/man2/unlinkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd)))]
 pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(UNLINKAT, dir_fd, pathname.as_ptr(), flags) as isize };
@@ -290,7 +290,7 @@ pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> isiz
 //https://man7.org/linux/man-pages/man2/renameat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, old_dir_fd), effect!(FdAccess), effect!(PathAccessAt, new_dir_fd)))]
 pub fn os_renameat(
     old_dir_fd: usize,
     old_pathname: Vec<u8>,
@@ -315,7 +315,7 @@ pub fn os_renameat(
 //https://man7.org/linux/man-pages/man2/symlinkat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(three_effects!(old(trace), trace,  effect!(PathAccess), effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace,  effect!(PathAccessAt, dir_fd), effect!(FdAccess)))]
 pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
@@ -350,7 +350,7 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(specs.len() >= 2)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccess)))]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
 pub fn os_utimensat(
     fd: usize,
     pathname: Vec<u8>,
