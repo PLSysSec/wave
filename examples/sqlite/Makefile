@@ -41,11 +41,14 @@ speedtest1.wasm:
 speedtest1.wasm.c: speedtest1.wasm
 	$(WASM2C_BIN_ROOT)/wasm2c -o speedtest1.wasm.c speedtest1.wasm
 
-speedtest1: speedtest1.wasm.c
-	gcc -g -shared -fPIC -Og -o speedtest1 speedtest1.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.so -I../../bindings
+speedtest1_wasm2c: speedtest1.wasm.c
+	gcc -shared -fPIC -O3 -o speedtest1_wasm2c speedtest1.wasm.c -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.so -I../../bindings
 
-run-wasmtime: speedtest1.wasm
-	wasmtime/target/debug/wasmtime --dir=. speedtest1.wasm 2>/dev/null
+speedtest1_wasmtime: speedtest1.wasm
+	wasmtime/target/release/wasmtime compile speedtest1.wasm -o speedtest1_wasmtime
 
-run: speedtest1 
-	$(WASM2C_BIN_ROOT)/wasm2c-runner ./speedtest1 --homedir=.
+run_wasmtime: speedtest1.wasm
+	wasmtime/target/release/wasmtime --dir=. speedtest1_wasmtime --allow-precompiled 2>/dev/null
+
+run_wasm2c: speedtest1_wasm2c 
+	$(WASM2C_BIN_ROOT)/wasm2c-runner ./speedtest1_wasm2c --homedir=.
