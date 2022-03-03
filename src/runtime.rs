@@ -1,4 +1,5 @@
 use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
+use crate::tcb::path::{resolve_path};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
@@ -174,17 +175,18 @@ impl VmCtx {
     }
 
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_methods(resolve_path)]
+    #[external_calls(resolve_path)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
     #[ensures(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    pub fn translate_path(&self, path: SboxPtr, path_len: u32) -> RuntimeResult<SandboxedPath> {
+    pub fn translate_path(&self, path: SboxPtr, path_len: u32) -> RuntimeResult<Vec<u8>> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
         let host_buffer = self.copy_buf_from_sandbox(path, path_len);
-        self.resolve_path(host_buffer)
+        resolve_path(host_buffer)
+        // self.resolve_path(host_buffer)
     }
 
     pub fn get_homedir(&self) -> Vec<u8> {

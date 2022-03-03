@@ -20,6 +20,8 @@ pub fn vec_checked_lookup(
     vec[index as usize]
 }
 
+
+
 // // Trusted because I can't convince the verifier tha tthis will never panic.
 // // Used in specification in src/os.rs
 // #[trusted]

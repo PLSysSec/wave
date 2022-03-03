@@ -60,7 +60,7 @@ predicate! {
 #[cfg(feature = "verify")]
 predicate! {
     pub fn takes_three_steps(old_trace: &Trace, trace: &Trace) -> bool {
-        // We added 2 more steps
+        // We added 3 more steps
         trace.len() == old_trace.len() + 3 &&
         // But the other effects were not affected
         forall(|i: usize| (i < old_trace.len()) ==>
@@ -71,7 +71,7 @@ predicate! {
 #[cfg(feature = "verify")]
 predicate! {
     pub fn takes_four_steps(old_trace: &Trace, trace: &Trace) -> bool {
-        // We added 2 more steps
+        // We added 4 more steps
         trace.len() == old_trace.len() + 4 &&
         // But the other effects were not affected
         forall(|i: usize| (i < old_trace.len()) ==>
@@ -229,8 +229,32 @@ macro_rules! effect {
     };
 }
 
+// #[trusted]
+// #[pure]
+// #[requires(index < MAX_SBOX_FDS )]
+// pub fn vec_u8_lookup(
+//     vec: &Vec<u8>,
+//     index: usize,
+// ) -> RuntimeResult<HostFd> {
+//     vec[index as usize]
+// }
+
+// use crate::tcb::misc::vec_checked_lookup;
+// #[cfg(feature = "verify")]
+// predicate! {
+//     pub fn vec_is_eq(v0: &Vec<u8>, v1: &Vec<u8>) -> bool {
+//         v0.len() == v1.len() &&
+//         forall(|i: usize|
+//             (i < v0.len() ==> (
+//                 vec_u8_lookup(v0, i) == vec_u8_lookup(v1, i)
+//             ))
+//         )
+//     }
+// }
+
 pub struct Trace {
     v: Vec<Effect>,
+    paths: Vec<Vec<u8>>, 
 }
 
 impl Trace {
@@ -240,12 +264,19 @@ impl Trace {
     pub fn len(&self) -> usize {
         self.v.len()
     }
+    
+    #[trusted]
+    #[pure]
+    pub fn num_paths(&self) -> usize {
+        self.paths.len()
+    }
 
     // Encoded as body-less Viper method
     #[trusted]
     #[ensures(result.len() == 0)]
+    #[ensures(result.num_paths() == 0)]
     pub fn new() -> Self {
-        Trace { v: Vec::new() }
+        Trace { v: Vec::new(), paths: Vec::new() }
     }
 
     // Encoded as body-less Viper function
@@ -256,6 +287,14 @@ impl Trace {
         self.v[index]
     }
 
+    // Encoded as body-less Viper function
+    #[trusted]
+    #[pure]
+    //#[requires(index < self.num_paths())]
+    pub fn lookup_path(&self, index: usize) -> &Vec<u8> {
+            &self.paths[index]
+    }
+
     #[trusted]
     #[ensures(self.len() == old(self.len()) + 1)]
     #[ensures(self.lookup(old(self.len())) == old(value))]
@@ -264,6 +303,15 @@ impl Trace {
     pub fn push(&mut self, value: Effect) {
         self.v.push(value);
     }
+
+    // #[trusted]
+    // #[ensures(self.num_paths() == old(self.num_paths()) + 1)]
+    // #[ensures(self.lookup_path(old(self.num_paths())) == old(&value))]
+    // #[ensures(forall(|i: usize| (i < old(self.num_paths())) ==>
+    //                 self.lookup_path(i) == old(self.lookup_path(i))))]
+    // pub fn push_path(&mut self, value: Vec<u8>) {
+    //     self.paths.push(value);
+    // }
 }
 
 /*SafePtr --> newtype around pointer
