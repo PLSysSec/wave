@@ -9,8 +9,8 @@ use std::time::Instant;
 use trace::trace;
 use RuntimeError::*;
 // use log::{debug, error, log_enabled, info, Level};
-// use log;
-// use env_logger;
+use log;
+use env_logger;
 
 // When we are not timing syscalls, disable time syscalls
 // TODO: clean this up somehow
@@ -111,6 +111,7 @@ pub extern "C" fn wave_init(
     log_path: *mut c_char,
     netlist: *const Netlist,
 ) -> *mut VmCtx {
+    env_logger::init(); // removing this line kills tracing
     let ctx = ctx_from_memptr(
         memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
     );
