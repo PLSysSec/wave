@@ -81,7 +81,7 @@ fn ctx_from_memptr(
 
     let netlist = transmut_netlist(netlist);
 
-    println!("fdmap = {:?}, homedir = {:?}, arg_buffer = {:?}, argc = {:?}, env_buffer = {:?}, envc = {:?}", fdmap, homedir, arg_buffer, argc, env_buffer, envc);
+    //println!("fdmap = {:?}, homedir = {:?}, arg_buffer = {:?}, argc = {:?}, env_buffer = {:?}, envc = {:?}", fdmap, homedir, arg_buffer, argc, env_buffer, envc);
 
     VmCtx {
         mem,

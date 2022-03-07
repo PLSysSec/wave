@@ -8,6 +8,8 @@
 # Used by Prusti
 JAVA_HOME ?= /usr/lib/jvm/ 
 
+SPEC_PATH := ./wave-specbenchmark
+
 bootstrap:
 	git submodule update --init --recursive
 	cd prusti-dev && ./x.py setup
@@ -58,3 +60,44 @@ wasm2c:
 fuzz_trusted:
 	bash scan_for_trusted.sh
 	RUST_LOG=quickcheck cargo test -- --nocapture
+
+
+
+NATIVE_BUILD=linux32-i386-clang linux32-i386-clangzerocost
+NACL_BUILDS=linux32-i386-nacl
+SPEC_BUILDS=$(NACL_BUILDS) $(NATIVE_BUILDS)
+
+
+$(SPEC_PATH): # libnsl/build/lib/libnsl.so.1
+	git clone git@github.com:PLSysSec/wave-specbenchmark.git
+	cd $(SPEC_PATH) && SPEC_INSTALL_NOCHECK=1 SPEC_FORCE_INSTALL=1 sh install.sh -f
+
+# TODO: use parallel compilation? remove unnecessary options?
+build_spec: $(SPEC_PATH)
+	cd $(SPEC_PATH) && source ./shrc && \
+	cd config && \
+	runspec --config=linux64-amd64-clang.cfg --action=build --define cores=1 --iterations=1 --noreportable --size=ref wasm_compatible
+	runspec --config=wasmtime.cfg --action=build --define cores=1 --iterations=1 --noreportable --size=ref wasm_compatible
+	runspec --config=wasm2c_wave.cfg --action=build --define cores=1 --iterations=1 --noreportable --size=ref wasm_compatible	
+
+# echo "Cleaning dirs" && \
+# for spec_build in $(SPEC_BUILDS); do \
+# 	runspec --config=$$spec_build.cfg --action=clobber all_c_cpp 2&>1 > /dev/null; \
+# done && \
+#  2>&1 | grep -i "building"
+
+# TODO: change size of spec runs back to size=ref
+# TODO: finalize
+run_spec:
+	cd $(SPEC_PATH) && source ./shrc && cd config && \
+	runspec --config=wasm2c_wave.cfg --wasm2c_wave --action=run --define cores=1 --iterations=1 --noreportable --size=test wasm_compatible
+	#for spec_build in $(NATIVE_BUILDS); do \
+	#	runspec --config=$$spec_build.cfg --action=run --define cores=1 --iterations=1 --noreportable --size=ref all_c_cpp; \
+	#done && \
+	#for spec_build in $(NACL_BUILDS); do \
+	#	runspec --config=$$spec_build.cfg --action=run --define cores=1 --iterations=1 --noreportable --size=ref --nacl all_c_cpp; \
+	#done
+	#python3 spec_stats.py -i $(SPEC_PATH)/result --filter  \
+	#	"$(SPEC_PATH)/result/spec_results=Stock:Stock,NaCl:NaCl,SegmentZero:SegmentZero" -n 3 --usePercent
+	#mv $(SPEC_PATH)/result/ benchmarks/spec_$(shell date --iso=seconds)
+
