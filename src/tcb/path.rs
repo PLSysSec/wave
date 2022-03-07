@@ -49,38 +49,38 @@ pub fn addr_matches_netlist_entry(netlist: &Netlist, addr: u32, port: u32, idx: 
 /// Used to check that that paths are sandboxed
 // TODO: verify this
 // Prusti does not like this function at all
-// #[trusted]
+#[trusted]
 pub fn normalize_path(path: &PathBuf) -> PathBuf {
     // let components = path.components();
-    // let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
-    //     components.next();
-    //     PathBuf::from(c.as_os_str())
-    // } else {
-    //     PathBuf::new()
-    // };
-    let mut ret = PathBuf::new();
-    let components = get_components(path);
-    let mut idx = 0;
-    while idx < components.len() {
-        // for component in components.iter() {
-        let component = components[idx];
+    let mut components = path.components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+         components.next();
+         PathBuf::from(c.as_os_str())
+     } else {
+         PathBuf::new()
+     };
+    // let mut ret = PathBuf::new();
+    //let components = get_components(path);
+    //let mut idx = 0;
+    //while idx < components.len() {
+    for component in components {
+        //let component = components[idx];
         match component {
-            Component::Prefix(..) => {} /*unreachable!(),*/
+            Component::Prefix(..) => { unreachable!() },
             Component::RootDir => {
-                //ret.push(component.as_os_str());
+                ret.push(component.as_os_str());
             }
             Component::CurDir => {}
             Component::ParentDir => {
-                // ret.pop();
+                ret.pop();
             }
-            Component::Normal(_) => {
-                //ret.push(c);
+            Component::Normal(c) => {
+                ret.push(c);
             }
         }
     }
     ret
 }
-
 /*
 
 
