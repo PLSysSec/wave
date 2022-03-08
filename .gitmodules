@@ -7,3 +7,6 @@
 [submodule "wasm-runtime-benchmarks"]
 	path = wasm-runtime-benchmarks
 	url = https://github.com/PLSysSec/wasm-runtime-benchmarks.git
+[submodule "wasix"]
+	path = wasix
+	url = git@github.com:zzjas/wasix.git
