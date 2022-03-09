@@ -8,6 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use std::fs::read_link;
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
+use owned_components::{OwnedComponents, OwnedComponent};
 
 const DEPTH_ERR: isize = i32::MIN as isize;
 const MAXSYMLINKS: isize = 10;
@@ -260,16 +261,20 @@ pub fn resolve_path(path: Vec<u8>) -> RuntimeResult<Vec<u8>> {
 // Recursively expands a symlink (without explicit recursion)
 // maintains a queue of path components to process
 // #[trusted]
-fn expand_symlink(out_path: &mut PathBuf, linkpath: PathBuf, num_symlinks: &mut isize){
-    let components = get_components(&linkpath);
+#[requires(!is_symlink(out_path) )]
+#[ensures(!is_symlink(out_path))]
+fn expand_symlink(out_path: &mut OwnedComponents, linkpath_components: OwnedComponents, num_symlinks: &mut isize){
+    // let components = get_components(&linkpath);
     let mut idx = 0;
     //for c in components.iter() {
-    while idx < components.len() {
+    while idx < linkpath_components.len() {
+        body_invariant!(!is_symlink(out_path));
         if *num_symlinks >= MAXSYMLINKS {
             return;
         }
-        let c = components[idx];
-        let maybe_linkpath = maybe_expand_component(out_path, &c, num_symlinks);
+        //let c = linkpath_components.inner[idx].clone();
+        let c = linkpath_components.lookup(idx);
+        let maybe_linkpath = maybe_expand_component(out_path, c, num_symlinks);
         if let Some(linkpath) = maybe_linkpath {
             // Fine, I'll do the recursion, whatever
             expand_symlink(out_path, linkpath, num_symlinks);
@@ -278,47 +283,135 @@ fn expand_symlink(out_path: &mut PathBuf, linkpath: PathBuf, num_symlinks: &mut 
     }
 }
 
+// bodyless viper program
+#[pure]
 #[trusted]
-fn read_link_component(out_path: &PathBuf, comp: &Component) -> Option<PathBuf> {
-    match comp {
-        Component::Normal(p) => read_link(&out_path.join(p)).ok(),
-        other => None,
-    }
+fn is_symlink(components: &OwnedComponents) -> bool {
+    panic!()
+}
+
+#[trusted]
+#[ensures(result.is_none() ==> old(!is_symlink(out_path)) )]
+fn read_link_h(out_path: &OwnedComponents) -> Option<OwnedComponents> {
+    // let p = out_path.inner.iter().collect::<PathBuf>();
+    read_link(out_path.as_path()).ok().map(|p| OwnedComponents::parse(p))
+    // match comp {
+    //     Component::Normal(p) => read_link(&out_path.join(p)).ok(),
+    //     other => None,
+    // }
 }
 
 // Looks at a single component of a path:
 // if it is a symlink, return the linkpath.
 // else, we just append the value to out_path
-// #[trusted]
-fn maybe_expand_component(out_path: &mut PathBuf, comp: &Component, num_symlinks: &mut isize) -> Option<PathBuf>{
-    if let Some(linkpath) = read_link_component(out_path, comp) {
+#[trusted]
+#[requires(!is_symlink(out_path) )]
+#[ensures(!is_symlink(out_path))]
+fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
+    out_path.inner.push(comp);
+    if let Some(linkpath) = read_link_h(out_path) {
+        out_path.inner.pop(); // pop the component we just added, since it is a symlink
+        // assert!(!is_symlink(out_path));
         *num_symlinks += 1;
         return Some(linkpath);
     }
-    out_path.push(comp);
-    None
+    assert!(!is_symlink(out_path));
+    return None;
+    
 }
+
+
+// #[trusted]
+// #[requires(!is_symlink(out_path) )]
+// #[ensures(!is_symlink(out_path))]
+// fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
+//     out_path.inner.push(comp);
+//     let linkpath = read_link_h(out_path)?;
+//     out_path.inner.pop(); // pop the component we just added, since it is a symlink
+//     *num_symlinks += 1;
+//     Some(linkpath)
+// }
+
+
+// #[ensures(x == old(x))]
+// fn structural_eq_test(x: &mut Vec<u8>) -> &Vec<u8>{
+//     x.push(3);
+//     x.pop();
+//     x
+// }
+
+// compute sum of `Vec<i32>`
+// #[pure]
+// #[trusted]
+// fn vec_sum(v: &Vec<i32>) -> i32 {
+//     let mut sum = 0;
+//     for x in v.iter() {
+//         sum += *x;
+//     }
+//     sum
+// }
+
+
+// fn sum_test1(){
+//     let x: Vec<u8> = Vec::new();
+//     let y: Vec<u8> = Vec::new();
+//     //assert!(x[..] == y[..]);
+// }
+
+// #[ensures(vec_sum(v) == old(vec_sum(v)))]
+// fn sum_test2(v: &mut Vec<i32>){
+//     v.push(3);
+//     v.pop();
+//     //assert!(x[..] == y[..]);
+// }
+
+
+
+// fn structural_eq_test2(){
+//     let x: Vec<u8> = Vec::new();
+//     let y: Vec<u8> = Vec::new();
+//     assert!(x[..] == y[..]);
+// }
 
 // returns None if there was some problem (should reject)
 // #[trusted]
-fn expand_path(vec: Vec<u8>, should_follow: bool) -> Option<PathBuf> {
+// #[ensures(result.is_some() && should_follow ==> no_symlinks(get_components(&result.unwrap())  ) )]
+// #[ensures(result.is_some() && !should_follow ==> no_symlinks(get_components(&result.unwrap()[..-1])))]
+
+
+// its an empty path, its not a symlink
+#[trusted]
+#[ensures(!is_symlink(&result))]
+fn fresh_components() -> OwnedComponents {
+    OwnedComponents::new()
+}
+
+
+//#[ensures(!is_symlink(out_path))]
+
+fn expand_path(vec: Vec<u8>, should_follow: bool) -> Option<OwnedComponents> {
     let p = to_pathbuf(vec);
     let components = get_components(&p);
 
-    let mut out_path = PathBuf::new();
+    // let mut out_path = OwnedComponents::new();
+    let mut out_path = fresh_components();
     let mut num_symlinks = 0;
     let mut idx = 0;
+    assert!(!is_symlink(&out_path));
+
 
     while idx < components.len() {
+        body_invariant!(!is_symlink(&out_path));
         let comp = components[idx];
+        let c = OwnedComponent::from_borrowed(&comp);
         // if this is the last element, and we are NO_FOLLOW, then don't expand
         if !should_follow && idx + 1 == components.len(){
-            out_path.push(&comp); 
+            out_path.push(c);
             break;
         }
         // if comp is a symlink, return path + update num_symlinks
         // if not, just extend out_path
-        let maybe_linkpath = maybe_expand_component(&mut out_path, &comp, &mut num_symlinks);
+        let maybe_linkpath = maybe_expand_component(&mut out_path, c, &mut num_symlinks);
         if let Some(linkpath) = maybe_linkpath {
             expand_symlink(&mut out_path, linkpath, &mut num_symlinks);
         }
@@ -329,4 +422,5 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> Option<PathBuf> {
     }
     Some(out_path)
 }
+
 
