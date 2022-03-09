@@ -6,7 +6,4 @@
 	url = https://github.com/PLSysSec/rlbox_wasm2c_sandbox.git
 [submodule "wasm-runtime-benchmarks"]
 	path = wasm-runtime-benchmarks
-	url = ./wasm-runtime-benchmarks/
-[submodule "wave-specbenchmark"]
-	path = backup_spec
-	url = git@github.com:PLSysSec/wave-specbenchmark.git
+	url = git@github.com:PLSysSec/wasm-runtime-benchmarks.git
