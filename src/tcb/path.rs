@@ -54,11 +54,11 @@ pub fn normalize_path(path: &PathBuf) -> PathBuf {
     // let components = path.components();
     let mut components = path.components().peekable();
     let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
-         components.next();
-         PathBuf::from(c.as_os_str())
-     } else {
-         PathBuf::new()
-     };
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
     // let mut ret = PathBuf::new();
     //let components = get_components(path);
     //let mut idx = 0;
@@ -66,7 +66,9 @@ pub fn normalize_path(path: &PathBuf) -> PathBuf {
     for component in components {
         //let component = components[idx];
         match component {
-            Component::Prefix(..) => { unreachable!() },
+            Component::Prefix(..) => {
+                unreachable!()
+            }
             Component::RootDir => {
                 ret.push(component.as_os_str());
             }

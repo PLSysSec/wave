@@ -9,8 +9,8 @@ use std::time::Instant;
 use trace::trace;
 use RuntimeError::*;
 // use log::{debug, error, log_enabled, info, Level};
-use log;
 use env_logger;
+use log;
 
 // When we are not timing syscalls, disable time syscalls
 // TODO: clean this up somehow
