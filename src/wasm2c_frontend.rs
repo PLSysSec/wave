@@ -81,7 +81,7 @@ fn ctx_from_memptr(
 
     let netlist = transmut_netlist(netlist);
 
-    println!("fdmap = {:?}, homedir = {:?}, arg_buffer = {:?}, argc = {:?}, env_buffer = {:?}, envc = {:?}", fdmap, homedir, arg_buffer, argc, env_buffer, envc);
+    //println!("fdmap = {:?}, homedir = {:?}, arg_buffer = {:?}, argc = {:?}, env_buffer = {:?}, envc = {:?}", fdmap, homedir, arg_buffer, argc, env_buffer, envc);
 
     VmCtx {
         mem,
@@ -112,6 +112,7 @@ pub extern "C" fn wave_init(
     netlist: *const Netlist,
 ) -> *mut VmCtx {
     env_logger::init(); // removing this line kills tracing
+
     let ctx = ctx_from_memptr(
         memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
     );
