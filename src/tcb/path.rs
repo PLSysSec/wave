@@ -14,6 +14,47 @@ const DEPTH_ERR: isize = i32::MIN as isize;
 const MAXSYMLINKS: isize = 10;
 
 
+// Ideas: 
+
+#[extern_spec]
+impl OwnedComponents {
+    #[pure]
+    fn len(&self) -> usize;
+
+    // #[ensures(result.len() == 0)]
+    pub fn new() -> OwnedComponents;
+
+    //pub fn as_path(&self) -> &Path;
+
+    //pub fn parse(p: PathBuf) -> Self;
+
+    // #[pure]
+    // #[requires(idx < self.len())]
+    pub fn lookup(&self, idx: usize);
+
+
+
+    // #[ensures(self.len() == old(self.len()) + 1)]
+    // #[ensures(self.lookup(old(self.len())) == old(value))]
+    // #[ensures(forall(|i: usize| (i < old(self.len())) ==>
+    //                 self.lookup(i) == old(self.lookup(i))))]
+    pub fn push(&mut self, value: OwnedComponent);
+
+
+    // #[requires(self.len() > 0)]
+    // #[ensures(self.len() == old(self.len()) - 1)]
+    // #[ensures(forall(|i: usize| (i < self.len()) ==>
+    //                 self.lookup(i) == old(self.lookup(i))))]
+    pub fn pop(&mut self);
+
+
+    #[ensures(old(is_relative(&self)) ==> vec_is_relative(&result) )]
+    #[ensures(old(min_depth(&self)) == vec_depth(&result) )]
+    #[ensures(old(is_symlink(&self)) == vec_is_symlink(&result) )]
+    pub fn unparse(self) -> Vec<u8>;
+
+}
+
 #[trusted]
 fn get_components(path: &PathBuf) -> Vec<Component> {
     // let path = PathBuf::from(OsString::from_vec(path));
@@ -125,42 +166,16 @@ fn elem_depth(component: &Component) -> isize {
 // bodyless viper program
 #[pure]
 #[trusted]
-fn vec_is_relative(v: &Vec<u8>) -> bool {
+pub fn vec_is_relative(v: &Vec<u8>) -> bool {
     panic!()
 }
 
 // bodyless viper program
 #[pure]
 #[trusted]
-fn vec_depth(components: &Vec<u8>) -> isize {
+pub fn vec_depth(components: &Vec<u8>) -> isize {
     panic!()
 }
-
-// #[ensures(
-//     match &result {
-//         Ok(v) => vec_is_relative(&v) && (vec_depth(&v) >= 0),
-//         _ => true,
-//     }
-// )]
-pub fn resolve_path(path: Vec<u8>) -> RuntimeResult<Vec<u8>> {
-    // let p = to_pathbuf(path);
-    // let c: Vec<Component> = get_components(&p);
-
-    // TODO: replace true with SHOULD_FOLLOW 
-    let c = expand_path(path, true)?;
-
-    // depth < 0
-    if c.len() <= 0 || !is_relative(&c) || min_depth(&c) < 0 {//|| depth(&c).is_some(){
-        return Err(RuntimeError::Eacces);
-    }
-
-    Ok(OwnedComponents::unparse(c))
-    //Some(())
-}
-
-
-
-
 
 
 
@@ -202,6 +217,12 @@ fn is_symlink(components: &OwnedComponents) -> bool {
     panic!()
 }
 
+#[pure]
+#[trusted]
+pub fn vec_is_symlink(components: &Vec<u8>) -> bool {
+    panic!()
+}
+
 #[trusted]
 #[ensures(result.is_none() ==> old(!is_symlink(out_path)) )]
 fn read_link_h(out_path: &OwnedComponents) -> Option<OwnedComponents> {
@@ -239,9 +260,22 @@ fn fresh_components() -> OwnedComponents {
     OwnedComponents::new()
 }
 
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn path_safe(v: &Vec<u8>, should_follow: bool) -> bool {
+        vec_is_relative(&v) && (vec_depth(&v) >= 0) && (should_follow ==> !vec_is_symlink(&v))
+    }
+}
 
-//#[ensures(!is_symlink(out_path))]
+// TODO: what does expand_path do when the final file does not exist?
 
+// #[ensures(!is_symlink(out_path))]
+#[ensures(
+    match &result {
+        Ok(v) => /*should_follow ==> !is_symlink(&v)*/!should_follow || (should_follow && !is_symlink(&v)),
+        _ => true,
+    }
+)]
 fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponents> {
     let p = to_pathbuf(vec);
     let components = get_components(&p);
@@ -273,7 +307,150 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
         }
         idx += 1;
     }
+    assert!(!should_follow || (should_follow && !is_symlink(&out_path)));
     Ok(out_path)
 }
+
+
+// #[ensures(
+//     match result {
+//         Ok(c) => c == 3,
+//         _ => true,
+//     }
+// )]
+// fn three_or_none(v: i32) -> RuntimeResult<i32>{
+//     if v == 3 {
+//         return Ok(v);
+//     }
+//     return Err(RuntimeError::Einval);
+// }
+
+#[ensures(
+    match &result {
+        Ok(v) => path_safe(&v, should_follow),/*vec_is_relative(&v) && (vec_depth(&v) >= 0) && (should_follow ==> !vec_is_symlink(&v)),*/
+        _ => true,
+    }
+)]
+pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<Vec<u8>> {
+    // let p = to_pathbuf(path);
+    // let c: Vec<Component> = get_components(&p);
+
+    // TODO: use ? when that works properly in Prusti
+    // unclear why that doesn't work
+    let c = expand_path(path, should_follow);
+    // let num = three_or_none(3);
+    // assert!(num == 3);
+    // if let Ok(n)  = num {
+    //     assert!(n == 3);
+    // }
+    // let n = match num {
+    //     Ok(n) => {
+    //         // assert!(n == 3);
+    //         n
+    //     }
+    //     Err(e) => {
+    //         return Err(e);
+    //     }
+    // };
+
+    // assert!(n == 3);
+    let c = match c {
+        Ok(oc) => oc,
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    // assert!(n == 3);
+
+    // assert!(!should_follow || (should_follow && !is_symlink(&c)));
+    // assert!(!should_follow || (should_follow));
+
+    // depth < 0
+    if c.len() <= 0 || !is_relative(&c) || min_depth(&c) < 0 {
+        return Err(RuntimeError::Eacces);
+    }
+
+    assert!(c.len() > 0);
+    assert!(is_relative(&c));
+    assert!(min_depth(&c) >= 0);
+    assert!(!should_follow || (should_follow && !is_symlink(&c)));
+
+    let r = OwnedComponents::unparse(c);
+
+    assert!(vec_is_relative(&r));
+    assert!(vec_depth(&r) >= 0);
+    assert!(!should_follow || (should_follow && !vec_is_symlink(&r)));
+
+    Ok(r)
+    //Some(())
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

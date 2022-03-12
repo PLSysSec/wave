@@ -585,12 +585,20 @@ impl LookupFlags {
         LookupFlags(flags)
     }
 
+    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::O_NOFOLLOW))]
+    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_posix(&self) -> i32 {
         let mut flags = 0;
         if !nth_bit_set_u32(self.0, 0) {
             flags = bitwise_or(flags, libc::O_NOFOLLOW)
         }
         flags
+    }
+
+    #[pure]
+    #[ensures(result == nth_bit_set_u32(self.0, 0))]
+    pub fn should_follow(&self) -> bool {
+        nth_bit_set_u32(self.0, 0)
     }
 }
 

@@ -14,39 +14,39 @@ use owned_components::*;
 
 
 
-#[extern_spec]
-impl OwnedComponents {
-    #[pure]
-    fn len(&self) -> usize;
+// #[extern_spec]
+// impl OwnedComponents {
+//     #[pure]
+//     fn len(&self) -> usize;
 
-    // #[ensures(result.len() == 0)]
-    pub fn new() -> OwnedComponents;
+//     // #[ensures(result.len() == 0)]
+//     pub fn new() -> OwnedComponents;
 
-    //pub fn as_path(&self) -> &Path;
+//     //pub fn as_path(&self) -> &Path;
 
-    //pub fn parse(p: PathBuf) -> Self;
+//     //pub fn parse(p: PathBuf) -> Self;
 
-    // #[pure]
-    // #[requires(idx < self.len())]
-    pub fn lookup(&self, idx: usize);
-
-
-
-    // #[ensures(self.len() == old(self.len()) + 1)]
-    // #[ensures(self.lookup(old(self.len())) == old(value))]
-    // #[ensures(forall(|i: usize| (i < old(self.len())) ==>
-    //                 self.lookup(i) == old(self.lookup(i))))]
-    pub fn push(&mut self, value: OwnedComponent);
+//     // #[pure]
+//     // #[requires(idx < self.len())]
+//     pub fn lookup(&self, idx: usize);
 
 
-    // #[requires(self.len() > 0)]
-    // #[ensures(self.len() == old(self.len()) - 1)]
-    // #[ensures(forall(|i: usize| (i < self.len()) ==>
-    //                 self.lookup(i) == old(self.lookup(i))))]
-    pub fn pop(&mut self);
+
+//     // #[ensures(self.len() == old(self.len()) + 1)]
+//     // #[ensures(self.lookup(old(self.len())) == old(value))]
+//     // #[ensures(forall(|i: usize| (i < old(self.len())) ==>
+//     //                 self.lookup(i) == old(self.lookup(i))))]
+//     pub fn push(&mut self, value: OwnedComponent);
+
+
+//     // #[requires(self.len() > 0)]
+//     // #[ensures(self.len() == old(self.len()) - 1)]
+//     // #[ensures(forall(|i: usize| (i < self.len()) ==>
+//     //                 self.lookup(i) == old(self.lookup(i))))]
+//     pub fn pop(&mut self);
 
 
     
-    pub fn unparse(self) -> Vec<u8>;
+//     pub fn unparse(self) -> Vec<u8>;
 
-}
+// }

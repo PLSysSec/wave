@@ -1,5 +1,5 @@
 use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
-use crate::tcb::path::{resolve_path};
+use crate::tcb::path::{resolve_path, path_safe};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
@@ -180,12 +180,18 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    pub fn translate_path(&self, path: SboxPtr, path_len: u32) -> RuntimeResult<Vec<u8>> {
+    #[ensures(
+        match &result {
+            Ok(v) => path_safe(&v, should_follow),/*vec_is_relative(&v) && (vec_depth(&v) >= 0) && (should_follow ==> !vec_is_symlink(&v))*/
+            _ => true,
+        }
+    )]
+    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool) -> RuntimeResult<Vec<u8>> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
         let host_buffer = self.copy_buf_from_sandbox(path, path_len);
-        resolve_path(host_buffer)
+        resolve_path(host_buffer, should_follow)
         // self.resolve_path(host_buffer)
     }
 

@@ -11,18 +11,18 @@ use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
 
 //https://man7.org/linux/man-pages/man2/open.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-//&& (trace.lookup_path(p) == old(&pathname))
-#[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, fd, p) if fd == dirfd))]
-pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
-    let __start_ts = start_timer();
-    // all created files should be rdwr
-    let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags, 0o666) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("openat", __start_ts, __end_ts);
-    result
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[trusted]
+// //&& (trace.lookup_path(p) == old(&pathname))
+// #[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, fd, p) if fd == dirfd))]
+// pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
+//     let __start_ts = start_timer();
+//     // all created files should be rdwr
+//     let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags, 0o666) as isize };
+//     let __end_ts = stop_timer();
+//     push_syscall_result("openat", __start_ts, __end_ts);
+//     result
+// }
 
 // //https://man7.org/linux/man-pages/man2/close.2.html
 // #[with_ghost_var(trace: &mut Trace)]
@@ -165,25 +165,25 @@ pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
 //     result
 // }
 
-// //https://man7.org/linux/man-pages/man2/fstatat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[trusted]
-// #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd))]
-// pub fn os_fstatat(dirfd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
-//     let __start_ts = start_timer();
-//     let result = unsafe {
-//         syscall!(
-//             NEWFSTATAT,
-//             dirfd,
-//             path.as_ptr(),
-//             stat as *mut libc::stat,
-//             flags
-//         ) as isize
-//     };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("fstatat", __start_ts, __end_ts);
-//     result
-// }
+//https://man7.org/linux/man-pages/man2/fstatat.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd))]
+pub fn os_fstatat(dirfd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe {
+        syscall!(
+            NEWFSTATAT,
+            dirfd,
+            path.as_ptr(),
+            stat as *mut libc::stat,
+            flags
+        ) as isize
+    };
+    let __end_ts = stop_timer();
+    push_syscall_result("fstatat", __start_ts, __end_ts);
+    result
+}
 
 // //https://man7.org/linux/man-pages/man2/fcntl.2.html
 // #[with_ghost_var(trace: &mut Trace)]
@@ -260,21 +260,21 @@ pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
 //     result
 // }
 
-// //https://man7.org/linux/man-pages/man2/readlinkat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(buf.len() >= cnt)]
-// #[ensures(result >= 0 ==> buf.len() == result as usize)]
-// #[ensures(result >= 0 ==> result as usize <= cnt)]
-// #[trusted]
-// #[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-// pub fn os_readlinkat(dirfd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
-//     let __start_ts = start_timer();
-//     let result =
-//         unsafe { syscall!(READLINKAT, dirfd, pathname.as_ptr(), buf.as_mut_ptr(), cnt) as isize };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("readlinkat", __start_ts, __end_ts);
-//     result
-// }
+//https://man7.org/linux/man-pages/man2/readlinkat.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(buf.len() >= cnt)]
+#[ensures(result >= 0 ==> buf.len() == result as usize)]
+#[ensures(result >= 0 ==> result as usize <= cnt)]
+#[trusted]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+pub fn os_readlinkat(dirfd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
+    let __start_ts = start_timer();
+    let result =
+        unsafe { syscall!(READLINKAT, dirfd, pathname.as_ptr(), buf.as_mut_ptr(), cnt) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("readlinkat", __start_ts, __end_ts);
+    result
+}
 
 // //https://man7.org/linux/man-pages/man2/unlinkat.2.html
 // #[with_ghost_var(trace: &mut Trace)]

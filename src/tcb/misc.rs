@@ -39,32 +39,41 @@ pub fn vec_checked_lookup(
 
 /// Check if The nth bit from the lsb is set (0 is lsb)
 #[trusted]
+#[pure]
 pub fn nth_bit_set(bv: u16, n: i32) -> bool {
     bv & (1 << n) != 0
 }
 
 #[trusted]
+#[pure]
 pub fn nth_bit_set_u32(bv: u32, n: u32) -> bool {
     bv & (1 << n) != 0
 }
 
 /// return bv with the nth bit from the lsb set (0 is lsb)
 #[trusted]
+#[pure]
 pub fn with_nth_bit_set(bv: u16, n: i32) -> u16 {
     bv | (1 << n)
 }
 
 #[trusted]
+#[pure]
 pub fn bitwise_and(bv1: i32, bv2: i32) -> i32 {
     bv1 & bv2
 }
 
 #[trusted]
+#[pure]
 pub fn bitwise_and_u32(bv1: u32, bv2: u32) -> u32 {
     bv1 & bv2
 }
 
 #[trusted]
+#[pure]
+// this ensures is mostly to prove that or'ing a nonzero # returns a 
+// nonzero result
+#[ensures(result >= bv1 && result >= bv2)]
 pub fn bitwise_or(bv1: i32, bv2: i32) -> i32 {
     bv1 | bv2
 }

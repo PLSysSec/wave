@@ -5,6 +5,7 @@ use crate::tcb::misc::{bitwise_or, first_null, fresh_stat, push_dirent_name};
 use crate::tcb::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
+use crate::tcb::path::{vec_depth, vec_is_relative, vec_is_symlink};
 use crate::types::*;
 use crate::{effect, no_effect, one_effect};
 use prusti_contracts::*;
@@ -18,56 +19,58 @@ use RuntimeError::*;
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
 // Modifies: fdmap
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(create, to_posix)]
-#[external_calls(from, bitwise_or)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_path_open(
-    ctx: &mut VmCtx,
-    v_dir_fd: u32,
-    dirflags: u32,
-    pathname: u32,
-    path_len: u32,
-    oflags: u32,
-    fdflags: i32,
-) -> RuntimeResult<u32> {
-    let dirflags = LookupFlags::new(dirflags);
-    let oflags = OFlags::new(oflags);
-    let fdflags = FdFlags::from(fdflags);
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(create, to_posix, should_follow)]
+// #[external_calls(from, bitwise_or)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// pub fn wasi_path_open(
+//     ctx: &mut VmCtx,
+//     v_dir_fd: u32,
+//     dirflags: u32,
+//     pathname: u32,
+//     path_len: u32,
+//     oflags: u32,
+//     fdflags: i32,
+// ) -> RuntimeResult<u32> {
+//     let dirflags = LookupFlags::new(dirflags);
+//     let oflags = OFlags::new(oflags);
+//     let fdflags = FdFlags::from(fdflags);
+//     let should_follow = dirflags.should_follow();
 
-    let host_pathname = ctx.translate_path(pathname, path_len)?;
-    // TODO: support arbitrary *at calls
-    // Currently they can only be based off our preopened dir
-    // (I've never seen a call that has attempted otherwise)
-    // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
-    // auto adjusts it to our home directory
-    if v_dir_fd != HOMEDIR_FD {
-        return Err(Enotcapable);
-    }
+//     let host_pathname = ctx.translate_path(pathname, path_len, should_follow)?;
+//     // TODO: support arbitrary *at calls
+//     // Currently they can only be based off our preopened dir
+//     // (I've never seen a call that has attempted otherwise)
+//     // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
+//     // auto adjusts it to our home directory
+//     if v_dir_fd != HOMEDIR_FD {
+//         return Err(Enotcapable);
+//     }
 
-    // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
+//     // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
 
-    // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
-    // assert!(usize::from(fd) == usize::from(fd));
+//     // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
+//     // assert!(usize::from(fd) == usize::from(fd));
 
-    let dirflags_posix = dirflags.to_posix();
-    let oflags_posix = oflags.to_posix();
-    let fdflags_posix = fdflags.to_posix();
-    let flags = bitwise_or(
-        bitwise_or(dirflags.to_posix(), oflags.to_posix()),
-        fdflags.to_posix(),
-    );
+//     let dirflags_posix = dirflags.to_posix();
+//     let oflags_posix = oflags.to_posix();
+//     let fdflags_posix = fdflags.to_posix();
+//     let flags = bitwise_or(
+//         bitwise_or(dirflags.to_posix(), oflags.to_posix()),
+//         fdflags.to_posix(),
+//     );
 
-    assert!(v_dir_fd == HOMEDIR_FD);
-    let fd = ctx.homedir_host_fd;
-    // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
-    assert!(fd.to_raw() == ctx.homedir_host_fd.to_raw());
-    let fd = trace_openat(ctx, fd, host_pathname, flags)?;
-    ctx.fdmap.create(HostFd::from_raw(fd))
-}
+//     assert!(v_dir_fd == HOMEDIR_FD);
+//     let fd = ctx.homedir_host_fd;
+//     // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
+//     assert!(fd.to_raw() == ctx.homedir_host_fd.to_raw());
+//     // assert!(crate::tcb::path::path_safe(&host_pathname, should_follow));
+//     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
+//     ctx.fdmap.create(HostFd::from_raw(fd))
+// }
 
 // // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_close
 // // modifies: fdmap
@@ -512,38 +515,47 @@ pub fn wasi_path_open(
 //     Ok(())
 // }
 
-// // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_get
-// // TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
-// //       respect the fd.
-// // modifies: None
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(push)]
-// #[external_calls(fresh_stat)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_path_filestat_get(
-//     ctx: &VmCtx,
-//     v_fd: u32,
-//     flags: u32,
-//     pathname: u32,
-//     path_len: u32,
-// ) -> RuntimeResult<FileStat> {
-//     let flags = LookupFlags::new(flags);
-//     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-//     if v_fd != HOMEDIR_FD {
-//         return Err(Enotcapable);
-//     }
-//     assert!(v_fd == HOMEDIR_FD);
-//     let fd = ctx.homedir_host_fd;
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_get
+// modifies: None
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(push, to_posix)]
+#[external_calls(fresh_stat)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+pub fn wasi_path_filestat_get(
+    ctx: &VmCtx,
+    v_fd: u32,
+    flags: u32,
+    pathname: u32,
+    path_len: u32,
+) -> RuntimeResult<FileStat> {
+    let flags = LookupFlags::new(flags);
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    }
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
 
-//     let host_pathname = ctx.translate_path(pathname, path_len)?;
-//     let mut stat = fresh_stat();
+    let host_pathname = ctx.translate_path(pathname, path_len, flags.should_follow());
+    let host_pathname = match host_pathname {
+        Ok(oc) => oc,
+        Err(e) => {
+            return Err(e);
+        }
+    };
+    // path_safe(host_pathname, flags.should_follow());
+    let mut stat = fresh_stat();
 
-//     let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_posix())?;
-//     Ok(stat.into())
-// }
+    let native_flags = flags.to_posix();
+    // path_safe(host_pathname, )
+    let n_should_follow = native_flags == 0;
+  
+    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, native_flags)?;
+    Ok(stat.into())
+}
 
 // // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_set_times
 // // modifies: None
@@ -644,39 +656,48 @@ pub fn wasi_path_open(
 //     Ok(())
 // }
 
-// // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_readlink
-// // modifies: mem
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact, push)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_path_readlink(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     pathname: u32,
-//     path_len: u32,
-//     ptr: u32,
-//     len: u32,
-// ) -> RuntimeResult<u32> {
-//     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
-//     if v_fd != HOMEDIR_FD {
-//         return Err(Enotcapable);
-//     }
-//     assert!(v_fd == HOMEDIR_FD);
-//     let fd = ctx.homedir_host_fd;
+// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_readlink
+// modifies: mem
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(reserve_exact, push)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+pub fn wasi_path_readlink(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    pathname: u32,
+    path_len: u32,
+    ptr: u32,
+    len: u32,
+) -> RuntimeResult<u32> {
+    // let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    if v_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    }
+    assert!(v_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
 
-//     let host_pathname = ctx.translate_path(pathname, path_len)?;
+    let should_follow = false; // readlink never follows symlink (it reads it!)
+    // TODO: replace once we can support the ? again
+    let host_pathname = ctx.translate_path(pathname, path_len, should_follow);
 
-//     if !ctx.fits_in_lin_mem(ptr, len) {
-//         return Err(Efault);
-//     }
+    let host_pathname = match host_pathname {
+        Ok(oc) => oc,
+        Err(e) => {
+            return Err(e);
+        }
+    };
 
-//     let res = trace_readlinkat(ctx, fd, host_pathname, ptr, len as usize)?;
-//     let res = res as u32;
-//     Ok(res)
-// }
+    if !ctx.fits_in_lin_mem(ptr, len) {
+        return Err(Efault);
+    }
+
+    let res = trace_readlinkat(ctx, fd, host_pathname, ptr, len as usize)?;
+    let res = res as u32;
+    Ok(res)
+}
 
 // // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_remove_directory
 // //modifies: none
