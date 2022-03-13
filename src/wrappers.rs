@@ -842,7 +842,7 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
         }
 
         if ctx.arg_buffer[idx] == b'\0' {
-            while ctx.arg_buffer[idx] == b'\0' {
+            while idx < ctx.arg_buffer.len() && ctx.arg_buffer[idx] == b'\0' {
                 idx += 1;
             } // scan past multiple spaces
             ctx.write_u32((argv as usize) + cursor, argv_buf + start);
@@ -881,7 +881,7 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
             return Err(Eoverflow);
         }
         if ctx.env_buffer[idx] == b'\0' {
-            while ctx.env_buffer[idx] == b'\0' {
+            while idx < ctx.env_buffer.len() && ctx.env_buffer[idx] == b'\0' {
                 idx += 1;
             } // scan past multiple spaces
 
