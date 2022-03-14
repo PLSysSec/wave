@@ -634,12 +634,12 @@ impl FstFlags {
 impl TryFrom<u16> for FstFlags {
     type Error = RuntimeError;
 
-    fn try_from(flags: u16) -> RuntimeResult {
-        let result = FstFlags(flags);
+    fn try_from(flags: u16) -> RuntimeResult<FstFlags> {
+        let fst_flags = FstFlags(flags);
         if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-            return Err(Einval);
+            return Err(RuntimeError::Einval);
         }
-        Ok(result)
+        Ok(fst_flags)
     }
 }
 

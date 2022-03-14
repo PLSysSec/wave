@@ -7,7 +7,8 @@ predicate! {
     pub fn ctx_safe(ctx: &VmCtx) -> bool {
         ctx.memlen == LINEAR_MEM_SIZE &&
         // ctx.mem.len() == LINEAR_MEM_SIZE &&
-        ctx.homedir == HOMEDIR_FD &&
+        // TODO(Evan): ctx.homedir is no longer an fd. What should this check instead?
+        // ctx.homedir == HOMEDIR_FD && 
         ctx.argc < 1024 &&
         ctx.envc < 1024 &&
         ctx.arg_buffer.len() < 1024 * 1024 &&

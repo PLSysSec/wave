@@ -317,6 +317,7 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 #[external_calls(from)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
 #[external_methods(reserve_exact, push)] // Vec methods
+#[external_calls(try_from)] // FstFlags methods
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -515,6 +516,7 @@ pub fn wasi_path_filestat_get(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
 #[external_methods(reserve_exact, push)]
+#[external_calls(try_from)] // FstFlags methods
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]

@@ -650,7 +650,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_path_filestat_set_timesZ_iiiiijji(
         path_len,
         atim,
         mtim,
-        FstFlags::new(fst_flags as u16),
+        fst_flags,
     );
     let retval = wasm2c_marshal(r);
     let end = stop_timer();
