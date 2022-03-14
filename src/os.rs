@@ -8,32 +8,34 @@ use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effe
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::with_ghost_var;
+use crate::tcb::misc::{flag_set};
 
 
-// #[with_ghost_var(trace: &mut Trace)]
-// // #[requires(path_safe)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// #[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, os_fd, p)))]
-// pub fn trace_openat(
-//     ctx: &VmCtx,
-//     dir_fd: HostFd,
-//     pathname: Vec<u8>, // SanndboxedPath
-//     flags: i32,
-// ) -> RuntimeResult<usize> {
-//     // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-//     // assert!(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw());
-//     let os_fd: usize = dir_fd.to_raw();
-//     // assert!(os_fd == ctx.homedir_host_fd.to_raw());
-//     let os_path: Vec<u8> = pathname.into();
+#[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe)]
+#[requires(path_safe(&path, !flag_set(flags, libc::O_NOFOLLOW) ))] // path_safe is parameterized by `should_follow`, so we need to reverse it
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+#[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, os_fd, p)))]
+pub fn trace_openat(
+    ctx: &VmCtx,
+    dir_fd: HostFd,
+    path: Vec<u8>, // SanndboxedPath
+    flags: i32,
+) -> RuntimeResult<usize> {
+    // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+    // assert!(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw());
+    let os_fd: usize = dir_fd.to_raw();
+    // assert!(os_fd == ctx.homedir_host_fd.to_raw());
+    // let os_path: Vec<u8> = path.into();
 
-//     // assert!(os_path.is_relative());
-//     let r = os_openat(os_fd, os_path, flags);
-//     RuntimeError::from_syscall_ret(r)
-// }
+    // assert!(os_path.is_relative());
+    let r = os_openat(os_fd, path, flags);
+    RuntimeError::from_syscall_ret(r)
+}
 
 // #[with_ghost_var(trace: &mut Trace)]
 // #[requires(ctx_safe(ctx))]

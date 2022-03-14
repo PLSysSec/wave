@@ -59,6 +59,12 @@ pub fn with_nth_bit_set(bv: u16, n: i32) -> u16 {
 
 #[trusted]
 #[pure]
+pub fn flag_set(bv: i32, flag: i32) -> bool {
+    (bv & flag) == 1
+}
+
+#[trusted]
+#[pure]
 pub fn bitwise_and(bv1: i32, bv2: i32) -> i32 {
     bv1 & bv2
 }

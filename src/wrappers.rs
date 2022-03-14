@@ -1,6 +1,6 @@
 use crate::os::*;
 use crate::runtime::*;
-use crate::tcb::misc::{bitwise_or, first_null, fresh_stat, push_dirent_name};
+use crate::tcb::misc::{bitwise_or, first_null, fresh_stat, push_dirent_name, flag_set};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
@@ -32,58 +32,68 @@ macro_rules! unwrap_result {
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
 // Modifies: fdmap
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(create, to_posix, should_follow)]
-// #[external_calls(from, bitwise_or)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_path_open(
-//     ctx: &mut VmCtx,
-//     v_dir_fd: u32,
-//     dirflags: u32,
-//     pathname: u32,
-//     path_len: u32,
-//     oflags: u32,
-//     fdflags: i32,
-// ) -> RuntimeResult<u32> {
-//     let dirflags = LookupFlags::new(dirflags);
-//     let oflags = OFlags::new(oflags);
-//     let fdflags = FdFlags::from(fdflags);
-//     let should_follow = dirflags.should_follow();
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(create, to_posix, should_follow)]
+#[external_calls(from, bitwise_or, flag_set)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+pub fn wasi_path_open(
+    ctx: &mut VmCtx,
+    v_dir_fd: u32,
+    dirflags: u32,
+    pathname: u32,
+    path_len: u32,
+    oflags: u32,
+    fdflags: i32,
+) -> RuntimeResult<u32> {
+    let dirflags = LookupFlags::new(dirflags);
+    let oflags = OFlags::new(oflags);
+    let fdflags = FdFlags::from(fdflags);
+    let should_follow = dirflags.should_follow();
 
-//     let host_pathname = ctx.translate_path(pathname, path_len, should_follow)?;
-//     // TODO: support arbitrary *at calls
-//     // Currently they can only be based off our preopened dir
-//     // (I've never seen a call that has attempted otherwise)
-//     // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
-//     // auto adjusts it to our home directory
-//     if v_dir_fd != HOMEDIR_FD {
-//         return Err(Enotcapable);
-//     }
+    let host_pathname = ctx.translate_path(pathname, path_len, should_follow);
+    unwrap_result!(host_pathname);
+    // TODO: support arbitrary *at calls
+    // Currently they can only be based off our preopened dir
+    // (I've never seen a call that has attempted otherwise)
+    // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
+    // auto adjusts it to our home directory
+    if v_dir_fd != HOMEDIR_FD {
+        return Err(Enotcapable);
+    }
 
-//     // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
+    // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
 
-//     // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
-//     // assert!(usize::from(fd) == usize::from(fd));
+    // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
+    // assert!(usize::from(fd) == usize::from(fd));
 
-//     let dirflags_posix = dirflags.to_posix();
-//     let oflags_posix = oflags.to_posix();
-//     let fdflags_posix = fdflags.to_posix();
-//     let flags = bitwise_or(
-//         bitwise_or(dirflags.to_posix(), oflags.to_posix()),
-//         fdflags.to_posix(),
-//     );
+    let dirflags_posix = dirflags.to_posix();
+    let oflags_posix = oflags.to_posix();
+    let fdflags_posix = fdflags.to_posix();
+    assert!(should_follow == (dirflags_posix == 0) );
+    let flags = bitwise_or(
+        bitwise_or(dirflags.to_posix(), oflags.to_posix()),
+        fdflags.to_posix(),
+    );
 
-//     assert!(v_dir_fd == HOMEDIR_FD);
-//     let fd = ctx.homedir_host_fd;
-//     // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
-//     assert!(fd.to_raw() == ctx.homedir_host_fd.to_raw());
-//     // assert!(crate::tcb::path::path_safe(&host_pathname, should_follow));
-//     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
-//     ctx.fdmap.create(HostFd::from_raw(fd))
-// }
+    if flag_set(flags, libc::O_NOFOLLOW) == should_follow {
+        // this should never happen, but adding an extra dynamic check let me 
+        // avoid reasoning about bitwise operation math (which prusti does not support well)
+        // in the proof
+        return Err(Einval);
+    }
+    assert!(should_follow != flag_set(flags, libc::O_NOFOLLOW) );
+
+    assert!(v_dir_fd == HOMEDIR_FD);
+    let fd = ctx.homedir_host_fd;
+    // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
+    assert!(fd.to_raw() == ctx.homedir_host_fd.to_raw());
+    // assert!(crate::tcb::path::path_safe(&host_pathname, should_follow));
+    let fd = trace_openat(ctx, fd, host_pathname, flags)?;
+    ctx.fdmap.create(HostFd::from_raw(fd))
+}
 
 // // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_close
 // // modifies: fdmap
