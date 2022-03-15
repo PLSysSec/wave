@@ -740,10 +740,9 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
     clock_id: u32,
-    //precision: Timestamp,
+    _precision: Timestamp, // ignored
 ) -> RuntimeResult<Timestamp> {
     let id = ClockId::try_from(clock_id)?;
-    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -1092,7 +1091,8 @@ pub fn wasi_poll_oneoff(
                     // TODO: what clock source does posix poll use for timeouts? Will a relative
                     //       realtime be significantly different than monotonic?
                     ClockId::Monotonic | ClockId::Realtime => {
-                        let now = wasi_clock_time_get(ctx, subscription_clock.id)?;
+                        let now =
+                            wasi_clock_time_get(ctx, subscription_clock.id, Timestamp::new(0))?;
                         let timeout: i32 = if subscription_clock.flags.subscription_clock_abstime()
                         {
                             // if this is an absolute timeout, we need to wait the difference
