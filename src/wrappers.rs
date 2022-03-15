@@ -13,7 +13,6 @@ use std::mem;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
 
-// Note: Prusti can't really handle iterators, so we need to use while loops
 // TODO: eliminate as many external_methods and external_calls as possible
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
@@ -245,7 +244,6 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut stat = fresh_stat();
-    // TODO: double check, should this be fstat or fstat64?
     let result = trace_fstat(ctx, fd, &mut stat)?;
     let filetype = stat.st_mode;
 
@@ -1024,8 +1022,6 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#poll_oneoff
-// TODO: Do we need to check alignment on the pointers?
-// TODO: clean this up, pretty gross
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(
     subscription_clock_abstime,
@@ -1243,8 +1239,6 @@ pub fn wasi_poll_oneoff(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// TODO: currently ignoring cookie
-// TODO: need to map posix filetypes to wasi filetypes
 // TODO: I'm not confident this works for multiple consecutive readdir calls to the same dir
 // Correct behavior: truncate final entry
 pub fn wasi_fd_readdir(
@@ -1428,7 +1422,7 @@ pub fn wasi_sock_connect(
     if matches!(protocol, WasiProto::Unknown) {
         return Err(Enotcapable);
     }
-    //fd_proto(fd, protocol);// TODO: do this better?
+
     if !addr_in_netlist(&ctx.netlist, sin_addr_in, sin_port as u32) {
         return Err(Enotcapable);
     }
