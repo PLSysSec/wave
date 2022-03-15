@@ -465,9 +465,9 @@ pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> isize {
+pub fn os_poll(pollfds: &mut [libc::pollfd], timeout: libc::c_int) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(POLL, pollfd as *const libc::pollfd, 1, timeout) as isize };
+    let result = unsafe { syscall!(POLL, pollfds.as_mut_ptr(), pollfds.len(), timeout) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("poll", __start_ts, __end_ts);
     result
@@ -514,5 +514,18 @@ pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> isiz
         unsafe { syscall!(CONNECT, sockfd, addr as *const libc::sockaddr_in, addrlen) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("connect", __start_ts, __end_ts);
+    result
+}
+
+//https://man7.org/linux/man-pages/man2/ioctl.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+// TODO: finish spec
+#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+pub fn os_fionread(fd: usize) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(IOCTL, fd, libc::FIONREAD) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("fionread", __start_ts, __end_ts);
     result
 }

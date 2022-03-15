@@ -99,6 +99,30 @@ impl From<RuntimeError> for u32 {
     }
 }
 
+impl From<RuntimeError> for u16 {
+    fn from(item: RuntimeError) -> Self {
+        let result = match item {
+            RuntimeError::Success => 0,
+            RuntimeError::Ebadf => 8,
+            RuntimeError::Emfile => 41,
+            RuntimeError::Efault => 21,
+            RuntimeError::Einval => 28,
+            RuntimeError::Eoverflow => 61,
+            RuntimeError::Eio => 29,
+            RuntimeError::Enospc => 51,
+            RuntimeError::Eacces => 2,
+            RuntimeError::Eexist => 20,
+            RuntimeError::Enotempty => 55,
+            RuntimeError::Enotsup => 58,
+            RuntimeError::Enotcapable => 76,
+            RuntimeError::Enotsock => 57,
+            RuntimeError::Enotdir => 54,
+            RuntimeError::Eloop => 32,
+        };
+        result as u16
+    }
+}
+
 impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
@@ -141,6 +165,16 @@ impl RuntimeError {
         };
 
         Err(errno)
+    }
+
+    pub fn from_poll_revents(revents: i16) -> RuntimeError {
+        if bitwise_and_i16(revents, libc::POLLNVAL) != 0 {
+            RuntimeError::Ebadf
+        } else if bitwise_and_i16(revents, libc::POLLERR) != 0 {
+            RuntimeError::Eio
+        } else {
+            RuntimeError::Success
+        }
     }
 }
 
@@ -241,21 +275,23 @@ impl From<ClockId> for i32 {
     }
 }
 
-impl ClockId {
-    pub fn from_u32(id: u32) -> Option<Self> {
+impl TryFrom<u32> for ClockId {
+    type Error = RuntimeError;
+
+    fn try_from(id: u32) -> RuntimeResult<Self> {
         match id {
-            0 => Some(ClockId::Realtime),
-            1 => Some(ClockId::Monotonic),
-            2 => Some(ClockId::ProcessCpuTimeId),
-            3 => Some(ClockId::ThreadCpuTime),
-            _ => None,
+            0 => Ok(ClockId::Realtime),
+            1 => Ok(ClockId::Monotonic),
+            2 => Ok(ClockId::ProcessCpuTimeId),
+            3 => Ok(ClockId::ThreadCpuTime),
+            _ => Err(RuntimeError::Einval),
         }
     }
 }
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct Timestamp(u64);
 
@@ -316,6 +352,12 @@ impl From<Timestamp> for libc::timespec {
             tv_sec: sec as i64,
             tv_nsec: nsec as i64,
         }
+    }
+}
+
+impl From<Timestamp> for u64 {
+    fn from(timestamp: Timestamp) -> u64 {
+        timestamp.0
     }
 }
 
@@ -415,6 +457,7 @@ impl From<libc::mode_t> for Filetype {
 }
 
 impl From<Filetype> for libc::mode_t {
+    // TODO: is this used anywhere
     // TODO: returns 0 on unknown, is that correct?
     fn from(filetype: Filetype) -> Self {
         match filetype {
@@ -695,32 +738,145 @@ impl From<SdFlags> for libc::c_int {
 //     }
 // }
 
-#[repr(C)]
+pub struct RiFlags(u16);
+
+impl RiFlags {
+    fn recv_peek(&self) -> bool {
+        nth_bit_set(self.0, 0)
+    }
+
+    fn recv_waitall(&self) -> bool {
+        nth_bit_set(self.0, 1)
+    }
+
+    pub fn to_posix(&self) -> i32 {
+        let mut flags = 0;
+        if self.recv_peek() {
+            flags = bitwise_or(flags, libc::MSG_PEEK)
+        }
+        if self.recv_waitall() {
+            flags = bitwise_or(flags, libc::MSG_WAITALL)
+        }
+        flags
+    }
+}
+
+impl TryFrom<u32> for RiFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u32) -> RuntimeResult<RiFlags> {
+        // if any bits are set that aren't associated with a wasi flag,
+        // return an error
+        if bitwise_and_u32(flags, u32::MAX - 0x3) != 0 {
+            Err(RuntimeError::Einval)
+        } else {
+            Ok(RiFlags(flags as u16))
+        }
+    }
+}
+
 pub struct Subscription {
-    userdata: u64,
-    subscription_u: SubscriptionInner,
+    pub userdata: u64,
+    pub subscription_u: SubscriptionInner,
+}
+
+impl Subscription {
+    pub const WASI_SIZE: u32 = 48;
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(try_from, is_aligned)]
+    #[requires(ctx_safe(ctx))]
+    #[requires(trace_safe(trace, ctx))]
+    #[ensures(ctx_safe(ctx))]
+    #[ensures(trace_safe(trace, ctx))]
+    pub fn read(ctx: &VmCtx, ptr: u32) -> RuntimeResult<Subscription> {
+        if !ctx.fits_in_lin_mem_usize(ptr as usize, Self::WASI_SIZE as usize) {
+            return Err(RuntimeError::Eoverflow);
+        }
+
+        if !is_aligned(Alignment::Eight, ptr) {
+            return Err(RuntimeError::Einval);
+        }
+
+        // read the subscription struct fields
+        let userdata = ctx.read_u64(ptr as usize);
+        let tag = ctx.read_u64((ptr + 8) as usize);
+
+        match tag {
+            0 => {
+                let v_clock_id = ctx.read_u32((ptr + 16) as usize);
+                let timeout = ctx.read_u64((ptr + 24) as usize);
+                let v_precision = ctx.read_u64((ptr + 32) as usize);
+                let v_flags = ctx.read_u64((ptr + 40) as usize);
+
+                let precision = Timestamp::new(v_precision);
+                let flags = SubClockFlags::try_from(v_flags)?;
+
+                Ok(Subscription {
+                    userdata,
+                    subscription_u: SubscriptionInner::Clock(SubscriptionClock {
+                        id: v_clock_id,
+                        timeout,
+                        precision,
+                        flags,
+                    }),
+                })
+            }
+            1 => {
+                let v_fd = ctx.read_u32((ptr + 16) as usize);
+
+                Ok(Subscription {
+                    userdata,
+                    subscription_u: SubscriptionInner::Fd(SubscriptionFdReadWrite {
+                        v_fd,
+                        typ: SubscriptionFdType::Read,
+                    }),
+                })
+            }
+            2 => {
+                let v_fd = ctx.read_u32((ptr + 16) as usize);
+
+                Ok(Subscription {
+                    userdata,
+                    subscription_u: SubscriptionInner::Fd(SubscriptionFdReadWrite {
+                        v_fd,
+                        typ: SubscriptionFdType::Write,
+                    }),
+                })
+            }
+            _ => Err(RuntimeError::Einval),
+        }
+    }
 }
 
 #[repr(C, u8)]
 pub enum SubscriptionInner {
     Clock(SubscriptionClock),
-    FdRead(SubscriptionFdReadWrite),
-    FdWrite(SubscriptionFdReadWrite),
+    Fd(SubscriptionFdReadWrite),
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct SubscriptionClock {
-    id: ClockId,
-    timeout: Timestamp,
-    precision: Timestamp,
-    flags: SubClockFlags,
+    pub id: u32,
+    pub timeout: u64,
+    pub precision: Timestamp,
+    pub flags: SubClockFlags,
 }
 
 #[repr(C)]
 pub struct SubscriptionFdReadWrite {
-    fd: u32,
+    pub v_fd: u32,
+    pub typ: SubscriptionFdType,
 }
 
+#[derive(Copy, Clone)]
+pub enum SubscriptionFdType {
+    Read,
+    Write,
+}
+
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct SubClockFlags(u16);
 
@@ -730,19 +886,69 @@ impl SubClockFlags {
     }
 }
 
-impl From<u16> for SubClockFlags {
-    fn from(raw: u16) -> Self {
-        SubClockFlags(raw)
+impl TryFrom<u16> for SubClockFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u16) -> RuntimeResult<Self> {
+        if bitwise_and_u16(flags, u16::MAX - 0x1) != 0 {
+            Err(RuntimeError::Einval)
+        } else {
+            Ok(SubClockFlags(flags))
+        }
+    }
+}
+
+impl TryFrom<u64> for SubClockFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u64) -> RuntimeResult<Self> {
+        if bitwise_and_u64(flags, u64::MAX - 0x1) != 0 {
+            Err(RuntimeError::Einval)
+        } else {
+            Ok(SubClockFlags(flags as u16))
+        }
     }
 }
 
 pub struct Event {
-    userdata: u64,
-    error: Option<RuntimeError>,
-    typ: EventType,
-    fd_readwrite: EventFdReadWrite,
+    pub userdata: u64,
+    pub error: RuntimeError,
+    pub typ: EventType,
+    pub fd_readwrite: Option<EventFdReadWrite>,
 }
 
+impl Event {
+    pub const WASI_SIZE: u32 = 32;
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(try_from, is_aligned)]
+    #[requires(ctx_safe(ctx))]
+    #[requires(trace_safe(trace, ctx))]
+    #[ensures(ctx_safe(ctx))]
+    #[ensures(trace_safe(trace, ctx))]
+    pub fn write(&self, ctx: &mut VmCtx, ptr: u32) -> RuntimeResult<()> {
+        if !ctx.fits_in_lin_mem_usize(ptr as usize, Self::WASI_SIZE as usize) {
+            return Err(RuntimeError::Eoverflow);
+        }
+
+        if !is_aligned(Alignment::Eight, ptr) {
+            return Err(RuntimeError::Einval);
+        }
+
+        // read the subscription struct fields
+        ctx.write_u64(ptr as usize, self.userdata);
+        ctx.write_u16((ptr + 8) as usize, self.error.into());
+        ctx.write_u16((ptr + 10) as usize, self.typ.into());
+        if let Some(ref fd_readwrite) = self.fd_readwrite {
+            ctx.write_u64((ptr + 16) as usize, fd_readwrite.nbytes);
+            ctx.write_u16((ptr + 24) as usize, fd_readwrite.flags.into());
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone)]
 pub enum EventType {
     Clock,
     FdRead,
@@ -760,8 +966,27 @@ impl From<EventType> for u16 {
 }
 
 pub struct EventFdReadWrite {
-    nbytes: u64,
-    flags: u16,
+    pub nbytes: u64,
+    pub flags: EventRwFlags,
+}
+
+#[derive(Clone, Copy)]
+pub struct EventRwFlags(u16);
+
+impl EventRwFlags {
+    pub fn from_posix(flags: i16) -> Self {
+        let mut result = EventRwFlags(0);
+        if bitwise_and_i16(flags, libc::POLLHUP) != 0 {
+            result.0 = with_nth_bit_set(result.0, 1);
+        }
+        result
+    }
+}
+
+impl From<EventRwFlags> for u16 {
+    fn from(flags: EventRwFlags) -> Self {
+        flags.0
+    }
 }
 
 //#[with_ghost_var(trace: &mut Trace)]
@@ -836,4 +1061,35 @@ impl WasiProto {
             WasiProto::Unknown
         }
     }
+}
+
+pub enum Alignment {
+    One,
+    Two,
+    Four,
+    Eight,
+}
+
+impl Alignment {
+    pub fn align_down_mask(&self) -> u32 {
+        match self {
+            Alignment::One => 0xFFFF_FFFF,
+            Alignment::Two => 0xFFFF_FFFE,
+            Alignment::Four => 0xFFFF_FFFC,
+            Alignment::Eight => 0xFFFF_FFF8,
+        }
+    }
+
+    pub fn remainder_mask(&self) -> u32 {
+        match self {
+            Alignment::One => 0x0,
+            Alignment::Two => 0x1,
+            Alignment::Four => 0x3,
+            Alignment::Eight => 0x7,
+        }
+    }
+}
+
+pub fn is_aligned(alignment: Alignment, value: u32) -> bool {
+    bitwise_and_u32(value, alignment.remainder_mask()) == 0
 }

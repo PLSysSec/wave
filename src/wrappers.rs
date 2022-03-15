@@ -712,13 +712,13 @@ pub fn wasi_path_unlink_file(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_res_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32)]
+#[external_calls(from_u32, try_from)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
-    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+    let id = ClockId::try_from(clock_id)?;
 
     let mut spec = libc::timespec {
         tv_sec: 0,
@@ -732,7 +732,7 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_time_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32)]
+#[external_calls(from_u32, try_from)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -742,7 +742,7 @@ pub fn wasi_clock_time_get(
     clock_id: u32,
     //precision: Timestamp,
 ) -> RuntimeResult<Timestamp> {
-    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+    let id = ClockId::try_from(clock_id)?;
     // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
     let mut spec = libc::timespec {
         tv_sec: 0,
@@ -1025,7 +1025,15 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
 // TODO: Do we need to check alignment on the pointers?
 // TODO: clean this up, pretty gross
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(subscription_clock_abstime)]
+#[external_methods(
+    subscription_clock_abstime,
+    try_into,
+    checked_sub,
+    ok_or_else,
+    push,
+    map_err
+)]
+#[external_calls(from_posix, from_poll_revents, Some)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -1048,93 +1056,179 @@ pub fn wasi_poll_oneoff(
         return Err(Efault);
     }
 
-    //let mut current_byte = 0;
+    // list of clock subscription (userdata, timeout) pairs
+    let mut timeouts = Vec::new();
+
+    // Parallel vectors for fd subscriptions.
+    // (userdata, typ) pairs are stored in fd_data, while the pollfds themselves are stored
+    // in pollfds.
+    let mut fd_data = Vec::new();
+    let mut pollfds = Vec::new();
+
+    // minimum timeout we found, for setting the poll syscall timeout
+    let mut min_timeout = -1;
+
     let mut i = 0;
     while i < nsubscriptions {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
-        // TODO: refactor to use constants
-        let sub_offset = i * 48;
-        let event_offset = i * 32;
-        if !ctx.fits_in_lin_mem_usize((in_ptr + sub_offset) as usize, 42) {
+
+        let sub_offset = i * Subscription::WASI_SIZE;
+
+        if !ctx.fits_in_lin_mem_usize(
+            (in_ptr + sub_offset) as usize,
+            Subscription::WASI_SIZE as usize,
+        ) {
             return Err(Eoverflow);
         }
-        if !ctx.fits_in_lin_mem_usize((out_ptr + event_offset) as usize, 12) {
-            return Err(Eoverflow);
-        }
-        // read the subscription struct fields
-        let userdata = ctx.read_u64((in_ptr + sub_offset) as usize);
-        let tag = ctx.read_u64((in_ptr + sub_offset + 8) as usize);
 
-        match tag {
-            0 => {
-                let clock_id = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                let timeout_bytes = ctx.read_u64((in_ptr + sub_offset + 24) as usize);
-                let timeout = Timestamp::new(timeout_bytes);
+        let subscription = Subscription::read(ctx, in_ptr + sub_offset)?;
 
-                let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
-                // TODO: get clock time and use it to check if passed
+        match subscription.subscription_u {
+            SubscriptionInner::Clock(subscription_clock) => {
+                // if the subscription is a clock, check if it is the shortest timeout.
+                let clock = subscription_clock.id;
+                match clock.try_into()? {
+                    // TODO: what clock source does posix poll use for timeouts? Will a relative
+                    //       realtime be significantly different than monotonic?
+                    ClockId::Monotonic | ClockId::Realtime => {
+                        let now = wasi_clock_time_get(ctx, subscription_clock.id)?;
+                        let timeout: i32 = if subscription_clock.flags.subscription_clock_abstime()
+                        {
+                            // if this is an absolute timeout, we need to wait the difference
+                            // between now and the timeout
+                            // This will also perform a checked cast to an i32, which will
+                            subscription_clock
+                                .timeout
+                                .checked_sub(now.into())
+                                .ok_or(Eoverflow)?
+                                .try_into()
+                                .map_err(|e| Eoverflow)?
+                        } else {
+                            subscription_clock
+                                .timeout
+                                .try_into()
+                                .map_err(|e| Eoverflow)?
+                        };
 
-                let now = wasi_clock_time_get(ctx, clock_id)?;
-                let req: libc::timespec = if flags.subscription_clock_abstime() {
-                    // is absolute, wait the diff between timeout and now
-                    // TODO: I assume we should check for underflow
-                    (timeout - now).into()
-                } else {
-                    timeout.into()
-                };
+                        if min_timeout == -1 || timeout < min_timeout {
+                            min_timeout = timeout;
+                        }
 
-                let mut rem = libc::timespec {
-                    tv_sec: 0,
-                    tv_nsec: 0,
-                };
-
-                let res = trace_nanosleep(ctx, &req, &mut rem)?;
-
-                // write the event output...
-                let errno = 0; // TODO: errno
-                ctx.write_event(
-                    (out_ptr + event_offset) as usize,
-                    userdata,
-                    errno,
-                    tag as u16,
-                );
-                // clock event ignores fd_readwrite field.
+                        timeouts.push((subscription.userdata, timeout));
+                    }
+                    // we don't support timeouts on other clock types
+                    _ => {
+                        return Err(Einval);
+                    }
+                }
             }
-            1 | 2 => {
-                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-                let host_fd: usize = fd.into();
-
-                let mut pollfd = libc::pollfd {
-                    fd: host_fd as i32,
-                    events: libc::POLLIN, // TODO: check if write is available as well?
-                    revents: 0,           // TODO: should check this somewhere?
+            SubscriptionInner::Fd(subscription_readwrite) => {
+                let fd = ctx.fdmap.fd_to_native(subscription_readwrite.v_fd)?;
+                let os_fd: usize = fd.into();
+                let event = match subscription_readwrite.typ {
+                    SubscriptionFdType::Read => libc::POLLIN,
+                    SubscriptionFdType::Write => libc::POLLOUT,
                 };
-                let timeout = -1;
-
-                let res = trace_poll(ctx, &mut pollfd, timeout)?;
-
-                // write the event output...
-                let errno = 0; // TODO: errno
-                ctx.write_event(
-                    (out_ptr + event_offset) as usize,
-                    userdata,
-                    errno,
-                    tag as u16,
-                );
-            }
-
-            _ => {
-                return Err(Einval);
+                // convert FD subscriptions to their libc versions
+                let pollfd = libc::pollfd {
+                    fd: os_fd as i32,
+                    events: event,
+                    revents: 0,
+                };
+                pollfds.push(pollfd);
+                fd_data.push((subscription.userdata, subscription_readwrite.typ));
             }
         }
 
         i += 1;
     }
 
-    Ok(0)
+    let res = trace_poll(ctx, pollfds.as_mut(), min_timeout)?;
+
+    let mut num_events_written = 0;
+    let mut event_idx = 0;
+    if res == 0 {
+        // if res == 0, no pollfd events ocurred. Therefore, the timeout must have triggered,
+        // meaning we only trigger clock events with the min_timeout
+        while event_idx < timeouts.len() {
+            body_invariant!(ctx_safe(ctx));
+            body_invariant!(trace_safe(trace, ctx));
+
+            let (userdata, timeout) = timeouts[event_idx];
+            let event_offset = (num_events_written * Event::WASI_SIZE) as usize;
+            if !ctx
+                .fits_in_lin_mem_usize(out_ptr as usize + event_offset, Event::WASI_SIZE as usize)
+            {
+                return Err(Eoverflow);
+            }
+            if timeout == min_timeout {
+                let event = Event {
+                    userdata,
+                    error: RuntimeError::Success,
+                    typ: EventType::Clock,
+                    fd_readwrite: None,
+                };
+                event.write(ctx, out_ptr + event_offset as u32);
+                num_events_written += 1;
+            }
+
+            event_idx += 1;
+        }
+    } else {
+        // iterate over each pollfd, and write any events that ocurred
+        while event_idx < fd_data.len() {
+            body_invariant!(ctx_safe(ctx));
+            body_invariant!(trace_safe(trace, ctx));
+
+            let (userdata, sub_type) = fd_data[event_idx];
+            let typ = match sub_type {
+                SubscriptionFdType::Read => EventType::FdRead,
+                SubscriptionFdType::Write => EventType::FdWrite,
+            };
+            let pollfd = pollfds[event_idx];
+
+            // if no event ocurred, continue
+            if pollfd.revents == 0 {
+                continue;
+            }
+
+            let event_offset = (num_events_written * Event::WASI_SIZE) as usize;
+            if !ctx
+                .fits_in_lin_mem_usize(out_ptr as usize + event_offset, Event::WASI_SIZE as usize)
+            {
+                return Err(Eoverflow);
+            }
+
+            // get the number of bytes for reading...
+            // TODO: If we want, we can remove this, and always return 1 for reads
+            let nbytes = match typ {
+                EventType::FdRead => trace_fionread(ctx, (pollfd.fd as usize).into())? as u64,
+                // no way to check number of bytes for writing
+                _ => 0,
+            };
+
+            let fd_readwrite = EventFdReadWrite {
+                nbytes,
+                flags: EventRwFlags::from_posix(pollfd.revents),
+            };
+
+            let error = RuntimeError::from_poll_revents(pollfd.revents);
+
+            let event = Event {
+                userdata,
+                error,
+                typ,
+                fd_readwrite: Some(fd_readwrite),
+            };
+            event.write(ctx, out_ptr + event_offset as u32);
+            num_events_written += 1;
+
+            event_idx += 1;
+        }
+    }
+
+    Ok(num_events_written)
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_readdir

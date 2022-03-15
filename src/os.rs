@@ -539,10 +539,10 @@ pub fn trace_nanosleep(
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_poll(
     ctx: &VmCtx,
-    pollfd: &mut libc::pollfd,
+    pollfds: &mut [libc::pollfd],
     timeout: libc::c_int,
 ) -> RuntimeResult<usize> {
-    let r = os_poll(pollfd, timeout);
+    let r = os_poll(pollfds, timeout);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -591,5 +591,19 @@ pub fn trace_connect(
 ) -> RuntimeResult<usize> {
     let os_fd: usize = sockfd.into();
     let r = os_connect(os_fd, addr, addrlen);
+    RuntimeError::from_syscall_ret(r)
+}
+
+// TODO: I am not positive whether this returns the output value in its return
+//       or in its argument
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+pub fn trace_fionread(ctx: &VmCtx, sockfd: HostFd) -> RuntimeResult<usize> {
+    let os_fd: usize = sockfd.into();
+    let r = os_fionread(os_fd);
     RuntimeError::from_syscall_ret(r)
 }
