@@ -9,7 +9,6 @@ use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
 pub const MAX_SBOX_FDS: u32 = 8;
-// pub const MAX_SBOX_FDS_I32: i32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
 pub const PATH_MAX: u32 = 1024;
 
@@ -20,18 +19,8 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 
 // Note: prusti does not like derive(Debug)
 
-// #[cfg(feature = "verify")]
-// predicate! {
-//     fn safe(ctx: &VmCtx) -> bool {
-//         true
-//     }
-// }
-
-//typedef char* hostptr;
-// pub type HostPtr = usize;
 pub type SboxPtr = u32;
 
-// pub type HostFd = usize;
 #[derive(Clone, Copy)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct HostFd(usize);
@@ -161,7 +150,7 @@ impl RuntimeError {
             libc::ELOOP => Self::Eloop,
             libc::EEXIST => Self::Eexist,
             libc::ENOTEMPTY => Self::Enotempty,
-            _ => Self::Einval, // TODO: what to put here? can't panic cause validator
+            _ => Self::Einval,
         };
 
         Err(errno)
@@ -401,13 +390,6 @@ impl TryFrom<i32> for Advice {
             libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
             libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
             libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
-            // TODO: which of these is correct? I think probably the bottom
-            // 0 => Ok(Advice::Normal),
-            // 1 => Ok(Advice::Sequential),
-            // 2 => Ok(Advice::Random),
-            // 3 => Ok(Advice::WillNeed),
-            // 4 => Ok(Advice::DontNeed),
-            // 5 => Ok(Advice::NoReuse),
             _ => Err(RuntimeError::Einval),
         }
     }
@@ -452,23 +434,6 @@ impl From<libc::mode_t> for Filetype {
             libc::S_IFSOCK => Filetype::Unknown,
             libc::S_IFLNK => Filetype::SymbolicLink,
             _ => Filetype::Unknown,
-        }
-    }
-}
-
-impl From<Filetype> for libc::mode_t {
-    // TODO: is this used anywhere
-    // TODO: returns 0 on unknown, is that correct?
-    fn from(filetype: Filetype) -> Self {
-        match filetype {
-            Filetype::Unknown => 0,
-            Filetype::BlockDevice => libc::S_IFBLK,
-            Filetype::CharacterDevice => libc::S_IFCHR,
-            Filetype::Directory => libc::S_IFDIR,
-            Filetype::RegularFile => libc::S_IFREG,
-            Filetype::SocketDgram => libc::S_IFSOCK,
-            Filetype::SocketStream => libc::S_IFSOCK,
-            Filetype::SymbolicLink => libc::S_IFLNK,
         }
     }
 }
@@ -551,8 +516,6 @@ impl From<libc::c_int> for FdFlags {
     }
 }
 
-// TODO: This doesn't exactly match due to layout issues. Could use repr tags to try and make
-//       it match, or could have a translation between this and wasm FdStat
 //       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdStat {
@@ -716,27 +679,6 @@ impl From<SdFlags> for libc::c_int {
         }
     }
 }
-
-// impl TryFrom<libc::c_int> for SdFlags {
-//     type Error = RuntimeError;
-//     fn try_from(flags: libc::c_int) -> RuntimeResult<Self> {
-//         match flags{
-//             libc::SHUT_RDRW => Ok()
-//             libc::SHUT_RD =>
-//             libc::SHUT_WR =>
-//         }
-//         // if flags.rd() && flags.wr() {
-//         //     libc::SHUT_RDWR
-//         // } else if flags.rd() {
-//         //     libc::SHUT_RD
-//         // } else if flags.wr() {
-//         //     libc::SHUT_WR
-//         // } else {
-//         //     // TODO: correct behavior here? (Should it be TryFrom?)
-//         //     0
-//         // }
-//     }
-// }
 
 pub struct RiFlags(u16);
 
