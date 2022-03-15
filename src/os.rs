@@ -530,7 +530,6 @@ pub fn trace_nanosleep(
     RuntimeError::from_syscall_ret(r)
 }
 
-//TODO: not sure what the spec for this is yet.
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]

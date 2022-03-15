@@ -1003,6 +1003,7 @@ pub fn wasi_sock_send(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_shutdown
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[with_ghost_var(trace: &mut Trace)]
+#[external_methods(try_into)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]

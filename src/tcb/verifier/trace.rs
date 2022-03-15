@@ -1,20 +1,5 @@
 use prusti_contracts::*;
 
-/// Goal:
-/// Testing the possibility of using an effects system and verifying effects
-/// via an invariant on the trace
-
-/// Findings:
-/// 1. Cannot compare refs to enums or structs inside predicate (unless you use old)
-/// 2. Trace should not be part of context (no unnecessary mutability)
-/// 3. Trace should be append only (as this one is)
-/// Cannot add an additional trace argument conditional on compiliation,
-/// 2 possible solutions:
-///     1. make trace exist at runtime, just don't interact with it: ==> we have to do this
-///     2. make trace global: ==> Rust does not allow this
-
-// TODO: combine into a single variadic macro
-
 #[cfg(feature = "verify")]
 predicate! {
     pub fn takes_n_steps(old_trace: &Trace, trace: &Trace, n: usize) -> bool {
@@ -71,15 +56,6 @@ macro_rules! do_effect {
         }
     };
 }
-
-/*#[derive(PartialEq, Eq, Clone, Copy)]
-pub enum Effect {
-    ReadN(usize),  // read into `addr` `count` bytes
-    WriteN(usize), // write into `addr` `count` bytes
-    Shutdown,
-    FdAccess, // TODO: should this store the HostFd?
-    PathAccess,
-}*/
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(usize)]
@@ -174,24 +150,3 @@ impl Trace {
         self.v.push(value);
     }
 }
-
-/*SafePtr --> newtype around pointer
-Track length and is safe
-    - basically it came from a safe struct so we know it is safe?
-    - statically tracked size*/
-
-/*
- * 1. Invariants:
- *    - make sure fds are actually fds that are distinct from sandbox filedescriptors
- *    - passing paths to the os: make sure paths are within the home directory of the
- *          sandbox
- *          - try not trusted
- *    - multi-threading? maybe
- *          -
- *    - try prove functional correctness for one call
- *      - encode posix spec.
- *      - can try
- *      - encoding sandbox memory isolation on top of that
- *      - plus any added invariants
- *      - path_open might be more complicated
- */

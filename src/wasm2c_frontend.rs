@@ -116,15 +116,20 @@ pub extern "C" fn wave_init(
     let ctx = ctx_from_memptr(
         memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
     );
-    Box::into_raw(Box::new(ctx)) // TODO: what is going on here?
+    // convert the ctx into a raw pointer for the runtime
+    // must manually destruct later
+    Box::into_raw(Box::new(ctx))
 }
 
-// TODO: should probably manually drop stuff here and null out ptr
 #[no_mangle]
 pub extern "C" fn wave_cleanup(ctx: *const *mut VmCtx) {
-    // println!("Cleanup time!");
     output_hostcall_perf_results();
     output_syscall_perf_results();
+    // convert the ctx pointer back into a box so it will be dropped
+    unsafe {
+        Box::from_raw(*ctx);
+        // TODO: do we want to null pointer here?
+    }
 }
 
 #[no_mangle]
@@ -286,8 +291,6 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_fd_seekZ_iijii(
     retval
 }
 
-// TODO: what is the purpose of precision here?
-// TODO: this might be off by a factor of 1000
 #[no_mangle]
 #[trace(logging)]
 pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(

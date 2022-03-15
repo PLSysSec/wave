@@ -429,8 +429,8 @@ impl From<libc::mode_t> for Filetype {
             libc::S_IFCHR => Filetype::CharacterDevice,
             libc::S_IFDIR => Filetype::Directory,
             libc::S_IFREG => Filetype::RegularFile,
-            // TODO: need to get socket type, just do unknown for now cause we don't support
-            // sockets anyway...
+            // TODO: This actually means Unix domain socket. Do WASI socket commands even support
+            // this?
             libc::S_IFSOCK => Filetype::Unknown,
             libc::S_IFLNK => Filetype::SymbolicLink,
             _ => Filetype::Unknown,
