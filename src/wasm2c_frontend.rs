@@ -301,7 +301,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji(
 ) -> u32 {
     let start = start_timer();
     let ctx_ref = ptr_to_ref(ctx);
-    let r = wasi_clock_time_get(ctx_ref, clock_id, Timestamp::new(precision));
+    let r = wasi_clock_time_get(ctx_ref, clock_id, 0);
     let retval = wasm2c_marshal_and_writeback_timestamp(ctx_ref, out as usize, r);
     let end = stop_timer();
     push_hostcall_result("clock_time_get", start, end);

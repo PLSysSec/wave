@@ -738,7 +738,7 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
     clock_id: u32,
-    _precision: Timestamp, // ignored
+    _precision: u64, // ignored
 ) -> RuntimeResult<Timestamp> {
     let id = ClockId::try_from(clock_id)?;
     let mut spec = libc::timespec {
@@ -1063,6 +1063,7 @@ pub fn wasi_poll_oneoff(
 
     // minimum timeout we found, for setting the poll syscall timeout
     let mut min_timeout = -1;
+    let precision = 0;
 
     let mut i = 0;
     while i < nsubscriptions {
@@ -1088,8 +1089,7 @@ pub fn wasi_poll_oneoff(
                     // TODO: what clock source does posix poll use for timeouts? Will a relative
                     //       realtime be significantly different than monotonic?
                     ClockId::Monotonic | ClockId::Realtime => {
-                        let now =
-                            wasi_clock_time_get(ctx, subscription_clock.id, Timestamp::new(0))?;
+                        let now = wasi_clock_time_get(ctx, subscription_clock.id, precision)?;
                         let timeout: i32 = if subscription_clock.flags.subscription_clock_abstime()
                         {
                             // if this is an absolute timeout, we need to wait the difference
