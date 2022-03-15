@@ -1,4 +1,4 @@
-use crate::no_effect;
+use crate::effects;
 use crate::tcb::misc::*;
 use crate::tcb::path::addr_matches_netlist_entry;
 #[cfg(feature = "verify")]
@@ -103,7 +103,7 @@ impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
     #[with_ghost_var(trace: &mut Trace)]
-    #[ensures(no_effect!( old(trace), trace))]
+    #[ensures(effects!(old(trace), trace))]
     #[ensures(old(ret >= 0) ==> (match result {
         Ok(r) => r == ret as usize,
         _ => false,
