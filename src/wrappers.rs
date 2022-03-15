@@ -1251,10 +1251,6 @@ pub fn wasi_fd_readdir(
     buf_len: usize,
     cookie: u64,
 ) -> RuntimeResult<u32> {
-    // TODO: use the cookie properly
-    if cookie != 0 {
-        return Err(Einval);
-    }
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut host_buf: Vec<u8> = Vec::new();
@@ -1262,6 +1258,8 @@ pub fn wasi_fd_readdir(
 
     let res = trace_getdents64(ctx, fd, &mut host_buf, buf_len)?;
 
+    // the number of entries we have read so far. If less than cookie, don't output the directory
+    let mut entry_idx = 0;
     let mut in_idx = 0;
     let mut out_idx = 0;
 
@@ -1270,6 +1268,16 @@ pub fn wasi_fd_readdir(
     while in_idx < host_buf.len() && out_idx < host_buf.len() {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
+
+        // Length of this linux_dirent
+        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
+        // if we haven't hit the cookie entry, skip
+        if entry_idx < cookie {
+            in_idx += d_reclen as usize;
+            entry_idx += 1;
+            continue;
+        }
+
         // Inode number
         let d_ino = u64::from_le_bytes([
             host_buf[in_idx + 0],
@@ -1294,8 +1302,6 @@ pub fn wasi_fd_readdir(
             host_buf[in_idx + 15],
         ]);
 
-        // Length of this linux_dirent
-        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
         // File type
         let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
 
