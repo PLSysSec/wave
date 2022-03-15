@@ -11,31 +11,31 @@ use wave_macros::with_ghost_var;
 use crate::tcb::misc::{flag_set};
 
 
-#[with_ghost_var(trace: &mut Trace)]
-// #[requires(path_safe)]
-#[requires(path_safe(&path, !flag_set(flags, libc::O_NOFOLLOW) ))] // path_safe is parameterized by `should_follow`, so we need to reverse it
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, os_fd, p)))]
-pub fn trace_openat(
-    ctx: &VmCtx,
-    dir_fd: HostFd,
-    path: Vec<u8>, // SanndboxedPath
-    flags: i32,
-) -> RuntimeResult<usize> {
-    // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-    // assert!(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw());
-    let os_fd: usize = dir_fd.to_raw();
-    // assert!(os_fd == ctx.homedir_host_fd.to_raw());
-    // let os_path: Vec<u8> = path.into();
+// #[with_ghost_var(trace: &mut Trace)]
+// // #[requires(path_safe)]
+// #[requires(path_safe(&path, !flag_set(flags, libc::O_NOFOLLOW) ))] // path_safe is parameterized by `should_follow`, so we need to reverse it
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(one_effect!(old(trace), trace, effect!(PathAccessAt, os_fd, p)))]
+// pub fn trace_openat(
+//     ctx: &VmCtx,
+//     dir_fd: HostFd,
+//     path: Vec<u8>, // SanndboxedPath
+//     flags: i32,
+// ) -> RuntimeResult<usize> {
+//     // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+//     // assert!(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw());
+//     let os_fd: usize = dir_fd.to_raw();
+//     // assert!(os_fd == ctx.homedir_host_fd.to_raw());
+//     // let os_path: Vec<u8> = path.into();
 
-    // assert!(os_path.is_relative());
-    let r = os_openat(os_fd, path, flags);
-    RuntimeError::from_syscall_ret(r)
-}
+//     // assert!(os_path.is_relative());
+//     let r = os_openat(os_fd, path, flags);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
 // #[with_ghost_var(trace: &mut Trace)]
 // #[requires(ctx_safe(ctx))]
@@ -210,26 +210,26 @@ pub fn trace_openat(
 //     RuntimeError::from_syscall_ret(r)
 // }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&path, (flags == 0) ))] // flags == 0 means that O_NOFOLLOW is not set and therefore that should_follow is true
-#[requires(fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd)))]
-pub fn trace_fstatat(
-    ctx: &VmCtx,
-    fd: HostFd,
-    path: Vec<u8>,
-    stat: &mut libc::stat,
-    flags: i32,
-) -> RuntimeResult<usize> {
-    let os_fd: usize = fd.to_raw();
-    let os_path: Vec<u8> = path.into();
-    let r = os_fstatat(os_fd, os_path, stat, flags);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&path, (flags == 0) ))] // flags == 0 means that O_NOFOLLOW is not set and therefore that should_follow is true
+// #[requires(fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd)))]
+// pub fn trace_fstatat(
+//     ctx: &VmCtx,
+//     fd: HostFd,
+//     path: Vec<u8>,
+//     stat: &mut libc::stat,
+//     flags: i32,
+// ) -> RuntimeResult<usize> {
+//     let os_fd: usize = fd.to_raw();
+//     let os_path: Vec<u8> = path.into();
+//     let r = os_fstatat(os_fd, os_path, stat, flags);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
 // #[with_ghost_var(trace: &mut Trace)]
 // #[requires(ctx_safe(ctx))]
@@ -267,31 +267,31 @@ pub fn trace_fstatat(
 //     RuntimeError::from_syscall_ret(r)
 // }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&old_path, true))]
-#[requires(path_safe(&new_path, true))]
-#[requires(old_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(new_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccessAt, os_old_fd), effect!(PathAccessAt, os_new_fd)))]
-pub fn trace_linkat(
-    ctx: &VmCtx,
-    old_fd: HostFd,
-    old_path: Vec<u8>,
-    new_fd: HostFd,
-    new_path: Vec<u8>,
-    flags: i32,
-) -> RuntimeResult<usize> {
-    let os_old_fd: usize = old_fd.to_raw();
-    let os_new_fd: usize = new_fd.to_raw();
-    // let os_old_path: Vec<u8> = old_path.into();
-    // let os_new_path: Vec<u8> = new_path.into();
-    let r = os_linkat(os_old_fd, old_path, os_new_fd, new_path, flags);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&old_path, true))]
+// #[requires(path_safe(&new_path, true))]
+// #[requires(old_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(new_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccessAt, os_old_fd), effect!(PathAccessAt, os_new_fd)))]
+// pub fn trace_linkat(
+//     ctx: &VmCtx,
+//     old_fd: HostFd,
+//     old_path: Vec<u8>,
+//     new_fd: HostFd,
+//     new_path: Vec<u8>,
+//     flags: i32,
+// ) -> RuntimeResult<usize> {
+//     let os_old_fd: usize = old_fd.to_raw();
+//     let os_new_fd: usize = new_fd.to_raw();
+//     // let os_old_path: Vec<u8> = old_path.into();
+//     // let os_new_path: Vec<u8> = new_path.into();
+//     let r = os_linkat(os_old_fd, old_path, os_new_fd, new_path, flags);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(path_safe(&path, true))]
@@ -313,96 +313,96 @@ pub fn trace_mkdirat(
     RuntimeError::from_syscall_ret(r)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&pathname, false))]
-#[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
-#[requires(cnt < ctx.memlen)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd), effect!(WriteN, addr, count)))]
-pub fn trace_readlinkat(
-    ctx: &mut VmCtx,
-    dir_fd: HostFd,
-    pathname: Vec<u8>,
-    ptr: SboxPtr,
-    cnt: usize,
-) -> RuntimeResult<usize> {
-    let slice = ctx.slice_mem_mut(ptr, cnt as u32);
-    let os_fd: usize = dir_fd.to_raw();
-    // let os_path: Vec<u8> = pathname.into();
-    let r = os_readlinkat(os_fd, pathname, slice, cnt);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&pathname, false))]
+// #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
+// #[requires(cnt < ctx.memlen)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd), effect!(WriteN, addr, count)))]
+// pub fn trace_readlinkat(
+//     ctx: &mut VmCtx,
+//     dir_fd: HostFd,
+//     pathname: Vec<u8>,
+//     ptr: SboxPtr,
+//     cnt: usize,
+// ) -> RuntimeResult<usize> {
+//     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
+//     let os_fd: usize = dir_fd.to_raw();
+//     // let os_path: Vec<u8> = pathname.into();
+//     let r = os_readlinkat(os_fd, pathname, slice, cnt);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&path, false))]
-#[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd)))]
-pub fn trace_unlinkat(
-    ctx: &VmCtx,
-    dir_fd: HostFd,
-    path: Vec<u8>,
-    flags: libc::c_int,
-) -> RuntimeResult<usize> {
-    let os_fd: usize = dir_fd.to_raw();
-    // let os_path: Vec<u8> = pathname.into();
-    let r = os_unlinkat(os_fd, path, flags);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&path, false))]
+// #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd)))]
+// pub fn trace_unlinkat(
+//     ctx: &VmCtx,
+//     dir_fd: HostFd,
+//     path: Vec<u8>,
+//     flags: libc::c_int,
+// ) -> RuntimeResult<usize> {
+//     let os_fd: usize = dir_fd.to_raw();
+//     // let os_path: Vec<u8> = pathname.into();
+//     let r = os_unlinkat(os_fd, path, flags);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&old_path, false))]
-#[requires(path_safe(&new_path, false))]
-#[requires(old_dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(new_dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_old_fd), effect!(FdAccess), effect!(PathAccessAt, os_new_fd)))]
-pub fn trace_renameat(
-    ctx: &VmCtx,
-    old_dir_fd: HostFd,
-    old_path: Vec<u8>,
-    new_dir_fd: HostFd,
-    new_path: Vec<u8>,
-) -> RuntimeResult<usize> {
-    let os_old_fd: usize = old_dir_fd.to_raw();
-    // let os_old_path: Vec<u8> = old_pathname.into();
-    let os_new_fd: usize = new_dir_fd.to_raw();
-    // let os_new_path: Vec<u8> = new_pathname.into();
-    let r = os_renameat(os_old_fd, old_path, os_new_fd, new_path);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&old_path, false))]
+// #[requires(path_safe(&new_path, false))]
+// #[requires(old_dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(new_dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_old_fd), effect!(FdAccess), effect!(PathAccessAt, os_new_fd)))]
+// pub fn trace_renameat(
+//     ctx: &VmCtx,
+//     old_dir_fd: HostFd,
+//     old_path: Vec<u8>,
+//     new_dir_fd: HostFd,
+//     new_path: Vec<u8>,
+// ) -> RuntimeResult<usize> {
+//     let os_old_fd: usize = old_dir_fd.to_raw();
+//     // let os_old_path: Vec<u8> = old_pathname.into();
+//     let os_new_fd: usize = new_dir_fd.to_raw();
+//     // let os_new_path: Vec<u8> = new_pathname.into();
+//     let r = os_renameat(os_old_fd, old_path, os_new_fd, new_path);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&old_pathname, true))]
-#[requires(path_safe(&new_pathname, true))]
-#[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace,  effect!(PathAccessAt, os_fd), effect!(FdAccess)))]
-pub fn trace_symlinkat(
-    ctx: &VmCtx,
-    old_pathname: Vec<u8>,
-    dir_fd: HostFd,
-    new_pathname: Vec<u8>,
-) -> RuntimeResult<usize> {
-    let os_fd: usize = dir_fd.to_raw();
-    // let os_old_path: Vec<u8> = old_pathname.into();
-    // let os_new_path: Vec<u8> = new_pathname.into();
-    let r = os_symlinkat(old_pathname, os_fd, new_pathname);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&old_pathname, true))]
+// #[requires(path_safe(&new_pathname, true))]
+// #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(two_effects!(old(trace), trace,  effect!(PathAccessAt, os_fd), effect!(FdAccess)))]
+// pub fn trace_symlinkat(
+//     ctx: &VmCtx,
+//     old_pathname: Vec<u8>,
+//     dir_fd: HostFd,
+//     new_pathname: Vec<u8>,
+// ) -> RuntimeResult<usize> {
+//     let os_fd: usize = dir_fd.to_raw();
+//     // let os_old_path: Vec<u8> = old_pathname.into();
+//     // let os_new_path: Vec<u8> = new_pathname.into();
+//     let r = os_symlinkat(old_pathname, os_fd, new_pathname);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
 // #[with_ghost_var(trace: &mut Trace)]
 // #[requires(specs.len() >= 2)]
@@ -421,27 +421,27 @@ pub fn trace_symlinkat(
 //     RuntimeError::from_syscall_ret(r)
 // }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(path_safe(&path, (flags == 0) ))] // flags == 0 means that O_NOFOLLOW is not set and therefore that should_follow is true
-#[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-#[requires(specs.len() >= 2)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd)))]
-pub fn trace_utimensat(
-    ctx: &VmCtx,
-    dir_fd: HostFd,
-    path: Vec<u8>,
-    specs: &Vec<libc::timespec>,
-    flags: libc::c_int,
-) -> RuntimeResult<usize> {
-    let os_fd: usize = dir_fd.to_raw();
-    // let os_path: Vec<u8> = pathname.into();
-    let r = os_utimensat(os_fd, path, specs, flags);
-    RuntimeError::from_syscall_ret(r)
-}
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(path_safe(&path, (flags == 0) ))] // flags == 0 means that O_NOFOLLOW is not set and therefore that should_follow is true
+// #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
+// #[requires(specs.len() >= 2)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd)))]
+// pub fn trace_utimensat(
+//     ctx: &VmCtx,
+//     dir_fd: HostFd,
+//     path: Vec<u8>,
+//     specs: &Vec<libc::timespec>,
+//     flags: libc::c_int,
+// ) -> RuntimeResult<usize> {
+//     let os_fd: usize = dir_fd.to_raw();
+//     // let os_path: Vec<u8> = pathname.into();
+//     let r = os_utimensat(os_fd, path, specs, flags);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
 // #[with_ghost_var(trace: &mut Trace)]
 // #[requires(ctx_safe(ctx))]

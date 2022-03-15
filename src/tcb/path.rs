@@ -34,7 +34,11 @@ impl OwnedComponents {
 
 
 
-    // #[ensures(self.len() == old(self.len()) + 1)]
+    #[ensures(self.len() == old(self.len()) + 1)]
+    #[ensures(forall(|i: usize| 
+        (i < self.len() - 1) ==> 
+            (old(!is_symlink(self.prefix(i))) ==>
+                !is_symlink(self.prefix(i)) )))]
     // #[ensures(self.lookup(old(self.len())) == old(value))]
     // #[ensures(forall(|i: usize| (i < old(self.len())) ==>
     //                 self.lookup(i) == old(self.lookup(i))))]
@@ -45,7 +49,7 @@ impl OwnedComponents {
     // #[ensures(self.len() == old(self.len()) - 1)]
     // #[ensures(forall(|i: usize| (i < self.len()) ==>
     //                 self.lookup(i) == old(self.lookup(i))))]
-    pub fn pop(&mut self);
+    pub fn pop(&mut self) -> Option<OwnedComponent>;
 
 
     #[ensures(old(is_relative(&self)) ==> vec_is_relative(&result) )]
@@ -53,6 +57,8 @@ impl OwnedComponents {
     #[ensures(old(is_symlink(&self)) == vec_is_symlink(&result) )]
     pub fn unparse(self) -> Vec<u8>;
 
+    #[pure]
+    pub fn prefix(&self, end: usize) -> &OwnedComponents;
 }
 
 #[trusted]
@@ -82,12 +88,12 @@ fn to_pathbuf(v: Vec<u8>) -> PathBuf {
 }
 
 // TODO: remove this clone: its only there because prusti complains
-fn from_pathbuf(p: PathBuf) -> Vec<u8> {
-  // OsString are not guaranteed to be null terminated, but we want it to be null-terminated :)
-  let mut v = p.clone().into_os_string().into_vec();
-  v.push(0);
-  v
-}
+// fn from_pathbuf(p: PathBuf) -> Vec<u8> {
+//   // OsString are not guaranteed to be null terminated, but we want it to be null-terminated :)
+//   let mut v = p.clone().into_os_string().into_vec();
+//   v.push(0);
+//   v
+// }
 
 
 
@@ -188,14 +194,18 @@ pub fn vec_depth(components: &Vec<u8>) -> isize {
 // Recursively expands a symlink (without explicit recursion)
 // maintains a queue of path components to process
 // #[trusted]
+#[requires(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
 #[requires(!is_symlink(out_path) )]
 #[ensures(!is_symlink(out_path))]
+#[ensures(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
+// #[ensures(!is_symlink())]
 fn expand_symlink(out_path: &mut OwnedComponents, linkpath_components: OwnedComponents, num_symlinks: &mut isize){
     // let components = get_components(&linkpath);
     let mut idx = 0;
     //for c in components.iter() {
     while idx < linkpath_components.len() {
         body_invariant!(!is_symlink(out_path));
+        body_invariant!(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i))));
         if *num_symlinks >= MAXSYMLINKS {
             return;
         }
@@ -239,7 +249,10 @@ fn read_link_h(out_path: &OwnedComponents) -> Option<OwnedComponents> {
 // else, we just append the value to out_path
 #[trusted]
 #[requires(!is_symlink(out_path) )]
+#[requires(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
 #[ensures(!is_symlink(out_path))]
+#[ensures(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
+// #[ensures()]
 fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
     out_path.inner.push(comp);
     if let Some(linkpath) = read_link_h(out_path) {
@@ -255,7 +268,9 @@ fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, 
 
 // its an empty path, its not a symlink
 #[trusted]
+#[ensures(result.len() == 0)]
 #[ensures(!is_symlink(&result))]
+#[ensures(forall(|i: usize| (i < result.len() - 1) ==> !is_symlink(result.prefix(i)) ))] // we should be able to solve this by knowing that length = 0
 fn fresh_components() -> OwnedComponents {
     OwnedComponents::new()
 }
@@ -272,7 +287,7 @@ predicate! {
 // #[ensures(!is_symlink(out_path))]
 #[ensures(
     match &result {
-        Ok(v) => /*should_follow ==> !is_symlink(&v)*/!should_follow || (should_follow && !is_symlink(&v)),
+        Ok(v) => /*should_follow ==> !is_symlink(&v)*/forall(|i: usize| (i < v.len() - 2) ==> !is_symlink(v.prefix(i)) ) && !should_follow || (should_follow && !is_symlink(&v)),
         _ => true,
     }
 )]
@@ -289,6 +304,7 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
 
     while idx < components.len() {
         body_invariant!(!is_symlink(&out_path));
+        body_invariant!(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ) );
         let comp = components[idx];
         let c = OwnedComponent::from_borrowed(&comp);
         // if this is the last element, and we are NO_FOLLOW, then don't expand
