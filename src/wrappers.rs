@@ -1043,15 +1043,12 @@ pub fn wasi_poll_oneoff(
     out_ptr: u32,
     nsubscriptions: u32,
 ) -> RuntimeResult<u32> {
-    // copy events to runtime buffer
-    if !ctx.fits_in_lin_mem(
-        in_ptr,
-        nsubscriptions * mem::size_of::<Subscription>() as u32,
-    ) {
+    // TODO: PROBLEM:
+    if !ctx.fits_in_lin_mem(in_ptr, nsubscriptions * Subscription::WASI_SIZE as u32) {
         return Err(Efault);
     }
 
-    if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * mem::size_of::<Event>() as u32) {
+    if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * Event::WASI_SIZE as u32) {
         return Err(Efault);
     }
 
