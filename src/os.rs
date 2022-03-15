@@ -48,8 +48,8 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
+// read writes `cnt` bytes to sandbox memory
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
-/// read writes `cnt` bytes to sandbox memory
 pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
@@ -59,15 +59,12 @@ pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Runt
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
-//#[requires(buf.capacity() >= cnt)]
 #[requires(cnt < ctx.memlen)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-//#[ensures(buf.len() == result)]
-//#[ensures(buf.capacity() >= cnt)]
-/// pread writes `cnt` bytes to sandbox memory
+// pread writes `cnt` bytes to sandbox memory
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_pread(
     ctx: &mut VmCtx,
@@ -477,7 +474,7 @@ pub fn trace_recv(
     fd: HostFd,
     ptr: SboxPtr,
     cnt: usize,
-    flags: u32,
+    flags: i32,
 ) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
@@ -498,7 +495,7 @@ pub fn trace_send(
     fd: HostFd,
     ptr: SboxPtr,
     cnt: usize,
-    flags: u32,
+    flags: i32,
 ) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.into();
@@ -539,7 +536,7 @@ pub fn trace_nanosleep(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_poll(
     ctx: &VmCtx,
     pollfd: &mut libc::pollfd,
@@ -556,8 +553,6 @@ pub fn trace_poll(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-// pub fn os_getdents64(fd: usize, dirp: &mut libc::dirent, count: usize) -> usize {
-//buf: &mut Vec<u8>
 pub fn trace_getdents64(
     ctx: &VmCtx,
     fd: HostFd,

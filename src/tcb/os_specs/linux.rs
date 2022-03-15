@@ -410,7 +410,7 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: u32) -> isize {
+pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) as isize };
     let __end_ts = stop_timer();
@@ -423,7 +423,7 @@ pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: u32) -> isize {
+pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize };
     let __end_ts = stop_timer();
@@ -462,10 +462,9 @@ pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> isize {
 }
 
 //https://man7.org/linux/man-pages/man2/poll.2.html
-// can make more efficient using slice of pollfds
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(effects!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(POLL, pollfd as *const libc::pollfd, 1, timeout) as isize };
@@ -475,14 +474,10 @@ pub fn os_poll(pollfd: &mut libc::pollfd, timeout: libc::c_int) -> isize {
 }
 
 //https://man7.org/linux/man-pages/man2/getdents64.2.html
-//  long syscall(SYS_getdents, unsigned int fd, struct linux_dirent *dirp, unsigned int count);
 #[with_ghost_var(trace: &mut Trace)]
 #[external_method(set_len)]
 #[trusted]
 #[requires(dirp.capacity() >= count)]
-#[ensures(effects!(old(trace), trace))]
-// TODO: this result handling is screwed up
-//#[ensures(effects!(old(trace), trace))]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
