@@ -5,7 +5,7 @@ use crate::tcb::sbox_mem::as_sbox_ptr;
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
-use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
+use crate::{effect, path_effect, four_effects, no_effect, one_effect, three_effects, two_effects};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
@@ -221,116 +221,124 @@ use wave_macros::{external_call, external_method, with_ghost_var};
 //     result
 // }
 
-//https://man7.org/linux/man-pages/man2/linkat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[trusted]
-// #[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), effect!(PathAccessAt, fd1) if fd1 == old_fd, effect!(PathAccessAt, fd2) if fd2 == new_fd))]
-// pub fn os_linkat(
-//     old_fd: usize,
-//     old_path: Vec<u8>,
-//     new_fd: usize,
-//     new_path: Vec<u8>,
-//     flags: i32,
-// ) -> isize {
-//     let __start_ts = start_timer();
-//     let result = unsafe {
-//         syscall!(
-//             LINKAT,
-//             old_fd,
-//             old_path.as_ptr(),
-//             new_fd,
-//             new_path.as_ptr(),
-//             flags
-//         ) as isize
-//     };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("linkat", __start_ts, __end_ts);
-//     result
-// }
-
-//https://man7.org/linux/man-pages/man2/mkdirat.2.html
+// https://man7.org/linux/man-pages/man2/linkat.2.html
+// follows terminal symlink: true
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd))]
-pub fn os_mkdirat(dirfd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize {
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(FdAccess), path_effect!(PathAccessAt, fd1, old_p, true) if fd1 == old_fd && old_p == old(old_path), path_effect!(PathAccessAt, fd2, new_p, true) if fd2 == new_fd && new_p == old(new_path) ))]
+pub fn os_linkat(
+    old_fd: usize,
+    old_path: [u8; 4096],
+    new_fd: usize,
+    new_path: [u8; 4096],
+    flags: i32,
+) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(MKDIRAT, dirfd, pathname.as_ptr(), mode) as isize };
+    let result = unsafe {
+        syscall!(
+            LINKAT,
+            old_fd,
+            old_path.as_ptr(),
+            new_fd,
+            new_path.as_ptr(),
+            flags
+        ) as isize
+    };
+    let __end_ts = stop_timer();
+    push_syscall_result("linkat", __start_ts, __end_ts);
+    result
+}
+
+// https://man7.org/linux/man-pages/man2/mkdirat.2.html
+// follows terminal symlink: true
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path) ))]
+pub fn os_mkdirat(dirfd: usize, path: [u8; 4096], mode: libc::mode_t) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(MKDIRAT, dirfd, path.as_ptr(), mode) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("mkdirat", __start_ts, __end_ts);
     result
 }
 
-//https://man7.org/linux/man-pages/man2/readlinkat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(buf.len() >= cnt)]
-// #[ensures(result >= 0 ==> buf.len() == result as usize)]
-// #[ensures(result >= 0 ==> result as usize <= cnt)]
-// #[trusted]
-// #[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-// pub fn os_readlinkat(dirfd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
-//     let __start_ts = start_timer();
-//     let result =
-//         unsafe { syscall!(READLINKAT, dirfd, pathname.as_ptr(), buf.as_mut_ptr(), cnt) as isize };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("readlinkat", __start_ts, __end_ts);
-//     result
-// }
+// https://man7.org/linux/man-pages/man2/readlinkat.2.html
+// follows terminal symlink: false
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(buf.len() >= cnt)]
+#[ensures(result >= 0 ==> buf.len() == result as usize)]
+#[ensures(result >= 0 ==> result as usize <= cnt)]
+#[trusted]
+#[ensures(three_effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+pub fn os_readlinkat(dirfd: usize, path: [u8; 4096], buf: &mut [u8], cnt: usize) -> isize {
+    let __start_ts = start_timer();
+    let result =
+        unsafe { syscall!(READLINKAT, dirfd, path.as_ptr(), buf.as_mut_ptr(), cnt) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("readlinkat", __start_ts, __end_ts);
+    result
+}
 
 //https://man7.org/linux/man-pages/man2/unlinkat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[trusted]
-// #[ensures(two_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd) if fd == dirfd))]
-// pub fn os_unlinkat(dirfd: usize, pathname: Vec<u8>, flags: libc::c_int) -> isize {
-//     let __start_ts = start_timer();
-//     let result = unsafe { syscall!(UNLINKAT, dirfd, pathname.as_ptr(), flags) as isize };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("unlinkat", __start_ts, __end_ts);
-//     result
-// }
+// follows terminal symlink: false
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(two_effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path)))]
+pub fn os_unlinkat(dirfd: usize, path: [u8; 4096], flags: libc::c_int) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(UNLINKAT, dirfd, path.as_ptr(), flags) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("unlinkat", __start_ts, __end_ts);
+    result
+}
 
 //https://man7.org/linux/man-pages/man2/renameat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[trusted]
-// #[ensures(four_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd1) if fd1 == old_dir_fd, effect!(FdAccess), effect!(PathAccessAt, fd2) if fd2 == new_dir_fd))]
-// pub fn os_renameat(
-//     old_dir_fd: usize,
-//     old_pathname: Vec<u8>,
-//     new_dir_fd: usize,
-//     new_pathname: Vec<u8>,
-// ) -> isize {
-//     let __start_ts = start_timer();
-//     let result = unsafe {
-//         syscall!(
-//             RENAMEAT,
-//             old_dir_fd,
-//             old_pathname.as_ptr(),
-//             new_dir_fd,
-//             new_pathname.as_ptr()
-//         ) as isize
-//     };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("renameat", __start_ts, __end_ts);
-//     result
-// }
+// follows terminal symlinks: false
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(four_effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd1, old_p, false) if fd1 == old_dir_fd && old_p == old(old_path), effect!(FdAccess), path_effect!(PathAccessAt, fd2, new_p, false) if fd2 == new_dir_fd && new_p == old(new_path)))]
+pub fn os_renameat(
+    old_dir_fd: usize,
+    old_path: [u8; 4096],
+    new_dir_fd: usize,
+    new_path: [u8; 4096],
+) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe {
+        syscall!(
+            RENAMEAT,
+            old_dir_fd,
+            old_path.as_ptr(),
+            new_dir_fd,
+            new_path.as_ptr()
+        ) as isize
+    };
+    let __end_ts = stop_timer();
+    push_syscall_result("renameat", __start_ts, __end_ts);
+    result
+}
 
-//https://man7.org/linux/man-pages/man2/symlinkat.2.html
-// #[with_ghost_var(trace: &mut Trace)]
-// #[trusted]
-// #[ensures(two_effects!(old(trace), trace, effect!(PathAccessAt, fd) if fd == dirfd, effect!(FdAccess)))]
-// pub fn os_symlinkat(old_pathname: Vec<u8>, dirfd: usize, new_pathname: Vec<u8>) -> isize {
-//     let __start_ts = start_timer();
-//     let result = unsafe {
-//         syscall!(
-//             SYMLINKAT,
-//             old_pathname.as_ptr(),
-//             dirfd,
-//             new_pathname.as_ptr()
-//         ) as isize
-//     };
-//     let __end_ts = stop_timer();
-//     push_syscall_result("symlinkat", __start_ts, __end_ts);
-//     result
-// }
+// https://man7.org/linux/man-pages/man2/symlinkat.2.html
+// From the spec: The string pointed to by path1 shall be treated only as a string and shall not be validated as a pathname.
+// follows terminal symlinks: true (although it might fail)
+// TODO: do we actually need to check the second path or can we just let the resolver do its thing?
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(two_effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path2), effect!(FdAccess)))]
+pub fn os_symlinkat(path1: [u8; 4096], dirfd: usize, path2: [u8; 4096]) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe {
+        syscall!(
+            SYMLINKAT,
+            path1.as_ptr(),
+            dirfd,
+            path2.as_ptr()
+        ) as isize
+    };
+    let __end_ts = stop_timer();
+    push_syscall_result("symlinkat", __start_ts, __end_ts);
+    result
+}
 
 // //https://man7.org/linux/man-pages/man2/utimensat.2.html
 // #[with_ghost_var(trace: &mut Trace)]

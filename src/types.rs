@@ -8,10 +8,10 @@ use std::convert::TryFrom;
 use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
-pub const MAX_SBOX_FDS: u32 = 8;
+pub const MAX_SBOX_FDS: u32 = 8; // TODO: up to 16 or 32?
 // pub const MAX_SBOX_FDS_I32: i32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
-pub const PATH_MAX: u32 = 1024;
+pub const PATH_MAX: usize = 4096;
 
 pub const PAGE_SIZE: usize = 4096;
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
@@ -30,6 +30,8 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 //typedef char* hostptr;
 // pub type HostPtr = usize;
 pub type SboxPtr = u32;
+
+pub type GuestPath = [u8; PATH_MAX];
 
 // pub type HostFd = usize;
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -85,6 +87,7 @@ pub enum RuntimeError {
     Enotsock,
     Enotdir,
     Eloop,
+    Enametoolong
 }
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
@@ -111,6 +114,7 @@ impl From<RuntimeError> for u32 {
             RuntimeError::Enotsock => 57,
             RuntimeError::Enotdir => 54,
             RuntimeError::Eloop => 32,
+            RuntimeError::Enametoolong => 37,
         };
         result as u32
     }
@@ -154,6 +158,7 @@ impl RuntimeError {
             libc::ELOOP => Self::Eloop,
             libc::EEXIST => Self::Eexist,
             libc::ENOTEMPTY => Self::Enotempty,
+            libc::ENAMETOOLONG => Self::Enametoolong,
             _ => Self::Einval, // TODO: what to put here? can't panic cause validator
         };
 
@@ -187,32 +192,34 @@ pub struct VmCtx {
     pub netlist: Netlist,
 }
 
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-pub struct SandboxedPath(Vec<u8>);
-impl From<SandboxedPath> for Vec<u8> {
-    fn from(w: SandboxedPath) -> Vec<u8> {
-        w.0
-    }
-}
 
-impl From<Vec<u8>> for SandboxedPath {
-    fn from(w: Vec<u8>) -> SandboxedPath {
-        SandboxedPath(w)
-    }
-}
 
-pub struct RelativePath(Vec<u8>);
-impl From<RelativePath> for Vec<u8> {
-    fn from(w: RelativePath) -> Vec<u8> {
-        w.0
-    }
-}
+// #[cfg_attr(not(feature = "verify"), derive(Debug))]
+// pub struct SandboxedPath(Vec<u8>);
+// impl From<SandboxedPath> for Vec<u8> {
+//     fn from(w: SandboxedPath) -> Vec<u8> {
+//         w.0
+//     }
+// }
 
-impl From<Vec<u8>> for RelativePath {
-    fn from(w: Vec<u8>) -> RelativePath {
-        RelativePath(w)
-    }
-}
+// impl From<Vec<u8>> for SandboxedPath {
+//     fn from(w: Vec<u8>) -> SandboxedPath {
+//         SandboxedPath(w)
+//     }
+// }
+
+// pub struct RelativePath(Vec<u8>);
+// impl From<RelativePath> for Vec<u8> {
+//     fn from(w: RelativePath) -> Vec<u8> {
+//         w.0
+//     }
+// }
+
+// impl From<Vec<u8>> for RelativePath {
+//     fn from(w: Vec<u8>) -> RelativePath {
+//         RelativePath(w)
+//     }
+// }
 
 pub enum Whence {
     Set,

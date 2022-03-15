@@ -186,7 +186,7 @@ impl VmCtx {
             _ => true,
         }
     )]
-    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool) -> RuntimeResult<Vec<u8>> {
+    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool) -> RuntimeResult<GuestPath> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }

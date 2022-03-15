@@ -190,6 +190,8 @@ pub struct Effect {
     pub f1: usize,
     pub f2: usize,
     pub f3: usize,
+    pub p: Option<[u8; 4096]>,
+    pub should_follow: Option<bool>,
 }
 
 // TODO: I think this has to become a proc macro if we don't wanna expand every case manually...
@@ -201,6 +203,8 @@ macro_rules! effect {
             f1: 0,
             f2: 0,
             f3: 0,
+            p: None,
+            should_follow: None, 
         }
     };
     ($typ:ident, $f1:pat) => {
@@ -209,6 +213,8 @@ macro_rules! effect {
             f1: $f1,
             f2: 0,
             f3: 0,
+            p: None,
+            should_follow: None, 
         }
     };
     ($typ:ident, $f1:pat, $f2:pat) => {
@@ -217,6 +223,8 @@ macro_rules! effect {
             f1: $f1,
             f2: $f2,
             f3: 0,
+            p: None,
+            should_follow: None, 
         }
     };
     ($typ:ident, $f1:pat, $f2:pat, $f3:pat) => {
@@ -225,9 +233,28 @@ macro_rules! effect {
             f1: $f1,
             f2: $f2,
             f3: $f3,
+            p: None,
+            should_follow: None, 
         }
     };
 }
+
+// macro for passing in paths
+#[macro_export]
+macro_rules! path_effect {
+    ($typ:ident, $f1:pat, $f2:pat, $f3:pat) => {
+        Effect {
+            typ: EffectType::$typ,
+            f1: $f1,
+            f2: 0,
+            f3: 0,
+            p: Some($f2),
+            should_follow: Some($f3), 
+        }
+    };
+
+}
+
 
 // #[trusted]
 // #[pure]
@@ -254,7 +281,6 @@ macro_rules! effect {
 
 pub struct Trace {
     v: Vec<Effect>,
-    paths: Vec<Vec<u8>>, 
 }
 
 impl Trace {
@@ -264,19 +290,12 @@ impl Trace {
     pub fn len(&self) -> usize {
         self.v.len()
     }
-    
-    #[trusted]
-    #[pure]
-    pub fn num_paths(&self) -> usize {
-        self.paths.len()
-    }
 
     // Encoded as body-less Viper method
     #[trusted]
     #[ensures(result.len() == 0)]
-    #[ensures(result.num_paths() == 0)]
     pub fn new() -> Self {
-        Trace { v: Vec::new(), paths: Vec::new() }
+        Trace { v: Vec::new() }
     }
 
     // Encoded as body-less Viper function
@@ -285,14 +304,6 @@ impl Trace {
     #[requires(index < self.len())]
     pub fn lookup(&self, index: usize) -> Effect {
         self.v[index]
-    }
-
-    // Encoded as body-less Viper function
-    #[trusted]
-    #[pure]
-    //#[requires(index < self.num_paths())]
-    pub fn lookup_path(&self, index: usize) -> &Vec<u8> {
-            &self.paths[index]
     }
 
     #[trusted]

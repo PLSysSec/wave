@@ -866,7 +866,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
     let r = wasi_proc_raise(ctx_ref, signal);
     let retval = wasm2c_marshal(r);
     let end = stop_timer();
-    push_hostcall_result("proc_Raise", start, end);
+    push_hostcall_result("proc_raise", start, end);
     retval
 }
 
