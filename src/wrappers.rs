@@ -925,6 +925,7 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_recv
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact)]
+#[external_calls(reserve_exact, try_from)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -937,7 +938,9 @@ pub fn wasi_sock_recv(
     ri_flags: u32,
 ) -> RuntimeResult<(u32, u32)> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let ri_flags = RiFlags::try_from(ri_flags)?;
 
+    let mut ro_flags = 0;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < ri_data_count {
@@ -951,15 +954,15 @@ pub fn wasi_sock_recv(
             return Err(Efault);
         }
 
-        let flags = 0;
-        // TODO: handle flags
-        let result = trace_recv(ctx, fd, ptr, len as usize, flags)?;
+        let result = trace_recv(ctx, fd, ptr, len as usize, ri_flags.to_posix())?;
         let result = result as u32;
 
         num += result;
         i += 1;
     }
     // TODO: handle ro_flags
+    //       It doesn't look like there is a good way to handle them other than to use linux
+    //       recvmsg instead of recv, which is more complex
     Ok((num, 0))
 }
 

@@ -767,7 +767,7 @@ impl TryFrom<u32> for RiFlags {
     fn try_from(flags: u32) -> RuntimeResult<RiFlags> {
         // if any bits are set that aren't associated with a wasi flag,
         // return an error
-        if bitwise_and_u32(flags, u32::MAX - 0x3) != 0 {
+        if bitwise_and_u32(flags, u32::MAX - 0b11) != 0 {
             Err(RuntimeError::Einval)
         } else {
             Ok(RiFlags(flags as u16))
