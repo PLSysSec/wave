@@ -938,7 +938,6 @@ pub fn wasi_sock_recv(
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ri_flags = RiFlags::try_from(ri_flags)?;
 
-    let mut ro_flags = 0;
     let mut num: u32 = 0;
     let mut i = 0;
     while i < ri_data_count {
@@ -1016,8 +1015,9 @@ pub fn wasi_sock_send(
 pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let how = SdFlags::new(v_how);
+    let posix_how = how.try_into()?;
 
-    let res = trace_shutdown(ctx, fd, how.into())?;
+    let res = trace_shutdown(ctx, fd, posix_how)?;
     Ok(())
 }
 

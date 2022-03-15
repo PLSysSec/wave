@@ -665,17 +665,18 @@ impl SdFlags {
     }
 }
 
-impl From<SdFlags> for libc::c_int {
-    fn from(flags: SdFlags) -> Self {
+impl TryFrom<SdFlags> for libc::c_int {
+    type Error = RuntimeError;
+
+    fn try_from(flags: SdFlags) -> RuntimeResult<Self> {
         if flags.rd() && flags.wr() {
-            libc::SHUT_RDWR
+            Ok(libc::SHUT_RDWR)
         } else if flags.rd() {
-            libc::SHUT_RD
+            Ok(libc::SHUT_RD)
         } else if flags.wr() {
-            libc::SHUT_WR
+            Ok(libc::SHUT_WR)
         } else {
-            // TODO: correct behavior here?
-            0
+            Err(RuntimeError::Einval)
         }
     }
 }
