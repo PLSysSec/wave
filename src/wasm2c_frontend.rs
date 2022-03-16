@@ -125,11 +125,6 @@ pub extern "C" fn wave_init(
 pub extern "C" fn wave_cleanup(ctx: *const *mut VmCtx) {
     output_hostcall_perf_results();
     output_syscall_perf_results();
-    // convert the ctx pointer back into a box so it will be dropped
-    // unsafe {
-    //     Box::from_raw(*ctx);
-    //     // TODO: do we want to null pointer here?
-    // }
 }
 
 #[no_mangle]

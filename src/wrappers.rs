@@ -1043,7 +1043,7 @@ pub fn wasi_poll_oneoff(
     out_ptr: u32,
     nsubscriptions: u32,
 ) -> RuntimeResult<u32> {
-    // TODO: PROBLEM:
+    // TODO: these checks are both redundant and wrong
     if !ctx.fits_in_lin_mem(in_ptr, nsubscriptions * Subscription::WASI_SIZE as u32) {
         return Err(Efault);
     }
