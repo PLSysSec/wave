@@ -6,14 +6,13 @@ use crate::tcb::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use crate::{effect, no_effect, one_effect};
+use crate::{effect, effects};
 use prusti_contracts::*;
 use std::convert::{TryFrom, TryInto};
 use std::mem;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
 
-// Note: Prusti can't really handle iterators, so we need to use while loops
 // TODO: eliminate as many external_methods and external_calls as possible
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
@@ -62,10 +61,10 @@ pub fn wasi_path_open(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // if args are not valid, nothing happens
-#[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
-// #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> no_effect!(old(trace), trace))]
+#[ensures(v_fd >= MAX_SBOX_FDS ==> effects!(old(trace), trace))]
+// #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> effects!(old(trace), trace))]
 // if args are valid, we do invoke an effect
-//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::FdAccess) )]
+//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> effects!(trace, old(trace), Effect::FdAccess) )]
 pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -146,8 +145,8 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> one_effect!(old(trace), trace, Effect::FdAccess))]
-// #[ensures(v_fd >= MAX_SBOX_FDS ==> no_effect!(old(trace), trace))]
+// #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> effects!(old(trace), trace, Effect::FdAccess))]
+// #[ensures(v_fd >= MAX_SBOX_FDS ==> effects!(old(trace), trace))]
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u64> {
     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
@@ -208,16 +207,15 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_sync
 // modifies: none
-// TODO: should not return u32 at all?
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ret = trace_sync(ctx, fd)?;
-    Ok(ret as u32)
+    Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_datasync
@@ -246,7 +244,6 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut stat = fresh_stat();
-    // TODO: double check, should this be fstat or fstat64?
     let result = trace_fstat(ctx, fd, &mut stat)?;
     let filetype = stat.st_mode;
 
@@ -318,6 +315,7 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 #[external_calls(from)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
 #[external_methods(reserve_exact, push)] // Vec methods
+#[external_calls(try_from)] // FstFlags methods
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -331,13 +329,9 @@ pub fn wasi_fd_filestat_set_times(
 ) -> RuntimeResult<()> {
     let atim = Timestamp::new(v_atim);
     let mtim = Timestamp::new(v_mtim);
-    let fst_flags = FstFlags::new(v_fst_flags as u16);
+    let fst_flags = FstFlags::try_from(v_fst_flags as u16)?;
 
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-    // TODO: should inval clock be handled in higher level, or have Unkown ClockId variant
-    //       and handle here?
-    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
 
     let mut specs: Vec<libc::timespec> = Vec::new();
 
@@ -491,8 +485,6 @@ pub fn wasi_path_create_directory(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_get
-// TODO: this needs to make sure that the pathname is relative. If pathname is abosolute it won't
-//       respect the fd.
 // modifies: None
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
@@ -522,6 +514,7 @@ pub fn wasi_path_filestat_get(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
 #[external_methods(reserve_exact, push)]
+#[external_calls(try_from)] // FstFlags methods
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -534,16 +527,12 @@ pub fn wasi_path_filestat_set_times(
     path_len: u32,
     atim: u64,
     mtim: u64,
-    fst_flags: FstFlags, // TODO: convert to fst flags inside function
+    v_fst_flags: u32,
 ) -> RuntimeResult<()> {
+    let fst_flags = FstFlags::try_from(v_fst_flags as u16)?;
     let atim = Timestamp::new(atim);
     let mtim = Timestamp::new(mtim);
     let flags = LookupFlags::new(flags);
-
-    // TODO: should be bundled into fstflags conversion
-    if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
-        return Err(Einval);
-    }
 
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let host_pathname = ctx.translate_path(pathname, path_len)?;
@@ -562,7 +551,6 @@ pub fn wasi_path_filestat_set_times(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_link
-// TODO: same caveat as wasi_path_filestat_get in terms of relative and absolute path.
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
@@ -722,13 +710,13 @@ pub fn wasi_path_unlink_file(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_res_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32)]
+#[external_calls(from_u32, try_from)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
-    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
+    let id = ClockId::try_from(clock_id)?;
 
     let mut spec = libc::timespec {
         tv_sec: 0,
@@ -742,7 +730,7 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_time_get
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32)]
+#[external_calls(from_u32, try_from)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -750,10 +738,9 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
     clock_id: u32,
-    //precision: Timestamp,
+    _precision: u64, // ignored
 ) -> RuntimeResult<Timestamp> {
-    let id = ClockId::from_u32(clock_id).ok_or(Einval)?;
-    // TODO: how to handle `precision` arg? Looks like some runtimes ignore it...
+    let id = ClockId::try_from(clock_id)?;
     let mut spec = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -769,7 +756,7 @@ pub fn wasi_clock_time_get(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace))]
 pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
     Ok(())
 }
@@ -780,7 +767,7 @@ pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace))]
 pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
     Ok(())
 }
@@ -791,7 +778,7 @@ pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace))]
 pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
     Ok(())
 }
@@ -820,7 +807,7 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace))]
 pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
     if v_from >= MAX_SBOX_FDS || v_to >= MAX_SBOX_FDS {
         return Err(Ebadf);
@@ -835,7 +822,7 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(no_effect!(old(trace), trace))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
     // 1. copy argv_buffer
     let argv_buf_len = ctx.arg_buffer.len() as u32;
@@ -877,7 +864,7 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(no_effect!(old(trace), trace))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
     // 1. copy argv_buffer
     let env_buf_len = ctx.env_buffer.len() as u32;
@@ -916,7 +903,7 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace))]
 pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
 }
@@ -928,7 +915,7 @@ pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(no_effect!(old(trace), trace))]
+#[ensures(effects!(old(trace), trace))]
 pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
 }
@@ -936,6 +923,7 @@ pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_recv
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(reserve_exact)]
+#[external_calls(reserve_exact, try_from)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -948,6 +936,7 @@ pub fn wasi_sock_recv(
     ri_flags: u32,
 ) -> RuntimeResult<(u32, u32)> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let ri_flags = RiFlags::try_from(ri_flags)?;
 
     let mut num: u32 = 0;
     let mut i = 0;
@@ -962,15 +951,15 @@ pub fn wasi_sock_recv(
             return Err(Efault);
         }
 
-        let flags = 0;
-        // TODO: handle flags
-        let result = trace_recv(ctx, fd, ptr, len as usize, flags)?;
+        let result = trace_recv(ctx, fd, ptr, len as usize, ri_flags.to_posix())?;
         let result = result as u32;
 
         num += result;
         i += 1;
     }
     // TODO: handle ro_flags
+    //       It doesn't look like there is a good way to handle them other than to use linux
+    //       recvmsg instead of recv, which is more complex
     Ok((num, 0))
 }
 
@@ -1014,28 +1003,36 @@ pub fn wasi_sock_send(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_shutdown
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
 #[with_ghost_var(trace: &mut Trace)]
+#[external_methods(try_into)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // If sandbox does not own fd, no effects take place
-//#[ensures(v_fd >= MAX_SBOX_FDS || !ctx.fdmap.m[v_fd].is_err() ==> no_effect!(old(trace), trace))]
+//#[ensures(v_fd >= MAX_SBOX_FDS || !ctx.fdmap.m[v_fd].is_err() ==> effects!(old(trace), trace))]
 // if args are valid, we do invoke an effect
-//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> one_effect!(trace, old(trace), Effect::Shutdown) )] // we added 1 effect (add-only)
+//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> effects!(trace, old(trace), Effect::Shutdown) )] // we added 1 effect (add-only)
 // #[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> matches!(trace.lookup(trace.len() - 1), Effect::Shutdown) )]
 pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let how = SdFlags::new(v_how);
+    let posix_how = how.try_into()?;
 
-    let res = trace_shutdown(ctx, fd, how.into())?;
+    let res = trace_shutdown(ctx, fd, posix_how)?;
     Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#poll_oneoff
-// TODO: Do we need to check alignment on the pointers?
-// TODO: clean this up, pretty gross
 #[with_ghost_var(trace: &mut Trace)]
-#[external_methods(subscription_clock_abstime)]
+#[external_methods(
+    subscription_clock_abstime,
+    try_into,
+    checked_sub,
+    ok_or_else,
+    push,
+    map_err
+)]
+#[external_calls(from_posix, from_poll_revents, Some)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -1046,105 +1043,189 @@ pub fn wasi_poll_oneoff(
     out_ptr: u32,
     nsubscriptions: u32,
 ) -> RuntimeResult<u32> {
-    // copy events to runtime buffer
-    if !ctx.fits_in_lin_mem(
-        in_ptr,
-        nsubscriptions * mem::size_of::<Subscription>() as u32,
-    ) {
+    // TODO: PROBLEM:
+    if !ctx.fits_in_lin_mem(in_ptr, nsubscriptions * Subscription::WASI_SIZE as u32) {
         return Err(Efault);
     }
 
-    if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * mem::size_of::<Event>() as u32) {
+    if !ctx.fits_in_lin_mem(out_ptr, nsubscriptions * Event::WASI_SIZE as u32) {
         return Err(Efault);
     }
 
-    //let mut current_byte = 0;
+    // list of clock subscription (userdata, timeout) pairs
+    let mut timeouts = Vec::new();
+
+    // Parallel vectors for fd subscriptions.
+    // (userdata, typ) pairs are stored in fd_data, while the pollfds themselves are stored
+    // in pollfds.
+    let mut fd_data = Vec::new();
+    let mut pollfds = Vec::new();
+
+    // minimum timeout we found, for setting the poll syscall timeout
+    let mut min_timeout = -1;
+    let precision = 0;
+
     let mut i = 0;
     while i < nsubscriptions {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
-        // TODO: refactor to use constants
-        let sub_offset = i * 48;
-        let event_offset = i * 32;
-        if !ctx.fits_in_lin_mem_usize((in_ptr + sub_offset) as usize, 42) {
+
+        let sub_offset = i * Subscription::WASI_SIZE;
+
+        if !ctx.fits_in_lin_mem_usize(
+            (in_ptr + sub_offset) as usize,
+            Subscription::WASI_SIZE as usize,
+        ) {
             return Err(Eoverflow);
         }
-        if !ctx.fits_in_lin_mem_usize((out_ptr + event_offset) as usize, 12) {
-            return Err(Eoverflow);
-        }
-        // read the subscription struct fields
-        let userdata = ctx.read_u64((in_ptr + sub_offset) as usize);
-        let tag = ctx.read_u64((in_ptr + sub_offset + 8) as usize);
 
-        match tag {
-            0 => {
-                let clock_id = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                let timeout_bytes = ctx.read_u64((in_ptr + sub_offset + 24) as usize);
-                let timeout = Timestamp::new(timeout_bytes);
+        let subscription = Subscription::read(ctx, in_ptr + sub_offset)?;
 
-                let flags: SubClockFlags = ctx.read_u16((in_ptr + sub_offset + 40) as usize).into();
-                // TODO: get clock time and use it to check if passed
+        match subscription.subscription_u {
+            SubscriptionInner::Clock(subscription_clock) => {
+                // if the subscription is a clock, check if it is the shortest timeout.
+                let clock = subscription_clock.id;
+                match clock.try_into()? {
+                    // TODO: what clock source does posix poll use for timeouts? Will a relative
+                    //       realtime be significantly different than monotonic?
+                    ClockId::Monotonic | ClockId::Realtime => {
+                        let now = wasi_clock_time_get(ctx, subscription_clock.id, precision)?;
+                        let timeout: i32 = if subscription_clock.flags.subscription_clock_abstime()
+                        {
+                            // if this is an absolute timeout, we need to wait the difference
+                            // between now and the timeout
+                            // This will also perform a checked cast to an i32, which will
+                            subscription_clock
+                                .timeout
+                                .checked_sub(now.into())
+                                .ok_or(Eoverflow)?
+                                .try_into()
+                                .map_err(|e| Eoverflow)?
+                        } else {
+                            subscription_clock
+                                .timeout
+                                .try_into()
+                                .map_err(|e| Eoverflow)?
+                        };
 
-                let now = wasi_clock_time_get(ctx, clock_id)?;
-                let req: libc::timespec = if flags.subscription_clock_abstime() {
-                    // is absolute, wait the diff between timeout and now
-                    // TODO: I assume we should check for underflow
-                    (timeout - now).into()
-                } else {
-                    timeout.into()
-                };
+                        if min_timeout == -1 || timeout < min_timeout {
+                            min_timeout = timeout;
+                        }
 
-                let mut rem = libc::timespec {
-                    tv_sec: 0,
-                    tv_nsec: 0,
-                };
-
-                let res = trace_nanosleep(ctx, &req, &mut rem)?;
-
-                // write the event output...
-                let errno = 0; // TODO: errno
-                ctx.write_event(
-                    (out_ptr + event_offset) as usize,
-                    userdata,
-                    errno,
-                    tag as u16,
-                );
-                // clock event ignores fd_readwrite field.
+                        timeouts.push((subscription.userdata, timeout));
+                    }
+                    // we don't support timeouts on other clock types
+                    _ => {
+                        return Err(Einval);
+                    }
+                }
             }
-            1 | 2 => {
-                let v_fd = ctx.read_u32((in_ptr + sub_offset + 16) as usize);
-                let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-                let host_fd: usize = fd.into();
-
-                let mut pollfd = libc::pollfd {
-                    fd: host_fd as i32,
-                    events: libc::POLLIN, // TODO: check if write is available as well?
-                    revents: 0,           // TODO: should check this somewhere?
+            SubscriptionInner::Fd(subscription_readwrite) => {
+                let fd = ctx.fdmap.fd_to_native(subscription_readwrite.v_fd)?;
+                let os_fd: usize = fd.into();
+                let event = match subscription_readwrite.typ {
+                    SubscriptionFdType::Read => libc::POLLIN,
+                    SubscriptionFdType::Write => libc::POLLOUT,
                 };
-                let timeout = -1;
-
-                let res = trace_poll(ctx, &mut pollfd, timeout)?;
-
-                // write the event output...
-                let errno = 0; // TODO: errno
-                ctx.write_event(
-                    (out_ptr + event_offset) as usize,
-                    userdata,
-                    errno,
-                    tag as u16,
-                );
-            }
-
-            _ => {
-                return Err(Einval);
+                // convert FD subscriptions to their libc versions
+                let pollfd = libc::pollfd {
+                    fd: os_fd as i32,
+                    events: event,
+                    revents: 0,
+                };
+                pollfds.push(pollfd);
+                fd_data.push((subscription.userdata, subscription_readwrite.typ));
             }
         }
 
         i += 1;
     }
 
-    Ok(0)
+    let res = trace_poll(ctx, pollfds.as_mut(), min_timeout)?;
+
+    let mut num_events_written = 0;
+    let mut event_idx = 0;
+    if res == 0 {
+        // if res == 0, no pollfd events ocurred. Therefore, the timeout must have triggered,
+        // meaning we only trigger clock events with the min_timeout
+        while event_idx < timeouts.len() {
+            body_invariant!(ctx_safe(ctx));
+            body_invariant!(trace_safe(trace, ctx));
+
+            let (userdata, timeout) = timeouts[event_idx];
+            let event_offset = (num_events_written * Event::WASI_SIZE) as usize;
+            if !ctx
+                .fits_in_lin_mem_usize(out_ptr as usize + event_offset, Event::WASI_SIZE as usize)
+            {
+                return Err(Eoverflow);
+            }
+            if timeout == min_timeout {
+                let event = Event {
+                    userdata,
+                    error: RuntimeError::Success,
+                    typ: EventType::Clock,
+                    fd_readwrite: None,
+                };
+                event.write(ctx, out_ptr + event_offset as u32);
+                num_events_written += 1;
+            }
+
+            event_idx += 1;
+        }
+    } else {
+        // iterate over each pollfd, and write any events that ocurred
+        while event_idx < fd_data.len() {
+            body_invariant!(ctx_safe(ctx));
+            body_invariant!(trace_safe(trace, ctx));
+
+            let (userdata, sub_type) = fd_data[event_idx];
+            let typ = match sub_type {
+                SubscriptionFdType::Read => EventType::FdRead,
+                SubscriptionFdType::Write => EventType::FdWrite,
+            };
+            let pollfd = pollfds[event_idx];
+
+            // if no event ocurred, continue
+            if pollfd.revents == 0 {
+                continue;
+            }
+
+            let event_offset = (num_events_written * Event::WASI_SIZE) as usize;
+            if !ctx
+                .fits_in_lin_mem_usize(out_ptr as usize + event_offset, Event::WASI_SIZE as usize)
+            {
+                return Err(Eoverflow);
+            }
+
+            // get the number of bytes for reading...
+            // TODO: If we want, we can remove this, and always return 1 for reads
+            let nbytes = match typ {
+                EventType::FdRead => trace_fionread(ctx, (pollfd.fd as usize).into())? as u64,
+                // no way to check number of bytes for writing
+                _ => 0,
+            };
+
+            let fd_readwrite = EventFdReadWrite {
+                nbytes,
+                flags: EventRwFlags::from_posix(pollfd.revents),
+            };
+
+            let error = RuntimeError::from_poll_revents(pollfd.revents);
+
+            let event = Event {
+                userdata,
+                error,
+                typ,
+                fd_readwrite: Some(fd_readwrite),
+            };
+            event.write(ctx, out_ptr + event_offset as u32);
+            num_events_written += 1;
+
+            event_idx += 1;
+        }
+    }
+
+    Ok(num_events_written)
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_readdir
@@ -1156,8 +1237,6 @@ pub fn wasi_poll_oneoff(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// TODO: currently ignoring cookie
-// TODO: need to map posix filetypes to wasi filetypes
 // TODO: I'm not confident this works for multiple consecutive readdir calls to the same dir
 // Correct behavior: truncate final entry
 pub fn wasi_fd_readdir(
@@ -1167,10 +1246,6 @@ pub fn wasi_fd_readdir(
     buf_len: usize,
     cookie: u64,
 ) -> RuntimeResult<u32> {
-    // TODO: use the cookie properly
-    if cookie != 0 {
-        return Err(Einval);
-    }
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut host_buf: Vec<u8> = Vec::new();
@@ -1178,6 +1253,8 @@ pub fn wasi_fd_readdir(
 
     let res = trace_getdents64(ctx, fd, &mut host_buf, buf_len)?;
 
+    // the number of entries we have read so far. If less than cookie, don't output the directory
+    let mut entry_idx = 0;
     let mut in_idx = 0;
     let mut out_idx = 0;
 
@@ -1186,6 +1263,16 @@ pub fn wasi_fd_readdir(
     while in_idx < host_buf.len() && out_idx < host_buf.len() {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
+
+        // Length of this linux_dirent
+        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
+        // if we haven't hit the cookie entry, skip
+        if entry_idx < cookie {
+            in_idx += d_reclen as usize;
+            entry_idx += 1;
+            continue;
+        }
+
         // Inode number
         let d_ino = u64::from_le_bytes([
             host_buf[in_idx + 0],
@@ -1210,8 +1297,6 @@ pub fn wasi_fd_readdir(
             host_buf[in_idx + 15],
         ]);
 
-        // Length of this linux_dirent
-        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
         // File type
         let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
 
@@ -1335,7 +1420,7 @@ pub fn wasi_sock_connect(
     if matches!(protocol, WasiProto::Unknown) {
         return Err(Enotcapable);
     }
-    //fd_proto(fd, protocol);// TODO: do this better?
+
     if !addr_in_netlist(&ctx.netlist, sin_addr_in, sin_port as u32) {
         return Err(Enotcapable);
     }

@@ -4,7 +4,7 @@ use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
+use crate::{effect, effects};
 use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
@@ -200,7 +200,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 2) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, 2) if addr == start as usize))]
     pub fn read_u16(&self, start: usize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
@@ -215,7 +215,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 4) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, 4) if addr == start as usize))]
     pub fn read_u32(&self, start: usize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
@@ -236,7 +236,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, 8) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, 8) if addr == start as usize))]
     pub fn read_u64(&self, start: usize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
@@ -275,7 +275,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -291,7 +291,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -307,7 +307,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.mem[start] = bytes[0];
@@ -318,23 +318,5 @@ impl VmCtx {
         self.mem[start + 5] = bytes[5];
         self.mem[start + 6] = bytes[6];
         self.mem[start + 7] = bytes[7];
-    }
-
-    #[with_ghost_var(trace: &mut Trace)]
-    #[requires(self.fits_in_lin_mem_usize(start, 12, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
-    pub fn write_event(&mut self, start: usize, userdata: u64, errno: u16, tag: u16) {
-        // if !ctx.fits_in_lin_mem_usize(start, 12) {
-        //     return Err(Eoverflow);
-        // }
-        // write the event output...
-        self.write_u64(start, userdata);
-        self.write_u16(start, errno);
-        self.write_u16(start, tag);
-        // TODO: fd_readwrite member...need number of bytes available....
     }
 }

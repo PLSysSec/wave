@@ -14,32 +14,8 @@ macro_rules! do_effect {
 
 #[cfg(not(feature = "verify"))]
 #[macro_export]
-macro_rules! no_effect {
-    ($old_trace:expr, $trace:expr) => {};
-}
-
-#[cfg(not(feature = "verify"))]
-#[macro_export]
-macro_rules! one_effect {
-    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
-}
-
-#[cfg(not(feature = "verify"))]
-#[macro_export]
-macro_rules! two_effects {
-    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
-}
-
-#[cfg(not(feature = "verify"))]
-#[macro_export]
-macro_rules! three_effects {
-    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
-}
-
-#[cfg(not(feature = "verify"))]
-#[macro_export]
-macro_rules! four_effects {
-    ($old_trace:expr, $trace:expr, $( $pattern:pat )|+ $( if $guard: expr )? ) => {};
+macro_rules! effects {
+    ($trace:expr, $input:expr) => {};
 }
 
 // Dummy timing functions that should not exist during verification

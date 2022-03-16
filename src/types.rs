@@ -1,4 +1,4 @@
-use crate::no_effect;
+use crate::effects;
 use crate::tcb::misc::*;
 use crate::tcb::path::addr_matches_netlist_entry;
 #[cfg(feature = "verify")]
@@ -9,7 +9,6 @@ use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
 pub const MAX_SBOX_FDS: u32 = 8;
-// pub const MAX_SBOX_FDS_I32: i32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
 pub const PATH_MAX: u32 = 1024;
 
@@ -20,18 +19,8 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 
 // Note: prusti does not like derive(Debug)
 
-// #[cfg(feature = "verify")]
-// predicate! {
-//     fn safe(ctx: &VmCtx) -> bool {
-//         true
-//     }
-// }
-
-//typedef char* hostptr;
-// pub type HostPtr = usize;
 pub type SboxPtr = u32;
 
-// pub type HostFd = usize;
 #[derive(Clone, Copy)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct HostFd(usize);
@@ -99,11 +88,35 @@ impl From<RuntimeError> for u32 {
     }
 }
 
+impl From<RuntimeError> for u16 {
+    fn from(item: RuntimeError) -> Self {
+        let result = match item {
+            RuntimeError::Success => 0,
+            RuntimeError::Ebadf => 8,
+            RuntimeError::Emfile => 41,
+            RuntimeError::Efault => 21,
+            RuntimeError::Einval => 28,
+            RuntimeError::Eoverflow => 61,
+            RuntimeError::Eio => 29,
+            RuntimeError::Enospc => 51,
+            RuntimeError::Eacces => 2,
+            RuntimeError::Eexist => 20,
+            RuntimeError::Enotempty => 55,
+            RuntimeError::Enotsup => 58,
+            RuntimeError::Enotcapable => 76,
+            RuntimeError::Enotsock => 57,
+            RuntimeError::Enotdir => 54,
+            RuntimeError::Eloop => 32,
+        };
+        result as u16
+    }
+}
+
 impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
     #[with_ghost_var(trace: &mut Trace)]
-    #[ensures(no_effect!( old(trace), trace))]
+    #[ensures(effects!(old(trace), trace))]
     #[ensures(old(ret >= 0) ==> (match result {
         Ok(r) => r == ret as usize,
         _ => false,
@@ -137,10 +150,20 @@ impl RuntimeError {
             libc::ELOOP => Self::Eloop,
             libc::EEXIST => Self::Eexist,
             libc::ENOTEMPTY => Self::Enotempty,
-            _ => Self::Einval, // TODO: what to put here? can't panic cause validator
+            _ => Self::Einval,
         };
 
         Err(errno)
+    }
+
+    pub fn from_poll_revents(revents: i16) -> RuntimeError {
+        if bitwise_and_i16(revents, libc::POLLNVAL) != 0 {
+            RuntimeError::Ebadf
+        } else if bitwise_and_i16(revents, libc::POLLERR) != 0 {
+            RuntimeError::Eio
+        } else {
+            RuntimeError::Success
+        }
     }
 }
 
@@ -241,21 +264,23 @@ impl From<ClockId> for i32 {
     }
 }
 
-impl ClockId {
-    pub fn from_u32(id: u32) -> Option<Self> {
+impl TryFrom<u32> for ClockId {
+    type Error = RuntimeError;
+
+    fn try_from(id: u32) -> RuntimeResult<Self> {
         match id {
-            0 => Some(ClockId::Realtime),
-            1 => Some(ClockId::Monotonic),
-            2 => Some(ClockId::ProcessCpuTimeId),
-            3 => Some(ClockId::ThreadCpuTime),
-            _ => None,
+            0 => Ok(ClockId::Realtime),
+            1 => Ok(ClockId::Monotonic),
+            2 => Ok(ClockId::ProcessCpuTimeId),
+            3 => Ok(ClockId::ThreadCpuTime),
+            _ => Err(RuntimeError::Einval),
         }
     }
 }
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct Timestamp(u64);
 
@@ -319,6 +344,12 @@ impl From<Timestamp> for libc::timespec {
     }
 }
 
+impl From<Timestamp> for u64 {
+    fn from(timestamp: Timestamp) -> u64 {
+        timestamp.0
+    }
+}
+
 impl Sub for Timestamp {
     type Output = Timestamp;
 
@@ -359,13 +390,6 @@ impl TryFrom<i32> for Advice {
             libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
             libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
             libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
-            // TODO: which of these is correct? I think probably the bottom
-            // 0 => Ok(Advice::Normal),
-            // 1 => Ok(Advice::Sequential),
-            // 2 => Ok(Advice::Random),
-            // 3 => Ok(Advice::WillNeed),
-            // 4 => Ok(Advice::DontNeed),
-            // 5 => Ok(Advice::NoReuse),
             _ => Err(RuntimeError::Einval),
         }
     }
@@ -405,27 +429,11 @@ impl From<libc::mode_t> for Filetype {
             libc::S_IFCHR => Filetype::CharacterDevice,
             libc::S_IFDIR => Filetype::Directory,
             libc::S_IFREG => Filetype::RegularFile,
-            // TODO: need to get socket type, just do unknown for now cause we don't support
-            // sockets anyway...
+            // TODO: This actually means Unix domain socket. Do WASI socket commands even support
+            // this?
             libc::S_IFSOCK => Filetype::Unknown,
             libc::S_IFLNK => Filetype::SymbolicLink,
             _ => Filetype::Unknown,
-        }
-    }
-}
-
-impl From<Filetype> for libc::mode_t {
-    // TODO: returns 0 on unknown, is that correct?
-    fn from(filetype: Filetype) -> Self {
-        match filetype {
-            Filetype::Unknown => 0,
-            Filetype::BlockDevice => libc::S_IFBLK,
-            Filetype::CharacterDevice => libc::S_IFCHR,
-            Filetype::Directory => libc::S_IFDIR,
-            Filetype::RegularFile => libc::S_IFREG,
-            Filetype::SocketDgram => libc::S_IFSOCK,
-            Filetype::SocketStream => libc::S_IFSOCK,
-            Filetype::SymbolicLink => libc::S_IFLNK,
         }
     }
 }
@@ -508,8 +516,6 @@ impl From<libc::c_int> for FdFlags {
     }
 }
 
-// TODO: This doesn't exactly match due to layout issues. Could use repr tags to try and make
-//       it match, or could have a translation between this and wasm FdStat
 //       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdStat {
@@ -613,10 +619,6 @@ impl OFlags {
 pub struct FstFlags(u16);
 
 impl FstFlags {
-    pub fn new(flags: u16) -> Self {
-        FstFlags(flags)
-    }
-
     // must impl flag checking as trusted due to bitwise ops not being supported by prusti
     pub fn atim(&self) -> bool {
         nth_bit_set(self.0, 0)
@@ -632,6 +634,18 @@ impl FstFlags {
 
     pub fn mtim_now(&self) -> bool {
         nth_bit_set(self.0, 3)
+    }
+}
+
+impl TryFrom<u16> for FstFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u16) -> RuntimeResult<FstFlags> {
+        let fst_flags = FstFlags(flags);
+        if fst_flags.atim() && fst_flags.atim_now() || fst_flags.mtim() && fst_flags.mtim_now() {
+            return Err(RuntimeError::Einval);
+        }
+        Ok(fst_flags)
     }
 }
 
@@ -651,68 +665,161 @@ impl SdFlags {
     }
 }
 
-impl From<SdFlags> for libc::c_int {
-    fn from(flags: SdFlags) -> Self {
+impl TryFrom<SdFlags> for libc::c_int {
+    type Error = RuntimeError;
+
+    fn try_from(flags: SdFlags) -> RuntimeResult<Self> {
         if flags.rd() && flags.wr() {
-            libc::SHUT_RDWR
+            Ok(libc::SHUT_RDWR)
         } else if flags.rd() {
-            libc::SHUT_RD
+            Ok(libc::SHUT_RD)
         } else if flags.wr() {
-            libc::SHUT_WR
+            Ok(libc::SHUT_WR)
         } else {
-            // TODO: correct behavior here?
-            0
+            Err(RuntimeError::Einval)
         }
     }
 }
 
-// impl TryFrom<libc::c_int> for SdFlags {
-//     type Error = RuntimeError;
-//     fn try_from(flags: libc::c_int) -> RuntimeResult<Self> {
-//         match flags{
-//             libc::SHUT_RDRW => Ok()
-//             libc::SHUT_RD =>
-//             libc::SHUT_WR =>
-//         }
-//         // if flags.rd() && flags.wr() {
-//         //     libc::SHUT_RDWR
-//         // } else if flags.rd() {
-//         //     libc::SHUT_RD
-//         // } else if flags.wr() {
-//         //     libc::SHUT_WR
-//         // } else {
-//         //     // TODO: correct behavior here? (Should it be TryFrom?)
-//         //     0
-//         // }
-//     }
-// }
+pub struct RiFlags(u16);
 
-#[repr(C)]
+impl RiFlags {
+    fn recv_peek(&self) -> bool {
+        nth_bit_set(self.0, 0)
+    }
+
+    fn recv_waitall(&self) -> bool {
+        nth_bit_set(self.0, 1)
+    }
+
+    pub fn to_posix(&self) -> i32 {
+        let mut flags = 0;
+        if self.recv_peek() {
+            flags = bitwise_or(flags, libc::MSG_PEEK)
+        }
+        if self.recv_waitall() {
+            flags = bitwise_or(flags, libc::MSG_WAITALL)
+        }
+        flags
+    }
+}
+
+impl TryFrom<u32> for RiFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u32) -> RuntimeResult<RiFlags> {
+        // if any bits are set that aren't associated with a wasi flag,
+        // return an error
+        if bitwise_and_u32(flags, u32::MAX - 0b11) != 0 {
+            Err(RuntimeError::Einval)
+        } else {
+            Ok(RiFlags(flags as u16))
+        }
+    }
+}
+
 pub struct Subscription {
-    userdata: u64,
-    subscription_u: SubscriptionInner,
+    pub userdata: u64,
+    pub subscription_u: SubscriptionInner,
+}
+
+impl Subscription {
+    pub const WASI_SIZE: u32 = 48;
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(try_from, is_aligned)]
+    #[requires(ctx_safe(ctx))]
+    #[requires(trace_safe(trace, ctx))]
+    #[ensures(ctx_safe(ctx))]
+    #[ensures(trace_safe(trace, ctx))]
+    pub fn read(ctx: &VmCtx, ptr: u32) -> RuntimeResult<Subscription> {
+        if !ctx.fits_in_lin_mem_usize(ptr as usize, Self::WASI_SIZE as usize) {
+            return Err(RuntimeError::Eoverflow);
+        }
+
+        if !is_aligned(Alignment::Eight, ptr) {
+            return Err(RuntimeError::Einval);
+        }
+
+        // read the subscription struct fields
+        let userdata = ctx.read_u64(ptr as usize);
+        let tag = ctx.read_u64((ptr + 8) as usize);
+
+        match tag {
+            0 => {
+                let v_clock_id = ctx.read_u32((ptr + 16) as usize);
+                let timeout = ctx.read_u64((ptr + 24) as usize);
+                let v_precision = ctx.read_u64((ptr + 32) as usize);
+                let v_flags = ctx.read_u64((ptr + 40) as usize);
+
+                let precision = Timestamp::new(v_precision);
+                let flags = SubClockFlags::try_from(v_flags)?;
+
+                Ok(Subscription {
+                    userdata,
+                    subscription_u: SubscriptionInner::Clock(SubscriptionClock {
+                        id: v_clock_id,
+                        timeout,
+                        precision,
+                        flags,
+                    }),
+                })
+            }
+            1 => {
+                let v_fd = ctx.read_u32((ptr + 16) as usize);
+
+                Ok(Subscription {
+                    userdata,
+                    subscription_u: SubscriptionInner::Fd(SubscriptionFdReadWrite {
+                        v_fd,
+                        typ: SubscriptionFdType::Read,
+                    }),
+                })
+            }
+            2 => {
+                let v_fd = ctx.read_u32((ptr + 16) as usize);
+
+                Ok(Subscription {
+                    userdata,
+                    subscription_u: SubscriptionInner::Fd(SubscriptionFdReadWrite {
+                        v_fd,
+                        typ: SubscriptionFdType::Write,
+                    }),
+                })
+            }
+            _ => Err(RuntimeError::Einval),
+        }
+    }
 }
 
 #[repr(C, u8)]
 pub enum SubscriptionInner {
     Clock(SubscriptionClock),
-    FdRead(SubscriptionFdReadWrite),
-    FdWrite(SubscriptionFdReadWrite),
+    Fd(SubscriptionFdReadWrite),
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct SubscriptionClock {
-    id: ClockId,
-    timeout: Timestamp,
-    precision: Timestamp,
-    flags: SubClockFlags,
+    pub id: u32,
+    pub timeout: u64,
+    pub precision: Timestamp,
+    pub flags: SubClockFlags,
 }
 
 #[repr(C)]
 pub struct SubscriptionFdReadWrite {
-    fd: u32,
+    pub v_fd: u32,
+    pub typ: SubscriptionFdType,
 }
 
+#[derive(Copy, Clone)]
+pub enum SubscriptionFdType {
+    Read,
+    Write,
+}
+
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct SubClockFlags(u16);
 
@@ -722,19 +829,69 @@ impl SubClockFlags {
     }
 }
 
-impl From<u16> for SubClockFlags {
-    fn from(raw: u16) -> Self {
-        SubClockFlags(raw)
+impl TryFrom<u16> for SubClockFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u16) -> RuntimeResult<Self> {
+        if bitwise_and_u16(flags, u16::MAX - 0x1) != 0 {
+            Err(RuntimeError::Einval)
+        } else {
+            Ok(SubClockFlags(flags))
+        }
+    }
+}
+
+impl TryFrom<u64> for SubClockFlags {
+    type Error = RuntimeError;
+
+    fn try_from(flags: u64) -> RuntimeResult<Self> {
+        if bitwise_and_u64(flags, u64::MAX - 0x1) != 0 {
+            Err(RuntimeError::Einval)
+        } else {
+            Ok(SubClockFlags(flags as u16))
+        }
     }
 }
 
 pub struct Event {
-    userdata: u64,
-    error: Option<RuntimeError>,
-    typ: EventType,
-    fd_readwrite: EventFdReadWrite,
+    pub userdata: u64,
+    pub error: RuntimeError,
+    pub typ: EventType,
+    pub fd_readwrite: Option<EventFdReadWrite>,
 }
 
+impl Event {
+    pub const WASI_SIZE: u32 = 32;
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[external_calls(try_from, is_aligned)]
+    #[requires(ctx_safe(ctx))]
+    #[requires(trace_safe(trace, ctx))]
+    #[ensures(ctx_safe(ctx))]
+    #[ensures(trace_safe(trace, ctx))]
+    pub fn write(&self, ctx: &mut VmCtx, ptr: u32) -> RuntimeResult<()> {
+        if !ctx.fits_in_lin_mem_usize(ptr as usize, Self::WASI_SIZE as usize) {
+            return Err(RuntimeError::Eoverflow);
+        }
+
+        if !is_aligned(Alignment::Eight, ptr) {
+            return Err(RuntimeError::Einval);
+        }
+
+        // read the subscription struct fields
+        ctx.write_u64(ptr as usize, self.userdata);
+        ctx.write_u16((ptr + 8) as usize, self.error.into());
+        ctx.write_u16((ptr + 10) as usize, self.typ.into());
+        if let Some(ref fd_readwrite) = self.fd_readwrite {
+            ctx.write_u64((ptr + 16) as usize, fd_readwrite.nbytes);
+            ctx.write_u16((ptr + 24) as usize, fd_readwrite.flags.into());
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone)]
 pub enum EventType {
     Clock,
     FdRead,
@@ -752,8 +909,27 @@ impl From<EventType> for u16 {
 }
 
 pub struct EventFdReadWrite {
-    nbytes: u64,
-    flags: u16,
+    pub nbytes: u64,
+    pub flags: EventRwFlags,
+}
+
+#[derive(Clone, Copy)]
+pub struct EventRwFlags(u16);
+
+impl EventRwFlags {
+    pub fn from_posix(flags: i16) -> Self {
+        let mut result = EventRwFlags(0);
+        if bitwise_and_i16(flags, libc::POLLHUP) != 0 {
+            result.0 = with_nth_bit_set(result.0, 1);
+        }
+        result
+    }
+}
+
+impl From<EventRwFlags> for u16 {
+    fn from(flags: EventRwFlags) -> Self {
+        flags.0
+    }
 }
 
 //#[with_ghost_var(trace: &mut Trace)]
@@ -828,4 +1004,35 @@ impl WasiProto {
             WasiProto::Unknown
         }
     }
+}
+
+pub enum Alignment {
+    One,
+    Two,
+    Four,
+    Eight,
+}
+
+impl Alignment {
+    pub fn align_down_mask(&self) -> u32 {
+        match self {
+            Alignment::One => 0xFFFF_FFFF,
+            Alignment::Two => 0xFFFF_FFFE,
+            Alignment::Four => 0xFFFF_FFFC,
+            Alignment::Eight => 0xFFFF_FFF8,
+        }
+    }
+
+    pub fn remainder_mask(&self) -> u32 {
+        match self {
+            Alignment::One => 0x0,
+            Alignment::Two => 0x1,
+            Alignment::Four => 0x3,
+            Alignment::Eight => 0x7,
+        }
+    }
+}
+
+pub fn is_aligned(alignment: Alignment, value: u32) -> bool {
+    bitwise_and_u32(value, alignment.remainder_mask()) == 0
 }

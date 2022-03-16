@@ -58,7 +58,22 @@ pub fn bitwise_and(bv1: i32, bv2: i32) -> i32 {
 }
 
 #[trusted]
+pub fn bitwise_and_i16(bv1: i16, bv2: i16) -> i16 {
+    bv1 & bv2
+}
+
+#[trusted]
+pub fn bitwise_and_u16(bv1: u16, bv2: u16) -> u16 {
+    bv1 & bv2
+}
+
+#[trusted]
 pub fn bitwise_and_u32(bv1: u32, bv2: u32) -> u32 {
+    bv1 & bv2
+}
+
+#[trusted]
+pub fn bitwise_and_u64(bv1: u64, bv2: u64) -> u64 {
     bv1 & bv2
 }
 

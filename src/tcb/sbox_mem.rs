@@ -2,7 +2,7 @@ use crate::do_effect;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use crate::{effect, four_effects, no_effect, one_effect, three_effects, two_effects};
+use crate::{effect, effects};
 use prusti_contracts::*;
 use std::ptr::{copy, copy_nonoverlapping};
 use wave_macros::{external_calls, external_methods, with_ghost_var};
@@ -30,7 +30,7 @@ impl VmCtx {
     // #[ensures(ctx_safe(self))]
     // #[ensures(trace_safe(trace, self))]
     #[ensures(dst.len() == (n as usize) )]
-    #[ensures(one_effect!(old(trace), trace, effect!(ReadN, addr, count) if addr == src as usize && count == n as usize))]
+    #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if addr == src as usize && count == n as usize))]
     #[trusted]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
         unsafe {
@@ -53,7 +53,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, count) if addr == dst as usize && count == n as usize))]
+    #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == dst as usize && count == n as usize))]
     #[trusted]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
         unsafe {
@@ -71,7 +71,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     // #[ensures(trace_safe(trace, old(self).memlen))]
     #[ensures(result.len() == (len as usize))]
-    #[ensures(no_effect!(old(trace), trace))]
+    #[ensures(effects!(old(trace), trace))]
     #[ensures(as_sbox_ptr(result) == old(ptr as usize))]
     //#[after_expiry(old(self.netlist) == self.netlist)]
     #[after_expiry(ctx_safe(self) && old(self.netlist) == self.netlist)]
