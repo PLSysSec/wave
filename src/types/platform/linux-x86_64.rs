@@ -1,8 +1,7 @@
-
 use super::*;
-use std::convert::TryFrom;
 use crate::tcb::misc::*;
 use libc;
+use std::convert::TryFrom;
 
 impl From<Advice> for i32 {
     fn from(advice: Advice) -> Self {
@@ -33,7 +32,7 @@ impl TryFrom<i32> for Advice {
 }
 
 impl FdFlags {
-    pub fn to_os_flags(&self) -> i32 {
+    pub fn to_posix(&self) -> i32 {
         let mut flags = 0;
         if nth_bit_set(self.0, 0) {
             flags = bitwise_or(flags, libc::O_APPEND)
@@ -53,7 +52,7 @@ impl FdFlags {
         flags
     }
 
-    pub fn from_os_flags(flags: i32) -> Self {
+    pub fn from_posix(flags: i32) -> Self {
         // FdFlags(flags as u16)
         //let mut result = FdFlags(0);
         let mut result = FdFlags(0);
