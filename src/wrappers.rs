@@ -1327,7 +1327,7 @@ pub fn wasi_fd_readdir(
         out_buf.extend_from_slice(&out_namlen_bytes);
 
         // Copy type
-        let d_type = Filetype::from(d_type as u32);
+        let d_type = Filetype::from(d_type as libc::mode_t);
         let out_type_bytes: [u8; 4] = (d_type.to_wasi() as u32).to_le_bytes();
         out_buf.extend_from_slice(&out_type_bytes);
 
@@ -1404,12 +1404,15 @@ pub fn wasi_sock_connect(
     let sin_family = ctx.read_u16(addr as usize);
     let sin_port = ctx.read_u16(addr as usize + 2);
     let sin_addr_in = ctx.read_u32(addr as usize + 4);
-    let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
+    let sin_family = sock_domain_to_posix(sin_family as u32)? as libc::sa_family_t;
     // We can directly use sockaddr_in since we already know all socks are inet
     let sin_addr = libc::in_addr {
         s_addr: sin_addr_in,
     };
     let saddr = libc::sockaddr_in {
+        // i'll be lazy, should refactor to os-specific code...
+        #[cfg(target_os = "macos")]
+        sin_len: 0,
         sin_family,
         sin_port,
         sin_addr,

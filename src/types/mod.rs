@@ -8,6 +8,18 @@ use std::convert::TryFrom;
 use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
+
+// include platform specific implementations
+#[cfg_attr(all(target_os = "macos",
+               target_arch = "aarch64"),
+           path="platform/macos-aarch64.rs")]
+#[cfg_attr(all(target_os = "linux",
+               target_arch = "x86_64"),
+           path="platform/linux-x86_64.rs")]
+mod platform;
+pub use platform::*;
+
+
 pub const MAX_SBOX_FDS: u32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
 pub const PATH_MAX: u32 = 1024;
@@ -253,7 +265,7 @@ pub enum ClockId {
     ThreadCpuTime,
 }
 
-impl From<ClockId> for i32 {
+impl From<ClockId> for libc::clockid_t {
     fn from(id: ClockId) -> Self {
         match id {
             ClockId::Realtime => libc::CLOCK_REALTIME,
@@ -367,34 +379,6 @@ pub enum Advice {
     NoReuse,
 }
 
-impl From<Advice> for i32 {
-    fn from(advice: Advice) -> Self {
-        match advice {
-            Advice::Normal => libc::POSIX_FADV_NORMAL,
-            Advice::Sequential => libc::POSIX_FADV_SEQUENTIAL,
-            Advice::Random => libc::POSIX_FADV_RANDOM,
-            Advice::WillNeed => libc::POSIX_FADV_WILLNEED,
-            Advice::DontNeed => libc::POSIX_FADV_DONTNEED,
-            Advice::NoReuse => libc::POSIX_FADV_NOREUSE,
-        }
-    }
-}
-
-impl TryFrom<i32> for Advice {
-    type Error = RuntimeError;
-    fn try_from(advice: i32) -> RuntimeResult<Self> {
-        match advice {
-            libc::POSIX_FADV_NORMAL => Ok(Advice::Normal),
-            libc::POSIX_FADV_SEQUENTIAL => Ok(Advice::Sequential),
-            libc::POSIX_FADV_RANDOM => Ok(Advice::Random),
-            libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
-            libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
-            libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
-            _ => Err(RuntimeError::Einval),
-        }
-    }
-}
-
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub enum Filetype {
     Unknown,
@@ -424,7 +408,7 @@ impl Filetype {
 
 impl From<libc::mode_t> for Filetype {
     fn from(filetype: libc::mode_t) -> Self {
-        match bitwise_and_u32(filetype, libc::S_IFMT) {
+        match bitwise_and_u32(filetype.into(), libc::S_IFMT.into()) as libc::mode_t {
             libc::S_IFBLK => Filetype::BlockDevice,
             libc::S_IFCHR => Filetype::CharacterDevice,
             libc::S_IFDIR => Filetype::Directory,
@@ -448,48 +432,6 @@ pub struct FdFlags(u16);
 impl FdFlags {
     pub fn empty() -> FdFlags {
         FdFlags(0)
-    }
-
-    pub fn to_posix(&self) -> i32 {
-        let mut flags = 0;
-        if nth_bit_set(self.0, 0) {
-            flags = bitwise_or(flags, libc::O_APPEND)
-        }
-        if nth_bit_set(self.0, 1) {
-            flags = bitwise_or(flags, libc::O_DSYNC)
-        }
-        if nth_bit_set(self.0, 2) {
-            flags = bitwise_or(flags, libc::O_NONBLOCK)
-        }
-        if nth_bit_set(self.0, 3) {
-            flags = bitwise_or(flags, libc::O_RSYNC)
-        }
-        if nth_bit_set(self.0, 4) {
-            flags = bitwise_or(flags, libc::O_SYNC)
-        }
-        flags
-    }
-
-    pub fn from_posix(flags: i32) -> Self {
-        // FdFlags(flags as u16)
-        //let mut result = FdFlags(0);
-        let mut result = FdFlags(0);
-        if bitwise_and(flags, libc::O_APPEND) != 0 {
-            result.0 = with_nth_bit_set(result.0, 0);
-        }
-        if bitwise_and(flags, libc::O_DSYNC) != 0 {
-            result.0 = with_nth_bit_set(result.0, 1);
-        }
-        if bitwise_and(flags, libc::O_NONBLOCK) != 0 {
-            result.0 = with_nth_bit_set(result.0, 2);
-        }
-        if bitwise_and(flags, libc::O_RSYNC) != 0 {
-            result.0 = with_nth_bit_set(result.0, 3);
-        }
-        if bitwise_and(flags, libc::O_SYNC) != 0 {
-            result.0 = with_nth_bit_set(result.0, 4);
-        }
-        result
     }
 }
 // create transparent wrapper around wasi
@@ -540,10 +482,10 @@ pub struct FileStat {
 impl From<libc::stat> for FileStat {
     fn from(stat: libc::stat) -> Self {
         FileStat {
-            dev: stat.st_dev,
+            dev: stat.st_dev as u64,
             ino: stat.st_ino,
             filetype: stat.st_mode.into(),
-            nlink: stat.st_nlink,
+            nlink: stat.st_nlink as u64,
             size: stat.st_size as u64,
             atim: Timestamp::from_sec_nsec(stat.st_atime as u64, stat.st_atime_nsec as u64),
             mtim: Timestamp::from_sec_nsec(stat.st_mtime as u64, stat.st_mtime_nsec as u64),
