@@ -2,6 +2,7 @@
 use super::super::*;
 use crate::tcb::misc::*;
 use libc;
+use syscall::platform::SyscallReturn;
 
 /// On Mac, posix_advise doesn't exist. Just have the call do nothing.
 impl From<Advice> for i32 {
@@ -42,5 +43,37 @@ impl FdFlags {
             result.0 = with_nth_bit_set(result.0, 2);
         }
         result
+    }
+}
+
+impl RuntimeError {
+    /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
+    /// Returns Err(RuntimeError) if it does.
+    #[with_ghost_var(trace: &mut Trace)]
+    #[ensures(effects!(old(trace), trace))]
+    pub fn from_syscall_ret(ret: SyscallReturn) -> RuntimeResult<usize> {
+        let (ret_value, is_error) = ret;
+	if !is_error {
+            return Ok(ret_value as usize);
+        }
+
+        let errno = match ret_value as i32 {
+            libc::EBADF => Self::Ebadf,
+            libc::EMFILE => Self::Emfile,
+            libc::EFAULT => Self::Efault,
+            libc::EINVAL => Self::Einval,
+            libc::EOVERFLOW => Self::Eoverflow,
+            libc::EIO => Self::Eio,
+            libc::ENOSPC => Self::Enospc,
+            libc::EACCES => Self::Eacces,
+            libc::ENOTSOCK => Self::Enotsock,
+            libc::ENOTDIR => Self::Enotdir,
+            libc::ELOOP => Self::Eloop,
+            libc::EEXIST => Self::Eexist,
+            libc::ENOTEMPTY => Self::Enotempty,
+            _ => Self::Einval,
+        };
+
+        Err(errno)
     }
 }
