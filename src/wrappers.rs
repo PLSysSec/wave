@@ -1229,7 +1229,7 @@ pub fn wasi_poll_oneoff(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(extend_from_slice, reserve_exact)]
 #[external_methods(to_le_bytes, to_wasi)]
-#[external_calls(from_le_bytes, from, first_null, push_dirent_name)]
+#[external_calls(from_le_bytes, from, first_null, push_dirent_name, parse)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -1260,55 +1260,22 @@ pub fn wasi_fd_readdir(
     while in_idx < host_buf.len() && out_idx < host_buf.len() {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
+        body_invariant!(in_idx < host_buf.len());
 
-        // Length of this linux_dirent
-        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
+        let dirent = Dirent::parse(&host_buf, in_idx)?;
+
         // if we haven't hit the cookie entry, skip
         if entry_idx < cookie {
-            in_idx += d_reclen as usize;
+            in_idx += dirent.reclen as usize;
             entry_idx += 1;
             continue;
         }
 
-        // Inode number
-        let d_ino = u64::from_le_bytes([
-            host_buf[in_idx + 0],
-            host_buf[in_idx + 1],
-            host_buf[in_idx + 2],
-            host_buf[in_idx + 3],
-            host_buf[in_idx + 4],
-            host_buf[in_idx + 5],
-            host_buf[in_idx + 6],
-            host_buf[in_idx + 7],
-        ]);
-
-        // Offset to next linux_dirent
-        let d_offset = u64::from_le_bytes([
-            host_buf[in_idx + 8],
-            host_buf[in_idx + 9],
-            host_buf[in_idx + 10],
-            host_buf[in_idx + 11],
-            host_buf[in_idx + 12],
-            host_buf[in_idx + 13],
-            host_buf[in_idx + 14],
-            host_buf[in_idx + 15],
-        ]);
-
-        // File type
-        let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
+        let out_next = in_idx + 24 + dirent.out_namlen;
 
         // If we would overflow - don't :)
-        if d_reclen < 19 || (in_idx + d_reclen as usize) > host_buf.len() {
-            break;
-        }
-
-        let out_namlen = first_null(&host_buf, in_idx, d_reclen as usize);
-        // let out_namlen = 3;
-        let out_next = in_idx + 24 + out_namlen as usize;
-
-        // If we would overflow - don't :)
-        if out_next > buf_len {
-            break;
+        if out_next > host_buf.len() {
+            return Err(RuntimeError::Eoverflow);
         }
 
         // Copy in next offset verbatim
@@ -1316,23 +1283,28 @@ pub fn wasi_fd_readdir(
         out_buf.extend_from_slice(&out_next_bytes);
 
         // Copy in Inode verbatim
-        let d_ino_bytes: [u8; 8] = d_ino.to_le_bytes();
+        let d_ino_bytes: [u8; 8] = dirent.ino.to_le_bytes();
         out_buf.extend_from_slice(&d_ino_bytes);
 
         // Copy namlen
-        let out_namlen_bytes: [u8; 4] = (out_namlen as u32).to_le_bytes();
+        let out_namlen_bytes: [u8; 4] = (dirent.out_namlen as u32).to_le_bytes();
         out_buf.extend_from_slice(&out_namlen_bytes);
 
         // Copy type
-        let d_type = Filetype::from(d_type as libc::mode_t);
+        let d_type = Filetype::from(dirent.typ as libc::mode_t);
         let out_type_bytes: [u8; 4] = (d_type.to_wasi() as u32).to_le_bytes();
         out_buf.extend_from_slice(&out_type_bytes);
 
         // Copy name
-        push_dirent_name(&mut out_buf, &host_buf, in_idx, out_namlen as usize);
+        push_dirent_name(
+            &mut out_buf,
+            &host_buf,
+            in_idx + dirent.name_start,
+            dirent.out_namlen,
+        );
 
-        in_idx += d_reclen as usize;
-        out_idx += (24 + out_namlen) as usize
+        in_idx += dirent.reclen as usize;
+        out_idx += (24 + dirent.out_namlen) as usize
     }
 
     ctx.copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)?;

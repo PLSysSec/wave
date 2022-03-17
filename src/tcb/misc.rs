@@ -125,7 +125,7 @@ pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
 #[trusted]
 // #[requires(buf.len() > start + len + 19)]
 pub fn push_dirent_name(out_buf: &mut Vec<u8>, buf: &Vec<u8>, start: usize, len: usize) {
-    out_buf.extend_from_slice(&buf[start + 19..start + 19 + len])
+    out_buf.extend_from_slice(&buf[start..start + len])
 }
 
 // Trusted because I need to convince prusti that clone does not alter

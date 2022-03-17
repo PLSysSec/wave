@@ -8,17 +8,17 @@ use std::convert::TryFrom;
 use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
-
 // include platform specific implementations
-#[cfg_attr(all(target_os = "macos",
-               target_arch = "aarch64"),
-           path="platform/macos-aarch64.rs")]
-#[cfg_attr(all(target_os = "linux",
-               target_arch = "x86_64"),
-           path="platform/linux-x86_64.rs")]
+#[cfg_attr(
+    all(target_os = "macos", target_arch = "aarch64"),
+    path = "platform/macos-aarch64.rs"
+)]
+#[cfg_attr(
+    all(target_os = "linux", target_arch = "x86_64"),
+    path = "platform/linux-x86_64.rs"
+)]
 mod platform;
 pub use platform::*;
-
 
 pub const MAX_SBOX_FDS: u32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
@@ -986,4 +986,12 @@ impl Alignment {
 
 pub fn is_aligned(alignment: Alignment, value: u32) -> bool {
     bitwise_and_u32(value, alignment.remainder_mask()) == 0
+}
+
+pub struct Dirent {
+    pub ino: u64,
+    pub reclen: u16,
+    pub name_start: usize,
+    pub out_namlen: usize,
+    pub typ: u8,
 }

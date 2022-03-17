@@ -74,3 +74,56 @@ impl FdFlags {
         result
     }
 }
+
+impl Dirent {
+    #[requires(in_idx < host_buf.len())]
+    pub fn parse(host_buf: &Vec<u8>, in_idx: usize) -> RuntimeResult<Dirent> {
+        // Inode number
+        let d_ino = u64::from_le_bytes([
+            host_buf[in_idx + 0],
+            host_buf[in_idx + 1],
+            host_buf[in_idx + 2],
+            host_buf[in_idx + 3],
+            host_buf[in_idx + 4],
+            host_buf[in_idx + 5],
+            host_buf[in_idx + 6],
+            host_buf[in_idx + 7],
+        ]);
+
+        // Offset to next linux_dirent
+        let d_offset = u64::from_le_bytes([
+            host_buf[in_idx + 8],
+            host_buf[in_idx + 9],
+            host_buf[in_idx + 10],
+            host_buf[in_idx + 11],
+            host_buf[in_idx + 12],
+            host_buf[in_idx + 13],
+            host_buf[in_idx + 14],
+            host_buf[in_idx + 15],
+        ]);
+
+        // File type
+        let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
+
+        // Length of this linux_dirent
+        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
+
+        // If we would overflow - don't :)
+        if d_reclen < 19 || (in_idx + d_reclen as usize) > host_buf.len() {
+            return Err(RuntimeError::Eoverflow);
+        }
+
+        let out_namlen = first_null(&host_buf, in_idx, d_reclen as usize);
+        // let out_namlen = 3;
+
+        let dirent = Dirent {
+            ino: d_ino,
+            reclen: d_reclen,
+            name_start: 19,
+            out_namlen,
+            typ: d_type,
+        };
+
+        Ok(dirent)
+    }
+}

@@ -1,4 +1,3 @@
-
 use super::super::*;
 use crate::tcb::misc::*;
 use libc;
@@ -42,5 +41,44 @@ impl FdFlags {
             result.0 = with_nth_bit_set(result.0, 2);
         }
         result
+    }
+}
+
+impl Dirent {
+    #[requires(in_idx < host_buf.len())]
+    pub fn parse(host_buf: &Vec<u8>, in_idx: usize) -> RuntimeResult<Dirent> {
+        // Inode number
+        let d_ino = u32::from_le_bytes([
+            host_buf[in_idx + 0],
+            host_buf[in_idx + 1],
+            host_buf[in_idx + 2],
+            host_buf[in_idx + 3],
+        ]);
+
+        // Offset to next linux_dirent
+        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 8], host_buf[in_idx + 9]]);
+
+        // File type
+        let d_type = host_buf[in_idx + 10];
+
+        // Length of this linux_dirent
+        let d_namlen = host_buf[in_idx + 11];
+
+        // If we would overflow - don't :)
+        if d_reclen < 9 || (in_idx + d_reclen as usize) > host_buf.len() {
+            return Err(RuntimeError::Eoverflow);
+        }
+
+        let out_namlen = first_null(&host_buf, in_idx, d_reclen as usize);
+
+        let dirent = Dirent {
+            ino: d_ino as u64,
+            reclen: d_reclen,
+            name_start: 9,
+            out_namlen,
+            typ: d_type,
+        };
+
+        Ok(dirent)
     }
 }
