@@ -40,11 +40,8 @@ pub fn wasi_path_open(
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
 
-    let dirflags_posix = dirflags.to_posix();
-    let oflags_posix = oflags.to_posix();
-    let fdflags_posix = fdflags.to_posix();
     let flags = bitwise_or(
-        bitwise_or(dirflags.to_posix(), oflags.to_posix()),
+        bitwise_or(dirflags.to_openat_posix(), oflags.to_posix()),
         fdflags.to_posix(),
     );
 
@@ -505,7 +502,7 @@ pub fn wasi_path_filestat_get(
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let mut stat = fresh_stat();
 
-    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_posix())?;
+    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_linkat_posix())?;
     Ok(stat.into())
 }
 
@@ -545,7 +542,7 @@ pub fn wasi_path_filestat_set_times(
     specs.push(atim_spec);
     specs.push(mtim_spec);
 
-    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_posix())?;
+    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_linkat_posix())?;
 
     Ok(())
 }
@@ -580,7 +577,7 @@ pub fn wasi_path_link(
         old_host_pathname,
         new_fd,
         new_host_pathname,
-        flags.to_posix(),
+        flags.to_linkat_posix(),
     )?;
     Ok(())
 }

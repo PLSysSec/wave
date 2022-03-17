@@ -214,8 +214,9 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
     // TODO: safe to put 0 in for basep? TODO...
     // TODO: ensure directory entry format is correct...
+    let mut basep: u64 = 0;
     let result = unsafe {
-        let result = syscall!(GETDIRENTRIES, fd, dirp.as_mut_ptr(), 0);
+        let result = syscall!(GETDIRENTRIES, fd, dirp.as_mut_ptr(), count, &mut basep as *mut u64);
         dirp.set_len(result);
         result as isize
     };

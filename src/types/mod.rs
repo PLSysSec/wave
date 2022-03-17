@@ -514,6 +514,23 @@ impl LookupFlags {
     pub fn new(flags: u32) -> Self {
         LookupFlags(flags)
     }
+
+    // annoyingly, these flags are different between the two syscalls
+    pub fn to_linkat_posix(&self) -> i32 {
+        let mut flags = 0;
+        if nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::AT_SYMLINK_FOLLOW);
+        }
+        flags
+    }
+
+    pub fn to_openat_posix(&self) -> i32 {
+        let mut flags = 0;
+        if !nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::O_NOFOLLOW);
+        }
+        flags
+    }
 }
 
 pub struct OFlags(u32);
