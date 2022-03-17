@@ -16,7 +16,6 @@ void do_ls(char* path)
         {
             printf("%s    ", dir->d_name);
         }
-        printf("errno: %d", errno);
         closedir(d);
     } else {
         printf("d not valid! errno: %d", errno);
