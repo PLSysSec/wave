@@ -19,7 +19,7 @@ use mach2::mach_time::mach_timebase_info_data_t;
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+#[ensures(effects!(old(trace), trace))]
 pub fn trace_advise(
     ctx: &VmCtx,
     fd: HostFd,
