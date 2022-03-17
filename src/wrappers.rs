@@ -852,6 +852,13 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
             ctx.write_u32((argv as usize) + cursor, argv_buf + start);
         }
     }
+
+    let argc = ctx.argc;
+    // ensure the last entry is null
+    if !ctx.fits_in_lin_mem_usize((argv as usize) + argc * 4, 8) {
+        return Err(Eoverflow);
+    }
+    ctx.write_u32((argv as usize) + argc * 4, 0);
     Ok(())
 }
 
@@ -890,6 +897,13 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
             ctx.write_u32((env as usize) + cursor, env_buf + start);
         }
     }
+
+    let envc = ctx.envc;
+    // ensure the last entry is null
+    if !ctx.fits_in_lin_mem_usize((env as usize) + envc * 4, 8) {
+        return Err(Eoverflow);
+    }
+    ctx.write_u32((env as usize) + envc * 4, 0);
     Ok(())
 }
 
