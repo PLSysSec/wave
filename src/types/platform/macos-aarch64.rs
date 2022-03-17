@@ -69,8 +69,6 @@ impl Dirent {
             return Err(RuntimeError::Eoverflow);
         }
 
-
-        println!("in_idx: {}, buflen: {}, d_reclen: {}", in_idx, host_buf.len(), d_reclen);
         let out_namlen = first_null(&host_buf, in_idx, 8, d_reclen as usize);
         let dirent = Dirent {
             ino: d_ino as u64,
