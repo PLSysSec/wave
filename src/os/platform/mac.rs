@@ -76,7 +76,6 @@ pub fn trace_clock_get_time(
                 tv_usec: 0,
             };
             let ret = os_gettimeofday(&mut tv);
-            let ret = RuntimeError::from_syscall_ret(ret)?;
             // TODO: refactor -> timeval_to_timespec function or macro...
             spec.tv_sec = tv.tv_sec;
             spec.tv_nsec = (tv.tv_usec * 1000) as i64;
@@ -90,13 +89,14 @@ pub fn trace_clock_get_time(
                 tv_usec: 0,
             };
             let ret = os_getboottime(&mut boot_tv);
-            let ret = RuntimeError::from_syscall_ret(ret)?;
+            if ret != 0 {
+                return RuntimeError::from_syscall_ret(ret);
+            }
             let mut real_tv = libc::timeval {
                 tv_sec: 0,
                 tv_usec: 0,
             };
             let ret = os_gettimeofday(&mut real_tv);
-            let ret = RuntimeError::from_syscall_ret(ret)?;
             // from https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwj-rZepot_0AhVtFjQIHasdDq4QFnoECAMQAQ&url=https%3A%2F%2Fopensource.apple.com%2Fsource%2Fxnu%2Fxnu-344%2Fbsd%2Fsys%2Ftime.h&usg=AOvVaw3WH-hjCN8NBpw9CTx_3Eer
             let mut diff_sec = real_tv.tv_sec - boot_tv.tv_sec;
             let mut diff_usec = real_tv.tv_usec - boot_tv.tv_usec;
@@ -111,7 +111,9 @@ pub fn trace_clock_get_time(
         libc::CLOCK_PROCESS_CPUTIME_ID => {
             let mut ru: libc::rusage = fresh_rusage();
             let ret = os_rusageself(&mut ru);
-            let ret = RuntimeError::from_syscall_ret(ret)?;
+            if ret != 0 {
+                return RuntimeError::from_syscall_ret(ret);
+            }
             // from https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwj-rZepot_0AhVtFjQIHasdDq4QFnoECAMQAQ&url=https%3A%2F%2Fopensource.apple.com%2Fsource%2Fxnu%2Fxnu-344%2Fbsd%2Fsys%2Ftime.h&usg=AOvVaw3WH-hjCN8NBpw9CTx_3Eer
             let mut sum_sec = ru.ru_utime.tv_sec + ru.ru_stime.tv_sec;
             let mut sum_usec = ru.ru_utime.tv_usec + ru.ru_stime.tv_usec;
@@ -125,7 +127,10 @@ pub fn trace_clock_get_time(
         },
         libc::CLOCK_THREAD_CPUTIME_ID => {
             let ret = os_thread_selfusage();
-            let ret = RuntimeError::from_syscall_ret(ret)?;
+            if ret == 0 {
+                // TODO: -1 probably wrong...
+                return RuntimeError::from_syscall_ret(-1);
+            }
             spec.tv_sec = ret as i64 / 1_000_000_000;
             spec.tv_nsec = ret as i64 % 1_000_000_000;
             0
@@ -134,7 +139,7 @@ pub fn trace_clock_get_time(
             return Err(RuntimeError::Einval);
         }
     };
-    Ok(r)
+    RuntimeError::from_syscall_ret(r)
 }
 
 ////From: https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html

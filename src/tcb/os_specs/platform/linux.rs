@@ -10,13 +10,11 @@ use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
 
-type SyscallReturn = isize;
-
 //https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(PathAccessAt, dirfd)))]
-pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> SyscallReturn {
+pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> isize {
     let __start_ts = start_timer();
     // all created files should be rdwr
     let result = unsafe { syscall!(OPENAT, dirfd, pathname.as_ptr(), flags, 0o666) as isize };
@@ -29,7 +27,7 @@ pub fn os_openat(dirfd: usize, pathname: Vec<u8>, flags: i32) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_close(fd: usize) -> SyscallReturn {
+pub fn os_close(fd: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(CLOSE, fd) as isize };
     let __end_ts = stop_timer();
@@ -44,7 +42,7 @@ pub fn os_close(fd: usize) -> SyscallReturn {
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> SyscallReturn {
+pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) as isize };
     let __end_ts = stop_timer();
@@ -59,7 +57,7 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> SyscallReturn {
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> SyscallReturn {
+pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt, offset) as isize };
     let __end_ts = stop_timer();
@@ -72,7 +70,7 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> Syscall
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> SyscallReturn {
+pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) as isize };
     let __end_ts = stop_timer();
@@ -85,7 +83,7 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> SyscallReturn {
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> SyscallReturn {
+pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PWRITE64, fd, buf.as_ptr(), cnt, offset) as isize };
     let __end_ts = stop_timer();
@@ -97,7 +95,7 @@ pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> SyscallRet
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_seek(fd: usize, offset: i64, whence: i32) -> SyscallReturn {
+pub fn os_seek(fd: usize, offset: i64, whence: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(LSEEK, fd, offset, whence) as isize };
     let __end_ts = stop_timer();
@@ -109,7 +107,7 @@ pub fn os_seek(fd: usize, offset: i64, whence: i32) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> SyscallReturn {
+pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FADVISE64, fd, offset, len, advice) as isize };
     let __end_ts = stop_timer();
@@ -122,7 +120,7 @@ pub fn os_advise(fd: usize, offset: i64, len: i64, advice: i32) -> SyscallReturn
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_allocate(fd: usize, offset: i64, len: i64) -> SyscallReturn {
+pub fn os_allocate(fd: usize, offset: i64, len: i64) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FALLOCATE, fd, 0, offset, len) as isize };
     let __end_ts = stop_timer();
@@ -134,7 +132,7 @@ pub fn os_allocate(fd: usize, offset: i64, len: i64) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_sync(fd: usize) -> SyscallReturn {
+pub fn os_sync(fd: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FSYNC, fd) as isize };
     let __end_ts = stop_timer();
@@ -146,7 +144,7 @@ pub fn os_sync(fd: usize) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_datasync(fd: usize) -> SyscallReturn {
+pub fn os_datasync(fd: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FDATASYNC, fd) as isize };
     let __end_ts = stop_timer();
@@ -158,7 +156,7 @@ pub fn os_datasync(fd: usize) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> SyscallReturn {
+pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FSTAT, fd, stat as *mut libc::stat) as isize };
     let __end_ts = stop_timer();
@@ -170,7 +168,7 @@ pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
-pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> SyscallReturn {
+pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -190,7 +188,7 @@ pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fgetfl(fd: usize) -> SyscallReturn {
+pub fn os_fgetfl(fd: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FCNTL, fd, libc::F_GETFL, 0) as isize };
     let __end_ts = stop_timer();
@@ -202,7 +200,7 @@ pub fn os_fgetfl(fd: usize) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> SyscallReturn {
+pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FCNTL, fd, libc::F_SETFL, flags) as isize };
     let __end_ts = stop_timer();
@@ -214,7 +212,7 @@ pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_ftruncate(fd: usize, length: libc::off_t) -> SyscallReturn {
+pub fn os_ftruncate(fd: usize, length: libc::off_t) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(FTRUNCATE, fd, length) as isize };
     let __end_ts = stop_timer();
@@ -232,7 +230,7 @@ pub fn os_linkat(
     new_fd: usize,
     new_path: Vec<u8>,
     flags: i32,
-) -> SyscallReturn {
+) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -253,7 +251,7 @@ pub fn os_linkat(
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd)))]
-pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> SyscallReturn {
+pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(MKDIRAT, dir_fd, pathname.as_ptr(), mode) as isize };
     let __end_ts = stop_timer();
@@ -268,7 +266,7 @@ pub fn os_mkdirat(dir_fd: usize, pathname: Vec<u8>, mode: libc::mode_t) -> Sysca
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> SyscallReturn {
+pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result =
         unsafe { syscall!(READLINKAT, dir_fd, pathname.as_ptr(), buf.as_mut_ptr(), cnt) as isize };
@@ -281,7 +279,7 @@ pub fn os_readlinkat(dir_fd: usize, pathname: Vec<u8>, buf: &mut [u8], cnt: usiz
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, dir_fd)))]
-pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> SyscallReturn {
+pub fn os_unlinkat(dir_fd: usize, pathname: Vec<u8>, flags: libc::c_int) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(UNLINKAT, dir_fd, pathname.as_ptr(), flags) as isize };
     let __end_ts = stop_timer();
@@ -298,7 +296,7 @@ pub fn os_renameat(
     old_pathname: Vec<u8>,
     new_dir_fd: usize,
     new_pathname: Vec<u8>,
-) -> SyscallReturn {
+) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -318,7 +316,7 @@ pub fn os_renameat(
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace,  effect!(PathAccessAt, dir_fd), effect!(FdAccess)))]
-pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>) -> SyscallReturn {
+pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -338,7 +336,7 @@ pub fn os_symlinkat(old_pathname: Vec<u8>, dir_fd: usize, new_pathname: Vec<u8>)
 #[requires(specs.len() >= 2)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> SyscallReturn {
+pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
     let __start_ts = start_timer();
     // Linux impls futimens as UTIMENSAT with null path
     // source: https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/futimens.c.html
@@ -358,7 +356,7 @@ pub fn os_utimensat(
     pathname: Vec<u8>,
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
-) -> SyscallReturn {
+) -> isize {
     let __start_ts = start_timer();
     let result =
         unsafe { syscall!(UTIMENSAT, fd, pathname.as_ptr(), specs.as_ptr(), flags) as isize };
@@ -371,7 +369,7 @@ pub fn os_utimensat(
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace))]
-pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> SyscallReturn {
+pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(CLOCK_GETTIME, clock_id, spec as *mut libc::timespec) as isize };
     let __end_ts = stop_timer();
@@ -383,7 +381,7 @@ pub fn os_clock_get_time(clock_id: libc::clockid_t, spec: &mut libc::timespec) -
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace))]
-pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> SyscallReturn {
+pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(CLOCK_GETRES, clock_id, spec as *mut libc::timespec) as isize };
     let __end_ts = stop_timer();
@@ -397,7 +395,7 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> SyscallReturn {
+pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) as isize };
     let __end_ts = stop_timer();
@@ -412,7 +410,7 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> SyscallReturn {
 #[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> SyscallReturn {
+pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) as isize };
     let __end_ts = stop_timer();
@@ -425,7 +423,7 @@ pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> SyscallRetu
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: i32) -> SyscallReturn {
+pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize };
     let __end_ts = stop_timer();
@@ -437,7 +435,7 @@ pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: i32) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
-pub fn os_shutdown(fd: usize, how: libc::c_int) -> SyscallReturn {
+pub fn os_shutdown(fd: usize, how: libc::c_int) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SHUTDOWN, fd, how) as isize };
     let __end_ts = stop_timer();
@@ -449,7 +447,7 @@ pub fn os_shutdown(fd: usize, how: libc::c_int) -> SyscallReturn {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace))]
-pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> SyscallReturn {
+pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -467,7 +465,7 @@ pub fn os_nanosleep(req: &libc::timespec, rem: &mut libc::timespec) -> SyscallRe
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_poll(pollfds: &mut [libc::pollfd], timeout: libc::c_int) -> SyscallReturn {
+pub fn os_poll(pollfds: &mut [libc::pollfd], timeout: libc::c_int) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(POLL, pollfds.as_mut_ptr(), pollfds.len(), timeout) as isize };
     let __end_ts = stop_timer();
@@ -481,7 +479,7 @@ pub fn os_poll(pollfds: &mut [libc::pollfd], timeout: libc::c_int) -> SyscallRet
 #[trusted]
 #[requires(dirp.capacity() >= count)]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> SyscallReturn {
+pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         let result = syscall!(GETDENTS64, fd, dirp.as_mut_ptr(), count);
@@ -497,7 +495,7 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> SyscallRetu
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(SockCreation, d, t) if d == (domain as usize) && t == (ty as usize) ))]
-pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> SyscallReturn {
+pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SOCKET, domain, ty, protocol) as isize };
     let __end_ts = stop_timer();
@@ -510,7 +508,7 @@ pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> SyscallReturn {
 #[trusted]
 // TODO: finish spec
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port) if ip == addr.sin_addr.s_addr as usize && port == addr.sin_port as usize))]
-pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> SyscallReturn {
+pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> isize {
     let __start_ts = start_timer();
     let result =
         unsafe { syscall!(CONNECT, sockfd, addr as *const libc::sockaddr_in, addrlen) as isize };
@@ -524,7 +522,7 @@ pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> Sysc
 #[trusted]
 // TODO: finish spec
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fionread(fd: usize) -> SyscallReturn {
+pub fn os_fionread(fd: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(IOCTL, fd, libc::FIONREAD) as isize };
     let __end_ts = stop_timer();

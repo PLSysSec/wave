@@ -9,7 +9,7 @@ name = "wave"
 crate_type = ["dylib", "rlib"]
 
 [dependencies]
-system-call = { git = "https://github.com/emlaufer/system-call.rs.git", branch = "macos-test" }
+system-call = { git = "https://github.com/emlaufer/system-call.rs.git", branch = "master" }
 prusti-contracts = { path = "prusti-dev/prusti-contracts" }
 libc = "0.2"
 trace = "*"

@@ -49,7 +49,6 @@ pub fn wasi_path_open(
     );
 
     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
-    let os_fd: usize = fd.into();
     ctx.fdmap.create(fd.into())
 }
 
@@ -117,7 +116,6 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    let os_fd: usize = fd.into();
 
     let mut num: u32 = 0;
     let mut i = 0;
