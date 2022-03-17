@@ -128,13 +128,13 @@ pub type RuntimeResult<T> = Result<T, RuntimeError>;
 // WASI constants: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-bottom-half/headers/public/wasi/api.h#L117-L497
 impl From<RuntimeError> for u32 {
     fn from(item: RuntimeError) -> Self {
-        item as u32
+        as_u32(item)
     }
 }
 
 impl From<RuntimeError> for u16 {
     fn from(item: RuntimeError) -> Self {
-        item as u16
+        as_u16(item)
     }
 }
 

@@ -148,6 +148,18 @@ pub fn empty_netlist() -> Netlist {
     [empty, empty, empty, empty]
 }
 
+
+// this shouldn't need to be trusted, but prusti does not casting an enum to an int
+#[trusted]
+pub fn as_u32(e: RuntimeError) -> u32 {
+    e as u32
+}
+
+#[trusted]
+pub fn as_u16(e: RuntimeError) -> u16 {
+    e as u16
+}
+
 // uninterpreted ghost function to attach
 // #[pure]
 // #[trusted]
