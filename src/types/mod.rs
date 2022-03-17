@@ -514,14 +514,6 @@ impl LookupFlags {
     pub fn new(flags: u32) -> Self {
         LookupFlags(flags)
     }
-
-    pub fn to_posix(&self) -> i32 {
-        let mut flags = 0;
-        if !nth_bit_set_u32(self.0, 0) {
-            flags = bitwise_or(flags, libc::O_NOFOLLOW)
-        }
-        flags
-    }
 }
 
 pub struct OFlags(u32);
