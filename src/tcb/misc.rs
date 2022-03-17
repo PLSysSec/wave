@@ -112,11 +112,11 @@ pub fn fresh_rusage() -> libc::rusage {
 }
 
 #[trusted]
-#[requires(len >= 19)]
+#[requires(len >= offset)]
 #[requires(buf.len() >= start + len)]
 #[ensures(result < old(len))]
-pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
-    buf[start + 19..start + len]
+pub fn first_null(buf: &Vec<u8>, start: usize, offset: usize, len: usize) -> usize {
+    buf[start + offset..start + len]
         .iter()
         .position(|x| *x == 0)
         .unwrap()

@@ -56,25 +56,26 @@ impl Dirent {
         ]);
 
         // Offset to next linux_dirent
-        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 8], host_buf[in_idx + 9]]);
+        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 4], host_buf[in_idx + 5]]);
 
         // File type
-        let d_type = host_buf[in_idx + 10];
+        let d_type = host_buf[in_idx + 6];
 
         // Length of this linux_dirent
-        let d_namlen = host_buf[in_idx + 11];
+        let d_namlen = host_buf[in_idx + 7];
 
         // If we would overflow - don't :)
-        if d_reclen < 9 || (in_idx + d_reclen as usize) > host_buf.len() {
+        if d_reclen < 8 || (in_idx + d_reclen as usize) > host_buf.len() {
             return Err(RuntimeError::Eoverflow);
         }
 
-        let out_namlen = first_null(&host_buf, in_idx, d_reclen as usize);
 
+        println!("in_idx: {}, buflen: {}, d_reclen: {}", in_idx, host_buf.len(), d_reclen);
+        let out_namlen = first_null(&host_buf, in_idx, 8, d_reclen as usize);
         let dirent = Dirent {
             ino: d_ino as u64,
             reclen: d_reclen,
-            name_start: 9,
+            name_start: 8,
             out_namlen,
             typ: d_type,
         };

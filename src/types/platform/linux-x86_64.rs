@@ -113,7 +113,7 @@ impl Dirent {
             return Err(RuntimeError::Eoverflow);
         }
 
-        let out_namlen = first_null(&host_buf, in_idx, d_reclen as usize);
+        let out_namlen = first_null(&host_buf, in_idx + 19, d_reclen as usize);
         // let out_namlen = 3;
 
         let dirent = Dirent {
