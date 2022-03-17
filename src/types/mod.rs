@@ -515,6 +515,14 @@ impl LookupFlags {
         LookupFlags(flags)
     }
 
+    pub fn to_stat_posix(&self) -> i32 {
+        let mut flags = 0;
+        if !nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::AT_SYMLINK_NOFOLLOW);
+        }
+        flags
+    }
+
     // annoyingly, these flags are different between the two syscalls
     pub fn to_linkat_posix(&self) -> i32 {
         let mut flags = 0;

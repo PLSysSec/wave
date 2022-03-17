@@ -501,8 +501,8 @@ pub fn wasi_path_filestat_get(
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let mut stat = fresh_stat();
-
-    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_linkat_posix())?;
+    
+    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_stat_posix())?;
     Ok(stat.into())
 }
 
@@ -542,7 +542,7 @@ pub fn wasi_path_filestat_set_times(
     specs.push(atim_spec);
     specs.push(mtim_spec);
 
-    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_linkat_posix())?;
+    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_stat_posix())?;
 
     Ok(())
 }
