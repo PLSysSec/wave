@@ -947,9 +947,9 @@ pub fn addr_in_netlist(netlist: &Netlist, addr: u32, port: u32) -> bool {
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 #[repr(C)]
 pub enum WasiProto {
+    Unknown,
     Tcp,
     Udp,
-    Unknown,
 }
 
 impl WasiProto {
