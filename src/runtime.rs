@@ -1,5 +1,7 @@
 use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
-use crate::tcb::path::{resolve_path, path_safe};
+use crate::tcb::path::resolve_path;
+#[cfg(feature = "verify")]
+use crate::tcb::path::path_safe;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]

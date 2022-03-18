@@ -8,6 +8,12 @@ macro_rules! effect {
 
 #[cfg(not(feature = "verify"))]
 #[macro_export]
+macro_rules! path_effect {
+    ($trace:expr, $input:expr) => {};
+}
+
+#[cfg(not(feature = "verify"))]
+#[macro_export]
 macro_rules! do_effect {
     ($trace:expr, $input:expr) => {};
 }
