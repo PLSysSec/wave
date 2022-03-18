@@ -179,14 +179,14 @@ fn elem_depth(component: &Component) -> isize {
 // bodyless viper program
 #[pure]
 #[trusted]
-pub fn arr_is_relative(v: &GuestPath) -> bool {
+pub fn arr_is_relative(v: &HostPath) -> bool {
     panic!()
 }
 
 // bodyless viper program
 #[pure]
 #[trusted]
-pub fn arr_depth(components: &GuestPath) -> isize {
+pub fn arr_depth(components: &HostPath) -> isize {
     panic!()
 }
 
@@ -236,7 +236,7 @@ fn is_symlink(components: &OwnedComponents) -> bool {
 
 #[pure]
 #[trusted]
-pub fn arr_is_symlink(components: &GuestPath) -> bool {
+pub fn arr_is_symlink(components: &HostPath) -> bool {
     panic!()
 }
 
@@ -284,7 +284,7 @@ fn fresh_components() -> OwnedComponents {
 
 #[cfg(feature = "verify")]
 predicate! {
-    pub fn path_safe(v: &GuestPath, should_follow: bool) -> bool {
+    pub fn path_safe(v: &HostPath, should_follow: bool) -> bool {
         arr_is_relative(&v) && (arr_depth(&v) >= 0) && (should_follow ==> !arr_is_symlink(&v))
     }
 }
@@ -354,7 +354,7 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
         _ => true,
     }
 )]
-pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<GuestPath> {
+pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPath> {
     // let p = to_pathbuf(path);
     // let c: Vec<Component> = get_components(&p);
 

@@ -23,7 +23,7 @@ use crate::tcb::misc::{flag_set};
 pub fn trace_openat(
     ctx: &VmCtx,
     dir_fd: HostFd,
-    path: GuestPath, 
+    path: HostPath, 
     flags: i32,
 ) -> RuntimeResult<usize> {
     // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
@@ -221,7 +221,7 @@ pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> RuntimeRes
 pub fn trace_fstatat(
     ctx: &VmCtx,
     fd: HostFd,
-    path: GuestPath,
+    path: HostPath,
     stat: &mut libc::stat,
     flags: i32,
 ) -> RuntimeResult<usize> {
@@ -280,9 +280,9 @@ pub fn trace_ftruncate(ctx: &VmCtx, fd: HostFd, length: libc::off_t) -> RuntimeR
 pub fn trace_linkat(
     ctx: &VmCtx,
     old_fd: HostFd,
-    old_path: GuestPath,
+    old_path: HostPath,
     new_fd: HostFd,
-    new_path: GuestPath,
+    new_path: HostPath,
     flags: i32,
 ) -> RuntimeResult<usize> {
     let os_old_fd: usize = old_fd.to_raw();
@@ -304,7 +304,7 @@ pub fn trace_linkat(
 pub fn trace_mkdirat(
     ctx: &VmCtx,
     dir_fd: HostFd,
-    path: GuestPath,
+    path: HostPath,
     mode: libc::mode_t,
 ) -> RuntimeResult<usize> {
     let os_fd: usize = dir_fd.to_raw();
@@ -326,7 +326,7 @@ pub fn trace_mkdirat(
 pub fn trace_readlinkat(
     ctx: &mut VmCtx,
     dir_fd: HostFd,
-    pathname: GuestPath,
+    pathname: HostPath,
     ptr: SboxPtr,
     cnt: usize,
 ) -> RuntimeResult<usize> {
@@ -348,7 +348,7 @@ pub fn trace_readlinkat(
 pub fn trace_unlinkat(
     ctx: &VmCtx,
     dir_fd: HostFd,
-    path: GuestPath,
+    path: HostPath,
     flags: libc::c_int,
 ) -> RuntimeResult<usize> {
     let os_fd: usize = dir_fd.to_raw();
@@ -370,9 +370,9 @@ pub fn trace_unlinkat(
 pub fn trace_renameat(
     ctx: &VmCtx,
     old_dir_fd: HostFd,
-    old_path: GuestPath,
+    old_path: HostPath,
     new_dir_fd: HostFd,
-    new_path: GuestPath,
+    new_path: HostPath,
 ) -> RuntimeResult<usize> {
     let os_old_fd: usize = old_dir_fd.to_raw();
     // let os_old_path: Vec<u8> = old_pathname.into();
@@ -393,9 +393,9 @@ pub fn trace_renameat(
 // #[ensures(two_effects!(old(trace), trace,  effect!(PathAccessAt, os_fd), effect!(FdAccess)))]
 pub fn trace_symlinkat(
     ctx: &VmCtx,
-    old_pathname: GuestPath,
+    old_pathname: HostPath,
     dir_fd: HostFd,
-    new_pathname: GuestPath,
+    new_pathname: HostPath,
 ) -> RuntimeResult<usize> {
     let os_fd: usize = dir_fd.to_raw();
     // let os_old_path: Vec<u8> = old_pathname.into();
@@ -433,7 +433,7 @@ pub fn trace_futimens(
 pub fn trace_utimensat(
     ctx: &VmCtx,
     dir_fd: HostFd,
-    path: GuestPath,
+    path: HostPath,
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> RuntimeResult<usize> {

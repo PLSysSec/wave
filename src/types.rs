@@ -31,7 +31,7 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 // pub type HostPtr = usize;
 pub type SboxPtr = u32;
 
-pub type GuestPath = [u8; PATH_MAX];
+pub type HostPath = [u8; PATH_MAX];
 
 // pub type HostFd = usize;
 #[derive(Clone, Copy, PartialEq, Eq)]
