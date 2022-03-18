@@ -292,7 +292,7 @@ impl TryFrom<u32> for ClockId {
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct Timestamp(u64);
 
@@ -308,6 +308,10 @@ impl Timestamp {
     pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
         let nanos = (sec * 1_000_000_000 + nsec) as u64;
         Timestamp(nanos)
+    }
+
+    pub fn to_millis(&self) -> u64 {
+        self.0 / 1_000_000
     }
 
     /// This function converts a Wasi timestamp to a posix ns-timestamp
@@ -334,6 +338,10 @@ impl Timestamp {
 
     pub fn nsec(&self) -> u64 {
         self.0
+    }
+
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(|res| Timestamp(res))
     }
 }
 
@@ -685,6 +693,10 @@ pub struct Subscription {
 impl Subscription {
     pub const WASI_SIZE: u32 = 48;
 
+    pub const CLOCK_TAG: u64 = 0;
+    pub const FD_READ_TAG: u64 = 1;
+    pub const FD_WRITE_TAG: u64 = 2;
+
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(try_from, is_aligned)]
     #[requires(ctx_safe(ctx))]
@@ -705,9 +717,9 @@ impl Subscription {
         let tag = ctx.read_u64((ptr + 8) as usize);
 
         match tag {
-            0 => {
+            Self::CLOCK_TAG => {
                 let v_clock_id = ctx.read_u32((ptr + 16) as usize);
-                let timeout = ctx.read_u64((ptr + 24) as usize);
+                let v_timeout = ctx.read_u64((ptr + 24) as usize);
                 let v_precision = ctx.read_u64((ptr + 32) as usize);
                 let v_flags = ctx.read_u64((ptr + 40) as usize);
 
@@ -718,13 +730,13 @@ impl Subscription {
                     userdata,
                     subscription_u: SubscriptionInner::Clock(SubscriptionClock {
                         id: v_clock_id,
-                        timeout,
+                        timeout: Timestamp::new(v_timeout),
                         precision,
                         flags,
                     }),
                 })
             }
-            1 => {
+            Self::FD_READ_TAG => {
                 let v_fd = ctx.read_u32((ptr + 16) as usize);
 
                 Ok(Subscription {
@@ -735,7 +747,7 @@ impl Subscription {
                     }),
                 })
             }
-            2 => {
+            Self::FD_WRITE_TAG => {
                 let v_fd = ctx.read_u32((ptr + 16) as usize);
 
                 Ok(Subscription {
@@ -761,7 +773,7 @@ pub enum SubscriptionInner {
 #[repr(C)]
 pub struct SubscriptionClock {
     pub id: u32,
-    pub timeout: u64,
+    pub timeout: Timestamp,
     pub precision: Timestamp,
     pub flags: SubClockFlags,
 }

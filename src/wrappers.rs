@@ -501,7 +501,7 @@ pub fn wasi_path_filestat_get(
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let mut stat = fresh_stat();
-    
+
     let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_stat_posix())?;
     Ok(stat.into())
 }
@@ -1041,7 +1041,9 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
     checked_sub,
     ok_or_else,
     push,
-    map_err
+    map_err,
+    map,
+    unwrap_or
 )]
 #[external_calls(from_posix, from_poll_revents, Some)]
 #[requires(ctx_safe(ctx))]
@@ -1073,7 +1075,7 @@ pub fn wasi_poll_oneoff(
     let mut pollfds = Vec::new();
 
     // minimum timeout we found, for setting the poll syscall timeout
-    let mut min_timeout = -1;
+    let mut min_timeout = None;
     let precision = 0;
 
     let mut i = 0;
@@ -1101,26 +1103,25 @@ pub fn wasi_poll_oneoff(
                     //       realtime be significantly different than monotonic?
                     ClockId::Monotonic | ClockId::Realtime => {
                         let now = wasi_clock_time_get(ctx, subscription_clock.id, precision)?;
-                        let timeout: i32 = if subscription_clock.flags.subscription_clock_abstime()
-                        {
-                            // if this is an absolute timeout, we need to wait the difference
-                            // between now and the timeout
-                            // This will also perform a checked cast to an i32, which will
-                            subscription_clock
-                                .timeout
-                                .checked_sub(now.into())
-                                .ok_or(Eoverflow)?
-                                .try_into()
-                                .map_err(|e| Eoverflow)?
-                        } else {
-                            subscription_clock
-                                .timeout
-                                .try_into()
-                                .map_err(|e| Eoverflow)?
-                        };
+                        let timeout: Timestamp =
+                            if subscription_clock.flags.subscription_clock_abstime() {
+                                // if this is an absolute timeout, we need to wait the difference
+                                // between now and the timeout
+                                // This will also perform a checked cast to an i32, which will
+                                subscription_clock
+                                    .timeout
+                                    .checked_sub(now)
+                                    .ok_or(Eoverflow)?
+                            } else {
+                                subscription_clock.timeout
+                            };
 
-                        if min_timeout == -1 || timeout < min_timeout {
-                            min_timeout = timeout;
+                        if let Some(m_timeout) = min_timeout {
+                            if timeout < m_timeout {
+                                min_timeout = Some(timeout);
+                            }
+                        } else {
+                            min_timeout = Some(timeout);
                         }
 
                         timeouts.push((subscription.userdata, timeout));
@@ -1152,7 +1153,22 @@ pub fn wasi_poll_oneoff(
         i += 1;
     }
 
-    let res = trace_poll(ctx, pollfds.as_mut(), min_timeout)?;
+    // Special case: If we only got Clock subscriptions, we have no pollfds to poll on, so it will
+    //               immediatly return. Instead, we use nanosleep on the min timeout.
+    let mut res = 0;
+    if pollfds.len() == 0 {
+        let mut rem = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        let timespec: libc::timespec = min_timeout.map(|t| t.into()).ok_or(Einval)?;
+        res = trace_nanosleep(ctx, &timespec, &mut rem)?;
+    } else {
+        let poll_timeout: i32 = min_timeout
+            .map(|t| t.to_millis().try_into().map_err(|e| Eoverflow))
+            .unwrap_or(Ok(-1))?;
+        res = trace_poll(ctx, pollfds.as_mut(), poll_timeout)?;
+    }
 
     let mut num_events_written = 0;
     let mut event_idx = 0;
@@ -1170,15 +1186,18 @@ pub fn wasi_poll_oneoff(
             {
                 return Err(Eoverflow);
             }
-            if timeout == min_timeout {
-                let event = Event {
-                    userdata,
-                    error: RuntimeError::Success,
-                    typ: EventType::Clock,
-                    fd_readwrite: None,
-                };
-                event.write(ctx, out_ptr + event_offset as u32);
-                num_events_written += 1;
+            // Technically we know there must be a min_timeout, but use if let to be safe
+            if let Some(m_timeout) = min_timeout {
+                if timeout == m_timeout {
+                    let event = Event {
+                        userdata,
+                        error: RuntimeError::Success,
+                        typ: EventType::Clock,
+                        fd_readwrite: None,
+                    };
+                    event.write(ctx, out_ptr + event_offset as u32);
+                    num_events_written += 1;
+                }
             }
 
             event_idx += 1;
