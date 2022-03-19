@@ -9,6 +9,7 @@ use std::fs::read_link;
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
 use owned_components::{OwnedComponents, OwnedComponent};
+use std::str;
 
 const DEPTH_ERR: isize = i32::MIN as isize;
 const MAXSYMLINKS: isize = 10;
@@ -74,35 +75,11 @@ fn get_components(path: &PathBuf) -> Vec<Component> {
     path.components().collect()
 }
 
-// #[trusted]
-// #[requires(components_normalized(components))]
-// #[ensures(old(is_relative(components)) ==> vec_is_relative(&result) )]
-// #[ensures(old(min_depth(components)) == vec_depth(&result) )]
-// fn from_components(components: &Vec<Component>) -> Vec<u8> {
-//     //let p = p.as_path();
-//     let mut path = PathBuf::new();
-//     for c in components.iter() {
-//         path.push(c.as_os_str());
-//     } 
-
-//     from_pathbuf(path)
-//   }
-
 // #[pure]
 // #[ensures()]
 fn to_pathbuf(v: Vec<u8>) -> PathBuf {
     PathBuf::from(OsString::from_vec(v.clone()))
 }
-
-// TODO: remove this clone: its only there because prusti complains
-// fn from_pathbuf(p: PathBuf) -> Vec<u8> {
-//   // OsString are not guaranteed to be null terminated, but we want it to be null-terminated :)
-//   let mut v = p.clone().into_os_string().into_vec();
-//   v.push(0);
-//   v
-// }
-
-
 
 #[requires(idx < 4)]
 #[pure]
@@ -110,18 +87,6 @@ fn to_pathbuf(v: Vec<u8>) -> PathBuf {
 pub fn addr_matches_netlist_entry(netlist: &Netlist, addr: u32, port: u32, idx: usize) -> bool {
     addr == netlist[idx].addr && port == netlist[idx].port
 }
-
-
-
-// #[trusted]
-// #[pure]
-// #[requires(index < vec.len() )]
-// pub fn lookup_component<'a>(
-//     vec: &'a Vec<Component<'a>>,
-//     index: usize,
-// ) -> &'a Component<'a> {
-//     &vec[index]
-// }
 
 // If the first component is not the rootdir or a prefix (like Windows C://) its relative
 #[requires(c.len() > 0)]
@@ -240,11 +205,12 @@ pub fn arr_is_symlink(components: &HostPath) -> bool {
     panic!()
 }
 
+// TODO: needs to be readlinkat
 #[trusted]
 #[ensures(result.is_none() ==> old(!is_symlink(out_path)) )]
 fn read_link_h(out_path: &OwnedComponents) -> Option<OwnedComponents> {
     // let p = out_path.inner.iter().collect::<PathBuf>();
-    read_link(out_path.as_path()).ok().map(|p| OwnedComponents::parse(p))
+    read_link(&out_path.as_pathbuf()).ok().map(|p| OwnedComponents::parse(p))
     // match comp {
     //     Component::Normal(p) => read_link(&out_path.join(p)).ok(),
     //     other => None,
@@ -268,7 +234,7 @@ fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, 
         *num_symlinks += 1;
         return Some(linkpath);
     }
-    assert!(!is_symlink(out_path));
+    // assert!(!is_symlink(out_path));
     return None;
     
 }
@@ -306,7 +272,7 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
     let mut out_path = fresh_components();
     let mut num_symlinks = 0;
     let mut idx = 0;
-    assert!(!is_symlink(&out_path));
+    //assert!(!is_symlink(&out_path));
 
 
     while idx < components.len() {
@@ -322,6 +288,8 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
         // if comp is a symlink, return path + update num_symlinks
         // if not, just extend out_path
         let maybe_linkpath = maybe_expand_component(&mut out_path, c, &mut num_symlinks);
+        println!("out_path = {:?} maybe_linkpath = {:?}", out_path, maybe_linkpath);
+
         if let Some(linkpath) = maybe_linkpath {
             expand_symlink(&mut out_path, linkpath, &mut num_symlinks);
         }
@@ -330,23 +298,9 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
         }
         idx += 1;
     }
-    assert!(!should_follow || (should_follow && !is_symlink(&out_path)));
+    //assert!(!should_follow || (should_follow && !is_symlink(&out_path)));
     Ok(out_path)
 }
-
-
-// #[ensures(
-//     match result {
-//         Ok(c) => c == 3,
-//         _ => true,
-//     }
-// )]
-// fn three_or_none(v: i32) -> RuntimeResult<i32>{
-//     if v == 3 {
-//         return Ok(v);
-//     }
-//     return Err(RuntimeError::Einval);
-// }
 
 #[ensures(
     match &result {
@@ -355,26 +309,13 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
     }
 )]
 pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPath> {
+    println!("before resolving: {}, should_follow = {:?}", str::from_utf8(&path).unwrap(), should_follow);
     // let p = to_pathbuf(path);
     // let c: Vec<Component> = get_components(&p);
 
     // TODO: use ? when that works properly in Prusti
     // unclear why that doesn't work
     let c = expand_path(path, should_follow);
-    // let num = three_or_none(3);
-    // assert!(num == 3);
-    // if let Ok(n)  = num {
-    //     assert!(n == 3);
-    // }
-    // let n = match num {
-    //     Ok(n) => {
-    //         // assert!(n == 3);
-    //         n
-    //     }
-    //     Err(e) => {
-    //         return Err(e);
-    //     }
-    // };
 
     // assert!(n == 3);
     let c = match c {
@@ -384,6 +325,8 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPat
         }
     };
 
+    println!("after resolving: {:?}", c);
+
     // assert!(n == 3);
 
     // assert!(!should_follow || (should_follow && !is_symlink(&c)));
@@ -391,13 +334,13 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPat
 
     // depth < 0
     if c.len() <= 0 || !is_relative(&c) || min_depth(&c) < 0 {
-        return Err(RuntimeError::Eacces);
+        return Err(RuntimeError::Enotcapable);
     }
 
-    assert!(c.len() > 0);
-    assert!(is_relative(&c));
-    assert!(min_depth(&c) >= 0);
-    assert!(!should_follow || (should_follow && !is_symlink(&c)));
+    // assert!(c.len() > 0);
+    // assert!(is_relative(&c));
+    // assert!(min_depth(&c) >= 0);
+    // assert!(!should_follow || (should_follow && !is_symlink(&c)));
 
     // let r = OwnedComponents::unparse(c);
     match OwnedComponents::unparse(c) {

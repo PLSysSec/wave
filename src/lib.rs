@@ -14,7 +14,7 @@ mod fdmap;
 #[cfg(not(feature = "verify"))] // TODO: verify this final ffi layer
 pub mod lucet_frontend;
 mod os;
-mod runtime;
+pub mod runtime;
 pub mod stats;
 pub mod tcb;
 mod tests;

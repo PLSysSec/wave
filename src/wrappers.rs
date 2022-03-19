@@ -13,6 +13,7 @@ use std::convert::{TryFrom, TryInto};
 use std::mem;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
+use std::str;
 
 // manual implementation of the `?` operator because it is currently
 // broken in prusti
@@ -48,13 +49,16 @@ pub fn wasi_path_open(
     oflags: u32,
     fdflags: i32,
 ) -> RuntimeResult<u32> {
+    // println!("Path open: looking at flags");
     let dirflags = LookupFlags::new(dirflags);
     let oflags = OFlags::new(oflags);
     let fdflags = FdFlags::from(fdflags);
     let should_follow = dirflags.should_follow();
 
+    // println!("Path open: about to translate path");
     let host_pathname = ctx.translate_path(pathname, path_len, should_follow);
     unwrap_result!(host_pathname);
+    // println!("Path open: path translation successful: result = {:?}", str::from_utf8(&host_pathname).unwrap());
     // TODO: support arbitrary *at calls
     // Currently they can only be based off our preopened dir
     // (I've never seen a call that has attempted otherwise)

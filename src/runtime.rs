@@ -38,7 +38,7 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     // when it gets out of scope
     // std::mem::forget(homedir_file);
     // let log_path = "".to_owned();
-    let log_path = String::new();
+    // let log_path = String::new();
 
     let arg_buffer = Vec::new();
     let argc = 0;
