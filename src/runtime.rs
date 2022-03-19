@@ -188,12 +188,12 @@ impl VmCtx {
             _ => true,
         }
     )]
-    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool) -> RuntimeResult<HostPath> {
+    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool, dirfd: HostFd) -> RuntimeResult<HostPath> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
         let host_buffer = self.copy_buf_from_sandbox(path, path_len);
-        resolve_path(host_buffer, should_follow)
+        resolve_path(host_buffer, should_follow, dirfd)
         // self.resolve_path(host_buffer)
     }
 

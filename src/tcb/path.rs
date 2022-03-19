@@ -5,10 +5,10 @@ use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path, PathBuf};
-use std::fs::read_link;
+//use std::fs::read_link;
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
-use owned_components::{OwnedComponents, OwnedComponent};
+use owned_components::{OwnedComponents, OwnedComponent, readlinkat};
 use std::str;
 
 const DEPTH_ERR: isize = i32::MIN as isize;
@@ -92,10 +92,8 @@ pub fn addr_matches_netlist_entry(netlist: &Netlist, addr: u32, port: u32, idx: 
 #[requires(c.len() > 0)]
 #[pure]
 #[trusted]
-// #[ensures(result == true ==> components_normalized(c) )]
 fn is_relative(c: &OwnedComponents) -> bool {
     let start = c.lookup(0);
-    //let start = lookup_component(c, 0);
     !(matches!(start, OwnedComponent::RootDir))
 }
 
@@ -130,16 +128,16 @@ fn min_depth(components: &OwnedComponents) -> isize {
     curr_depth
 }
 
-#[pure]
-#[requires(matches!(component, Component::CurDir | Component::ParentDir | Component::Normal(_)))]
-fn elem_depth(component: &Component) -> isize {
-    match component {
-        Component::CurDir => 0,
-        Component::ParentDir => -1,
-        Component::Normal(_) => 1,
-        _ => panic!(),
-    }
-}
+// #[pure]
+// #[requires(matches!(component, Component::CurDir | Component::ParentDir | Component::Normal(_)))]
+// fn elem_depth(component: &Component) -> isize {
+//     match component {
+//         Component::CurDir => 0,
+//         Component::ParentDir => -1,
+//         Component::Normal(_) => 1,
+//         _ => panic!(),
+//     }
+// }
 
 // bodyless viper program
 #[pure]
@@ -165,28 +163,23 @@ pub fn arr_depth(components: &HostPath) -> isize {
 
 // Recursively expands a symlink (without explicit recursion)
 // maintains a queue of path components to process
-// #[trusted]
-#[requires(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
+#[requires(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
 #[requires(!is_symlink(out_path) )]
 #[ensures(!is_symlink(out_path))]
-#[ensures(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
-// #[ensures(!is_symlink())]
-fn expand_symlink(out_path: &mut OwnedComponents, linkpath_components: OwnedComponents, num_symlinks: &mut isize){
-    // let components = get_components(&linkpath);
+#[ensures(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
+fn expand_symlink(out_path: &mut OwnedComponents, linkpath_components: OwnedComponents, num_symlinks: &mut isize, dirfd: HostFd){
     let mut idx = 0;
-    //for c in components.iter() {
     while idx < linkpath_components.len() {
         body_invariant!(!is_symlink(out_path));
-        body_invariant!(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i))));
+        // out_path should never contain symlinks
+        body_invariant!(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i))));
         if *num_symlinks >= MAXSYMLINKS {
             return;
         }
-        //let c = linkpath_components.inner[idx].clone();
         let c = linkpath_components.lookup(idx);
-        let maybe_linkpath = maybe_expand_component(out_path, c, num_symlinks);
+        let maybe_linkpath = maybe_expand_component(dirfd, out_path, c, num_symlinks);
         if let Some(linkpath) = maybe_linkpath {
-            // Fine, I'll do the recursion, whatever
-            expand_symlink(out_path, linkpath, num_symlinks);
+            expand_symlink(out_path, linkpath, num_symlinks, dirfd);
         }
         idx += 1;
     }
@@ -205,16 +198,10 @@ pub fn arr_is_symlink(components: &HostPath) -> bool {
     panic!()
 }
 
-// TODO: needs to be readlinkat
 #[trusted]
 #[ensures(result.is_none() ==> old(!is_symlink(out_path)) )]
-fn read_link_h(out_path: &OwnedComponents) -> Option<OwnedComponents> {
-    // let p = out_path.inner.iter().collect::<PathBuf>();
-    read_link(&out_path.as_pathbuf()).ok().map(|p| OwnedComponents::parse(p))
-    // match comp {
-    //     Component::Normal(p) => read_link(&out_path.join(p)).ok(),
-    //     other => None,
-    // }
+fn read_linkat_h(dirfd: HostFd, out_path: &OwnedComponents) -> Option<OwnedComponents> {
+    readlinkat(dirfd.to_raw(), &out_path.as_pathbuf()).ok().map(|p| OwnedComponents::parse(p))
 }
 
 // Looks at a single component of a path:
@@ -222,19 +209,18 @@ fn read_link_h(out_path: &OwnedComponents) -> Option<OwnedComponents> {
 // else, we just append the value to out_path
 #[trusted]
 #[requires(!is_symlink(out_path) )]
-#[requires(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
+// require that out_path does not contain any symlinks going in
+#[requires(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
 #[ensures(!is_symlink(out_path))]
-#[ensures(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ))]
-// #[ensures()]
-fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
+// ensures that out_path contains no symlinks on exit 
+#[ensures(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
+fn maybe_expand_component(dirfd: HostFd, out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
     out_path.inner.push(comp);
-    if let Some(linkpath) = read_link_h(out_path) {
+    if let Some(linkpath) = read_linkat_h(dirfd, out_path) {
         out_path.inner.pop(); // pop the component we just added, since it is a symlink
-        // assert!(!is_symlink(out_path));
         *num_symlinks += 1;
         return Some(linkpath);
     }
-    // assert!(!is_symlink(out_path));
     return None;
     
 }
@@ -243,7 +229,7 @@ fn maybe_expand_component(out_path: &mut OwnedComponents, comp: OwnedComponent, 
 #[trusted]
 #[ensures(result.len() == 0)]
 #[ensures(!is_symlink(&result))]
-#[ensures(forall(|i: usize| (i < result.len() - 1) ==> !is_symlink(result.prefix(i)) ))] // we should be able to solve this by knowing that length = 0
+#[ensures(forall(|i: usize| (i < result.len()) ==> !is_symlink(result.prefix(i)) ))] // we should be able to solve this by knowing that length = 0
 fn fresh_components() -> OwnedComponents {
     OwnedComponents::new()
 }
@@ -255,29 +241,26 @@ predicate! {
     }
 }
 
-// TODO: what does expand_path do when the final file does not exist?
-// TODO: change that i < v.len() - 2 to  i < v.len() - 1
 // #[ensures(!is_symlink(out_path))]
 #[ensures(
     match &result {
-        Ok(v) => /*should_follow ==> !is_symlink(&v)*/forall(|i: usize| (i < v.len() - 2) ==> !is_symlink(v.prefix(i)) ) && !should_follow || (should_follow && !is_symlink(&v)),
+        Ok(v) => /*should_follow ==> !is_symlink(&v)*/forall(|i: usize| (i < v.len() - 1) ==> !is_symlink(v.prefix(i)) ) && 
+            (!should_follow || (should_follow && !is_symlink(&v))),
         _ => true,
     }
 )]
-fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponents> {
+fn expand_path(vec: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResult<OwnedComponents> {
     let p = to_pathbuf(vec);
     let components = get_components(&p);
 
-    // let mut out_path = OwnedComponents::new();
     let mut out_path = fresh_components();
     let mut num_symlinks = 0;
     let mut idx = 0;
-    //assert!(!is_symlink(&out_path));
-
 
     while idx < components.len() {
         body_invariant!(!is_symlink(&out_path));
-        body_invariant!(forall(|i: usize| (i < out_path.len() - 1) ==> !is_symlink(out_path.prefix(i)) ) );
+        // out_path should never contain symlinks
+        body_invariant!(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ) );
         let comp = components[idx];
         let c = OwnedComponent::from_borrowed(&comp);
         // if this is the last element, and we are NO_FOLLOW, then don't expand
@@ -287,11 +270,10 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
         }
         // if comp is a symlink, return path + update num_symlinks
         // if not, just extend out_path
-        let maybe_linkpath = maybe_expand_component(&mut out_path, c, &mut num_symlinks);
-        println!("out_path = {:?} maybe_linkpath = {:?}", out_path, maybe_linkpath);
+        let maybe_linkpath = maybe_expand_component(dirfd, &mut out_path, c, &mut num_symlinks);
 
         if let Some(linkpath) = maybe_linkpath {
-            expand_symlink(&mut out_path, linkpath, &mut num_symlinks);
+            expand_symlink(&mut out_path, linkpath, &mut num_symlinks, dirfd);
         }
         if num_symlinks >= MAXSYMLINKS {
             return Err(RuntimeError::Eloop);
@@ -304,20 +286,15 @@ fn expand_path(vec: Vec<u8>, should_follow: bool) -> RuntimeResult<OwnedComponen
 
 #[ensures(
     match &result {
-        Ok(v) => path_safe(&v, should_follow),/*vec_is_relative(&v) && (vec_depth(&v) >= 0) && (should_follow ==> !vec_is_symlink(&v)),*/
+        Ok(v) => path_safe(&v, should_follow),
         _ => true,
     }
 )]
-pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPath> {
-    println!("before resolving: {}, should_follow = {:?}", str::from_utf8(&path).unwrap(), should_follow);
-    // let p = to_pathbuf(path);
-    // let c: Vec<Component> = get_components(&p);
+pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResult<HostPath> {
 
     // TODO: use ? when that works properly in Prusti
-    // unclear why that doesn't work
-    let c = expand_path(path, should_follow);
+    let c = expand_path(path, should_follow, dirfd);
 
-    // assert!(n == 3);
     let c = match c {
         Ok(oc) => oc,
         Err(e) => {
@@ -325,14 +302,6 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPat
         }
     };
 
-    println!("after resolving: {:?}", c);
-
-    // assert!(n == 3);
-
-    // assert!(!should_follow || (should_follow && !is_symlink(&c)));
-    // assert!(!should_follow || (should_follow));
-
-    // depth < 0
     if c.len() <= 0 || !is_relative(&c) || min_depth(&c) < 0 {
         return Err(RuntimeError::Enotcapable);
     }
@@ -342,18 +311,10 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool) -> RuntimeResult<HostPat
     // assert!(min_depth(&c) >= 0);
     // assert!(!should_follow || (should_follow && !is_symlink(&c)));
 
-    // let r = OwnedComponents::unparse(c);
     match OwnedComponents::unparse(c) {
         Some(result_arr) => Ok(result_arr),
         _ => Err(RuntimeError::Enametoolong),
     }
-
-    // assert!(vec_is_relative(&r));
-    // assert!(vec_depth(&r) >= 0);
-    // assert!(!should_follow || (should_follow && !vec_is_symlink(&r)));
-
-    // Ok(r)
-    //Some(())
 }
 
 
