@@ -13,48 +13,46 @@ use std::str;
 
 const DEPTH_ERR: isize = i32::MIN as isize;
 
+// Uninterpreted functions
 
-// Ideas: 
+#[pure]
+#[trusted]
+pub fn arr_is_relative(v: &HostPath) -> bool {
+    panic!()
+}
+
+#[pure]
+#[trusted]
+pub fn arr_depth(components: &HostPath) -> isize {
+    panic!()
+}
+
+#[pure]
+#[trusted]
+pub fn is_symlink(components: &OwnedComponents) -> bool {
+    panic!()
+}
+
+#[pure]
+#[trusted]
+pub fn arr_is_symlink(components: &HostPath) -> bool {
+    panic!()
+}
+
 
 #[extern_spec]
 impl OwnedComponents {
     #[pure]
     fn len(&self) -> usize;
 
-    // #[ensures(result.len() == 0)]
     pub fn new() -> OwnedComponents;
-
-    //pub fn as_path(&self) -> &Path;
-
-    //pub fn parse(p: PathBuf) -> Self;
-
-    // #[pure]
-    // #[requires(idx < self.len())]
-    pub fn lookup(&self, idx: usize);
-
-
 
     #[ensures(self.len() == old(self.len()) + 1)]
     #[ensures(forall(|i: usize| 
         (i < self.len() - 1) ==> 
             (old(!is_symlink(self.prefix(i))) ==>
                 !is_symlink(self.prefix(i)) )))]
-    // #[ensures(self.lookup(old(self.len())) == old(value))]
-    // #[ensures(forall(|i: usize| (i < old(self.len())) ==>
-    //                 self.lookup(i) == old(self.lookup(i))))]
     pub fn push(&mut self, value: OwnedComponent);
-
-
-    // #[requires(self.len() > 0)]
-    // #[ensures(self.len() == old(self.len()) - 1)]
-    // #[ensures(forall(|i: usize| (i < self.len()) ==>
-    //                 self.lookup(i) == old(self.lookup(i))))]
-    pub fn pop(&mut self) -> Option<OwnedComponent>;
-
-
-    // #[ensures(old(is_relative(&self)) ==> arr_is_relative(&result) )]
-    // #[ensures(old(min_depth(&self)) == arr_depth(&result) )]
-    // #[ensures(old(is_symlink(&self)) == arr_is_symlink(&result) )]
 
     #[ensures(
         match &result {
@@ -70,10 +68,8 @@ impl OwnedComponents {
 
 #[trusted]
 pub fn get_components(path: &PathBuf) -> Vec<Component> {
-    // let path = PathBuf::from(OsString::from_vec(path));
     path.components().collect()
 }
-
 
 #[requires(idx < 4)]
 #[pure]
@@ -91,21 +87,15 @@ pub fn is_relative(c: &OwnedComponents) -> bool {
     !(matches!(start, OwnedComponent::RootDir))
 }
 
-
 // use really big negative number instead of option because the verifier does not like returning options from pure code
 // apparently I can make it pure or I can make it untrusted but I cannot do both
 #[pure]
 #[trusted]
-// #[requires(components_normalized(components))]
-// #[ensures(result == pure_depth(components))]
 pub fn min_depth(components: &OwnedComponents) -> isize {
     let mut curr_depth = 0;
     let mut idx = 0;
     while idx < components.len() {
-        // invariant: idx < components.len()
         body_invariant!(curr_depth >= 0);
-        // body_invariant!(components_normalized(components));
-        // pure_depth_h(components, 0)
         match components.lookup(idx) {
             OwnedComponent::RootDir => {return DEPTH_ERR;} // hacky, but fine for now
             OwnedComponent::CurDir => {},
@@ -120,54 +110,6 @@ pub fn min_depth(components: &OwnedComponents) -> isize {
         idx += 1;
     }
     curr_depth
-}
-
-// #[pure]
-// #[requires(matches!(component, Component::CurDir | Component::ParentDir | Component::Normal(_)))]
-// fn elem_depth(component: &Component) -> isize {
-//     match component {
-//         Component::CurDir => 0,
-//         Component::ParentDir => -1,
-//         Component::Normal(_) => 1,
-//         _ => panic!(),
-//     }
-// }
-
-// bodyless viper program
-#[pure]
-#[trusted]
-pub fn arr_is_relative(v: &HostPath) -> bool {
-    panic!()
-}
-
-// bodyless viper program
-#[pure]
-#[trusted]
-pub fn arr_depth(components: &HostPath) -> isize {
-    panic!()
-}
-
-
-
-
-// https://man7.org/linux/man-pages/man7/path_resolution.7.html
-// linux fails on nonexistant paths so nonexistant_path/.. will fail
-// accordingly, we do not elimintate nonexistant paths
-
-
-
-
-// bodyless viper program
-#[pure]
-#[trusted]
-pub fn is_symlink(components: &OwnedComponents) -> bool {
-    panic!()
-}
-
-#[pure]
-#[trusted]
-pub fn arr_is_symlink(components: &HostPath) -> bool {
-    panic!()
 }
 
 #[trusted]
@@ -212,70 +154,3 @@ predicate! {
         arr_is_relative(&v) && (arr_depth(&v) >= 0) && (should_follow ==> !arr_is_symlink(&v))
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
