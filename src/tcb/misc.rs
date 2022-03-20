@@ -82,6 +82,11 @@ pub fn bitwise_or(bv1: i32, bv2: i32) -> i32 {
     bv1 | bv2
 }
 
+#[trusted]
+pub fn bitwise_or_u32(bv1: u32, bv2: u32) -> u32 {
+    bv1 | bv2
+}
+
 // Unsafe necessary as libc::stat is opaque. It is safe but we can replace it by implementing
 // pub fn bitwise_or_u32(bv1: u32, bv2: u32) -> u32 {
 // the struct ourselves if we want to avoid as much unsafe as possible.
@@ -94,12 +99,24 @@ pub fn fresh_stat() -> libc::stat {
     unsafe { std::mem::zeroed() }
 }
 
+// Unsafe necessary as libc::rusage is opaque. It is safe but we can replace it by implementing
+// pub fn bitwise_or_u32(bv1: u32, bv2: u32) -> u32 {
+// the struct ourselves if we want to avoid as much unsafe as possible.
+//     bv1 | bv2
+// Safety: Safe as libc::rusage is valid with an all-zero byte-pattern (i.e. it is not a
+// }
+// reference)
 #[trusted]
-#[requires(len >= 19)]
+pub fn fresh_rusage() -> libc::rusage {
+    unsafe { std::mem::zeroed() }
+}
+
+#[trusted]
+#[requires(len >= offset)]
 #[requires(buf.len() >= start + len)]
 #[ensures(result < old(len))]
-pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
-    buf[start + 19..start + len]
+pub fn first_null(buf: &Vec<u8>, start: usize, offset: usize, len: usize) -> usize {
+    buf[start + offset..start + len]
         .iter()
         .position(|x| *x == 0)
         .unwrap()
@@ -108,7 +125,7 @@ pub fn first_null(buf: &Vec<u8>, start: usize, len: usize) -> usize {
 #[trusted]
 // #[requires(buf.len() > start + len + 19)]
 pub fn push_dirent_name(out_buf: &mut Vec<u8>, buf: &Vec<u8>, start: usize, len: usize) {
-    out_buf.extend_from_slice(&buf[start + 19..start + 19 + len])
+    out_buf.extend_from_slice(&buf[start..start + len])
 }
 
 // Trusted because I need to convince prusti that clone does not alter

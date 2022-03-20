@@ -4,7 +4,7 @@ extern char **environ;
 
 
 int main(int argc, char* argv[]){
-   //1. print commandline args
+  //1. print commandline args
   printf("Number of arguments passed: %d\n", argc); 
 
   for(int counter=0;counter<argc;counter++){
@@ -13,7 +13,7 @@ int main(int argc, char* argv[]){
 
 
    //2. print environment variables
-   while (*environ){
+   while (*environ) {
       printf("Environment Variable: %s\n", *environ++);
    }
 

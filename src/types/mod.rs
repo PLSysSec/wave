@@ -8,6 +8,18 @@ use std::convert::TryFrom;
 use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
+// include platform specific implementations
+#[cfg_attr(
+    all(target_os = "macos", target_arch = "aarch64"),
+    path = "platform/macos-aarch64.rs"
+)]
+#[cfg_attr(
+    all(target_os = "linux", target_arch = "x86_64"),
+    path = "platform/linux-x86_64.rs"
+)]
+mod platform;
+pub use platform::*;
+
 pub const MAX_SBOX_FDS: u32 = 8;
 pub const MAX_HOST_FDS: usize = 1024;
 pub const PATH_MAX: u32 = 1024;
@@ -342,7 +354,7 @@ pub enum ClockId {
     ThreadCpuTime,
 }
 
-impl From<ClockId> for i32 {
+impl From<ClockId> for libc::clockid_t {
     fn from(id: ClockId) -> Self {
         match id {
             ClockId::Realtime => libc::CLOCK_REALTIME,
@@ -369,7 +381,7 @@ impl TryFrom<u32> for ClockId {
 
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct Timestamp(u64);
 
@@ -385,6 +397,10 @@ impl Timestamp {
     pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
         let nanos = (sec * 1_000_000_000 + nsec) as u64;
         Timestamp(nanos)
+    }
+
+    pub fn to_millis(&self) -> u64 {
+        self.0 / 1_000_000
     }
 
     /// This function converts a Wasi timestamp to a posix ns-timestamp
@@ -411,6 +427,10 @@ impl Timestamp {
 
     pub fn nsec(&self) -> u64 {
         self.0
+    }
+
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(|res| Timestamp(res))
     }
 }
 
@@ -456,34 +476,6 @@ pub enum Advice {
     NoReuse,
 }
 
-impl From<Advice> for i32 {
-    fn from(advice: Advice) -> Self {
-        match advice {
-            Advice::Normal => libc::POSIX_FADV_NORMAL,
-            Advice::Sequential => libc::POSIX_FADV_SEQUENTIAL,
-            Advice::Random => libc::POSIX_FADV_RANDOM,
-            Advice::WillNeed => libc::POSIX_FADV_WILLNEED,
-            Advice::DontNeed => libc::POSIX_FADV_DONTNEED,
-            Advice::NoReuse => libc::POSIX_FADV_NOREUSE,
-        }
-    }
-}
-
-impl TryFrom<i32> for Advice {
-    type Error = RuntimeError;
-    fn try_from(advice: i32) -> RuntimeResult<Self> {
-        match advice {
-            libc::POSIX_FADV_NORMAL => Ok(Advice::Normal),
-            libc::POSIX_FADV_SEQUENTIAL => Ok(Advice::Sequential),
-            libc::POSIX_FADV_RANDOM => Ok(Advice::Random),
-            libc::POSIX_FADV_WILLNEED => Ok(Advice::WillNeed),
-            libc::POSIX_FADV_DONTNEED => Ok(Advice::DontNeed),
-            libc::POSIX_FADV_NOREUSE => Ok(Advice::NoReuse),
-            _ => Err(RuntimeError::Einval),
-        }
-    }
-}
-
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub enum Filetype {
     Unknown,
@@ -513,7 +505,7 @@ impl Filetype {
 
 impl From<libc::mode_t> for Filetype {
     fn from(filetype: libc::mode_t) -> Self {
-        match bitwise_and_u32(filetype, libc::S_IFMT) {
+        match bitwise_and_u32(filetype.into(), libc::S_IFMT.into()) as libc::mode_t {
             libc::S_IFBLK => Filetype::BlockDevice,
             libc::S_IFCHR => Filetype::CharacterDevice,
             libc::S_IFDIR => Filetype::Directory,
@@ -537,48 +529,6 @@ pub struct FdFlags(u16);
 impl FdFlags {
     pub fn empty() -> FdFlags {
         FdFlags(0)
-    }
-
-    pub fn to_posix(&self) -> i32 {
-        let mut flags = 0;
-        if nth_bit_set(self.0, 0) {
-            flags = bitwise_or(flags, libc::O_APPEND)
-        }
-        if nth_bit_set(self.0, 1) {
-            flags = bitwise_or(flags, libc::O_DSYNC)
-        }
-        if nth_bit_set(self.0, 2) {
-            flags = bitwise_or(flags, libc::O_NONBLOCK)
-        }
-        if nth_bit_set(self.0, 3) {
-            flags = bitwise_or(flags, libc::O_RSYNC)
-        }
-        if nth_bit_set(self.0, 4) {
-            flags = bitwise_or(flags, libc::O_SYNC)
-        }
-        flags
-    }
-
-    pub fn from_posix(flags: i32) -> Self {
-        // FdFlags(flags as u16)
-        //let mut result = FdFlags(0);
-        let mut result = FdFlags(0);
-        if bitwise_and(flags, libc::O_APPEND) != 0 {
-            result.0 = with_nth_bit_set(result.0, 0);
-        }
-        if bitwise_and(flags, libc::O_DSYNC) != 0 {
-            result.0 = with_nth_bit_set(result.0, 1);
-        }
-        if bitwise_and(flags, libc::O_NONBLOCK) != 0 {
-            result.0 = with_nth_bit_set(result.0, 2);
-        }
-        if bitwise_and(flags, libc::O_RSYNC) != 0 {
-            result.0 = with_nth_bit_set(result.0, 3);
-        }
-        if bitwise_and(flags, libc::O_SYNC) != 0 {
-            result.0 = with_nth_bit_set(result.0, 4);
-        }
-        result
     }
 }
 // create transparent wrapper around wasi
@@ -629,10 +579,10 @@ pub struct FileStat {
 impl From<libc::stat> for FileStat {
     fn from(stat: libc::stat) -> Self {
         FileStat {
-            dev: stat.st_dev,
+            dev: stat.st_dev as u64,
             ino: stat.st_ino,
             filetype: stat.st_mode.into(),
-            nlink: stat.st_nlink,
+            nlink: stat.st_nlink as u64,
             size: stat.st_size as u64,
             atim: Timestamp::from_sec_nsec(stat.st_atime as u64, stat.st_atime_nsec as u64),
             mtim: Timestamp::from_sec_nsec(stat.st_mtime as u64, stat.st_mtime_nsec as u64),
@@ -662,10 +612,27 @@ impl LookupFlags {
         LookupFlags(flags)
     }
 
-    pub fn to_posix(&self) -> i32 {
+    pub fn to_stat_posix(&self) -> i32 {
         let mut flags = 0;
         if !nth_bit_set_u32(self.0, 0) {
-            flags = bitwise_or(flags, libc::O_NOFOLLOW)
+            flags = bitwise_or(flags, libc::AT_SYMLINK_NOFOLLOW);
+        }
+        flags
+    }
+
+    // annoyingly, these flags are different between the two syscalls
+    pub fn to_linkat_posix(&self) -> i32 {
+        let mut flags = 0;
+        if nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::AT_SYMLINK_FOLLOW);
+        }
+        flags
+    }
+
+    pub fn to_openat_posix(&self) -> i32 {
+        let mut flags = 0;
+        if !nth_bit_set_u32(self.0, 0) {
+            flags = bitwise_or(flags, libc::O_NOFOLLOW);
         }
         flags
     }
@@ -815,6 +782,10 @@ pub struct Subscription {
 impl Subscription {
     pub const WASI_SIZE: u32 = 48;
 
+    pub const CLOCK_TAG: u64 = 0;
+    pub const FD_READ_TAG: u64 = 1;
+    pub const FD_WRITE_TAG: u64 = 2;
+
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(try_from, is_aligned)]
     #[requires(ctx_safe(ctx))]
@@ -835,9 +806,9 @@ impl Subscription {
         let tag = ctx.read_u64((ptr + 8) as usize);
 
         match tag {
-            0 => {
+            Self::CLOCK_TAG => {
                 let v_clock_id = ctx.read_u32((ptr + 16) as usize);
-                let timeout = ctx.read_u64((ptr + 24) as usize);
+                let v_timeout = ctx.read_u64((ptr + 24) as usize);
                 let v_precision = ctx.read_u64((ptr + 32) as usize);
                 let v_flags = ctx.read_u64((ptr + 40) as usize);
 
@@ -848,13 +819,13 @@ impl Subscription {
                     userdata,
                     subscription_u: SubscriptionInner::Clock(SubscriptionClock {
                         id: v_clock_id,
-                        timeout,
+                        timeout: Timestamp::new(v_timeout),
                         precision,
                         flags,
                     }),
                 })
             }
-            1 => {
+            Self::FD_READ_TAG => {
                 let v_fd = ctx.read_u32((ptr + 16) as usize);
 
                 Ok(Subscription {
@@ -865,7 +836,7 @@ impl Subscription {
                     }),
                 })
             }
-            2 => {
+            Self::FD_WRITE_TAG => {
                 let v_fd = ctx.read_u32((ptr + 16) as usize);
 
                 Ok(Subscription {
@@ -891,7 +862,7 @@ pub enum SubscriptionInner {
 #[repr(C)]
 pub struct SubscriptionClock {
     pub id: u32,
-    pub timeout: u64,
+    pub timeout: Timestamp,
     pub precision: Timestamp,
     pub flags: SubClockFlags,
 }
@@ -1077,9 +1048,9 @@ pub fn addr_in_netlist(netlist: &Netlist, addr: u32, port: u32) -> bool {
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 #[repr(C)]
 pub enum WasiProto {
+    Unknown,
     Tcp,
     Udp,
-    Unknown,
 }
 
 impl WasiProto {
@@ -1124,4 +1095,12 @@ impl Alignment {
 
 pub fn is_aligned(alignment: Alignment, value: u32) -> bool {
     bitwise_and_u32(value, alignment.remainder_mask()) == 0
+}
+
+pub struct Dirent {
+    pub ino: u64,
+    pub reclen: u16,
+    pub name_start: usize,
+    pub out_namlen: usize,
+    pub typ: u8,
 }

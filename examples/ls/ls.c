@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "string.h"
 #include <dirent.h>
+#include <errno.h>
 
 void do_ls(char* path)
 {
@@ -16,6 +17,8 @@ void do_ls(char* path)
             printf("%s    ", dir->d_name);
         }
         closedir(d);
+    } else {
+        printf("d not valid! errno: %d", errno);
     }
     printf("\n");
 }

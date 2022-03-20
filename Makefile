@@ -50,8 +50,10 @@ verify-debug:
 # (which cbindgen generates), so I just use a sed command to replace it :)
 bindings:
 	mkdir -p bindings
-	cbindgen --config cbindgen.toml --crate wave --lang c --output bindings/wave.h
-	sed -i 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/wave.h
+	# Generates a temporary file with sed because Mac doesn't support -i flag
+	cbindgen --config cbindgen.toml --crate wave --lang c --output bindings/wave_tmp.h
+	sed 's/struct[[:space:]]VmCtx[[:space:]][*]const/void/g' bindings/wave_tmp.h > bindings/wave.h
+	rm bindings/wave_tmp.h
 
 wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake -S . -B ./build

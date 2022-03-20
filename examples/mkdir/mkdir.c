@@ -9,8 +9,9 @@
 int main(int argc, char *argv[]) {
   struct stat st = {0};
   if (stat("test_dir", &st) == -1) {
-    printf("mkdir result = %d %d %s\n",mkdir("test_dir", 0700), errno, strerror(errno));
-}
+    int res = mkdir("test_dir", 0700);
+    printf("mkdir result = %d %d %s\n", res, errno, strerror(errno));
+  }
   printf("Done!\n");
 }
 

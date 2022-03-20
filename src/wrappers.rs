@@ -40,11 +40,8 @@ pub fn wasi_path_open(
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
 
-    let dirflags_posix = dirflags.to_posix();
-    let oflags_posix = oflags.to_posix();
-    let fdflags_posix = fdflags.to_posix();
     let flags = bitwise_or(
-        bitwise_or(dirflags.to_posix(), oflags.to_posix()),
+        bitwise_or(dirflags.to_openat_posix(), oflags.to_posix()),
         fdflags.to_posix(),
     );
 
@@ -505,7 +502,7 @@ pub fn wasi_path_filestat_get(
     let host_pathname = ctx.translate_path(pathname, path_len)?;
     let mut stat = fresh_stat();
 
-    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_posix())?;
+    let res = trace_fstatat(ctx, fd, host_pathname, &mut stat, flags.to_stat_posix())?;
     Ok(stat.into())
 }
 
@@ -545,7 +542,7 @@ pub fn wasi_path_filestat_set_times(
     specs.push(atim_spec);
     specs.push(mtim_spec);
 
-    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_posix())?;
+    let res = trace_utimensat(ctx, fd, host_pathname, &specs, flags.to_stat_posix())?;
 
     Ok(())
 }
@@ -580,7 +577,7 @@ pub fn wasi_path_link(
         old_host_pathname,
         new_fd,
         new_host_pathname,
-        flags.to_posix(),
+        flags.to_linkat_posix(),
     )?;
     Ok(())
 }
@@ -855,6 +852,13 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
             ctx.write_u32((argv as usize) + cursor, argv_buf + start);
         }
     }
+
+    let argc = ctx.argc;
+    // ensure the last entry is null
+    if !ctx.fits_in_lin_mem_usize((argv as usize) + argc * 4, 8) {
+        return Err(Eoverflow);
+    }
+    ctx.write_u32((argv as usize) + argc * 4, 0);
     Ok(())
 }
 
@@ -893,6 +897,13 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
             ctx.write_u32((env as usize) + cursor, env_buf + start);
         }
     }
+
+    let envc = ctx.envc;
+    // ensure the last entry is null
+    if !ctx.fits_in_lin_mem_usize((env as usize) + envc * 4, 8) {
+        return Err(Eoverflow);
+    }
+    ctx.write_u32((env as usize) + envc * 4, 0);
     Ok(())
 }
 
@@ -1030,7 +1041,9 @@ pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<(
     checked_sub,
     ok_or_else,
     push,
-    map_err
+    map_err,
+    map,
+    unwrap_or
 )]
 #[external_calls(from_posix, from_poll_revents, Some)]
 #[requires(ctx_safe(ctx))]
@@ -1062,7 +1075,7 @@ pub fn wasi_poll_oneoff(
     let mut pollfds = Vec::new();
 
     // minimum timeout we found, for setting the poll syscall timeout
-    let mut min_timeout = -1;
+    let mut min_timeout = None;
     let precision = 0;
 
     let mut i = 0;
@@ -1090,26 +1103,25 @@ pub fn wasi_poll_oneoff(
                     //       realtime be significantly different than monotonic?
                     ClockId::Monotonic | ClockId::Realtime => {
                         let now = wasi_clock_time_get(ctx, subscription_clock.id, precision)?;
-                        let timeout: i32 = if subscription_clock.flags.subscription_clock_abstime()
-                        {
-                            // if this is an absolute timeout, we need to wait the difference
-                            // between now and the timeout
-                            // This will also perform a checked cast to an i32, which will
-                            subscription_clock
-                                .timeout
-                                .checked_sub(now.into())
-                                .ok_or(Eoverflow)?
-                                .try_into()
-                                .map_err(|e| Eoverflow)?
-                        } else {
-                            subscription_clock
-                                .timeout
-                                .try_into()
-                                .map_err(|e| Eoverflow)?
-                        };
+                        let timeout: Timestamp =
+                            if subscription_clock.flags.subscription_clock_abstime() {
+                                // if this is an absolute timeout, we need to wait the difference
+                                // between now and the timeout
+                                // This will also perform a checked cast to an i32, which will
+                                subscription_clock
+                                    .timeout
+                                    .checked_sub(now)
+                                    .ok_or(Eoverflow)?
+                            } else {
+                                subscription_clock.timeout
+                            };
 
-                        if min_timeout == -1 || timeout < min_timeout {
-                            min_timeout = timeout;
+                        if let Some(m_timeout) = min_timeout {
+                            if timeout < m_timeout {
+                                min_timeout = Some(timeout);
+                            }
+                        } else {
+                            min_timeout = Some(timeout);
                         }
 
                         timeouts.push((subscription.userdata, timeout));
@@ -1141,7 +1153,22 @@ pub fn wasi_poll_oneoff(
         i += 1;
     }
 
-    let res = trace_poll(ctx, pollfds.as_mut(), min_timeout)?;
+    // Special case: If we only got Clock subscriptions, we have no pollfds to poll on, so it will
+    //               immediatly return. Instead, we use nanosleep on the min timeout.
+    let mut res = 0;
+    if pollfds.len() == 0 {
+        let mut rem = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        let timespec: libc::timespec = min_timeout.map(|t| t.into()).ok_or(Einval)?;
+        res = trace_nanosleep(ctx, &timespec, &mut rem)?;
+    } else {
+        let poll_timeout: i32 = min_timeout
+            .map(|t| t.to_millis().try_into().map_err(|e| Eoverflow))
+            .unwrap_or(Ok(-1))?;
+        res = trace_poll(ctx, pollfds.as_mut(), poll_timeout)?;
+    }
 
     let mut num_events_written = 0;
     let mut event_idx = 0;
@@ -1159,15 +1186,18 @@ pub fn wasi_poll_oneoff(
             {
                 return Err(Eoverflow);
             }
-            if timeout == min_timeout {
-                let event = Event {
-                    userdata,
-                    error: RuntimeError::Success,
-                    typ: EventType::Clock,
-                    fd_readwrite: None,
-                };
-                event.write(ctx, out_ptr + event_offset as u32);
-                num_events_written += 1;
+            // Technically we know there must be a min_timeout, but use if let to be safe
+            if let Some(m_timeout) = min_timeout {
+                if timeout == m_timeout {
+                    let event = Event {
+                        userdata,
+                        error: RuntimeError::Success,
+                        typ: EventType::Clock,
+                        fd_readwrite: None,
+                    };
+                    event.write(ctx, out_ptr + event_offset as u32);
+                    num_events_written += 1;
+                }
             }
 
             event_idx += 1;
@@ -1232,7 +1262,7 @@ pub fn wasi_poll_oneoff(
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(extend_from_slice, reserve_exact)]
 #[external_methods(to_le_bytes, to_wasi)]
-#[external_calls(from_le_bytes, from, first_null, push_dirent_name)]
+#[external_calls(from_le_bytes, from, first_null, push_dirent_name, parse)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
@@ -1263,55 +1293,22 @@ pub fn wasi_fd_readdir(
     while in_idx < host_buf.len() && out_idx < host_buf.len() {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
+        body_invariant!(in_idx < host_buf.len());
 
-        // Length of this linux_dirent
-        let d_reclen = u16::from_le_bytes([host_buf[in_idx + 16], host_buf[in_idx + 17]]);
+        let dirent = Dirent::parse(&host_buf, in_idx)?;
+
         // if we haven't hit the cookie entry, skip
         if entry_idx < cookie {
-            in_idx += d_reclen as usize;
+            in_idx += dirent.reclen as usize;
             entry_idx += 1;
             continue;
         }
 
-        // Inode number
-        let d_ino = u64::from_le_bytes([
-            host_buf[in_idx + 0],
-            host_buf[in_idx + 1],
-            host_buf[in_idx + 2],
-            host_buf[in_idx + 3],
-            host_buf[in_idx + 4],
-            host_buf[in_idx + 5],
-            host_buf[in_idx + 6],
-            host_buf[in_idx + 7],
-        ]);
-
-        // Offset to next linux_dirent
-        let d_offset = u64::from_le_bytes([
-            host_buf[in_idx + 8],
-            host_buf[in_idx + 9],
-            host_buf[in_idx + 10],
-            host_buf[in_idx + 11],
-            host_buf[in_idx + 12],
-            host_buf[in_idx + 13],
-            host_buf[in_idx + 14],
-            host_buf[in_idx + 15],
-        ]);
-
-        // File type
-        let d_type = u8::from_le_bytes([host_buf[in_idx + 18]]);
+        let out_next = in_idx + 24 + dirent.out_namlen;
 
         // If we would overflow - don't :)
-        if d_reclen < 19 || (in_idx + d_reclen as usize) > host_buf.len() {
-            break;
-        }
-
-        let out_namlen = first_null(&host_buf, in_idx, d_reclen as usize);
-        // let out_namlen = 3;
-        let out_next = in_idx + 24 + out_namlen as usize;
-
-        // If we would overflow - don't :)
-        if out_next > buf_len {
-            break;
+        if out_next > host_buf.len() {
+            return Err(RuntimeError::Eoverflow);
         }
 
         // Copy in next offset verbatim
@@ -1319,23 +1316,28 @@ pub fn wasi_fd_readdir(
         out_buf.extend_from_slice(&out_next_bytes);
 
         // Copy in Inode verbatim
-        let d_ino_bytes: [u8; 8] = d_ino.to_le_bytes();
+        let d_ino_bytes: [u8; 8] = dirent.ino.to_le_bytes();
         out_buf.extend_from_slice(&d_ino_bytes);
 
         // Copy namlen
-        let out_namlen_bytes: [u8; 4] = (out_namlen as u32).to_le_bytes();
+        let out_namlen_bytes: [u8; 4] = (dirent.out_namlen as u32).to_le_bytes();
         out_buf.extend_from_slice(&out_namlen_bytes);
 
         // Copy type
-        let d_type = Filetype::from(d_type as u32);
+        let d_type = Filetype::from(dirent.typ as libc::mode_t);
         let out_type_bytes: [u8; 4] = (d_type.to_wasi() as u32).to_le_bytes();
         out_buf.extend_from_slice(&out_type_bytes);
 
         // Copy name
-        push_dirent_name(&mut out_buf, &host_buf, in_idx, out_namlen as usize);
+        push_dirent_name(
+            &mut out_buf,
+            &host_buf,
+            in_idx + dirent.name_start,
+            dirent.out_namlen,
+        );
 
-        in_idx += d_reclen as usize;
-        out_idx += (24 + out_namlen) as usize
+        in_idx += dirent.reclen as usize;
+        out_idx += (24 + dirent.out_namlen) as usize
     }
 
     ctx.copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)?;
@@ -1404,12 +1406,15 @@ pub fn wasi_sock_connect(
     let sin_family = ctx.read_u16(addr as usize);
     let sin_port = ctx.read_u16(addr as usize + 2);
     let sin_addr_in = ctx.read_u32(addr as usize + 4);
-    let sin_family = sock_domain_to_posix(sin_family as u32)? as u16;
+    let sin_family = sock_domain_to_posix(sin_family as u32)? as libc::sa_family_t;
     // We can directly use sockaddr_in since we already know all socks are inet
     let sin_addr = libc::in_addr {
         s_addr: sin_addr_in,
     };
     let saddr = libc::sockaddr_in {
+        // i'll be lazy, should refactor to os-specific code...
+        #[cfg(target_os = "macos")]
+        sin_len: 0,
         sin_family,
         sin_port,
         sin_addr,

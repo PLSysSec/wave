@@ -22,6 +22,7 @@ void sock_func(int sockfd)
         bzero(buff, sizeof(buff));
         read(sockfd, buff, sizeof(buff));
         printf("From Server : %s\n", buff);
+        fflush(stdout); // unsure, but stdout buffering is broken after socket creation
         if ((strncmp(buff, "exit", 4)) == 0) {
             printf("Client Exit...\n");
             break;
@@ -37,14 +38,12 @@ int main()
     struct sockaddr_in servaddr, cli;
     struct in_addr addr;
 
-
-
     // socket create and varification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
-        printf("socket creation failed... ");
-	    perror("socket creation error");
-	    printf("\n");
+        printf("socket creation failed... "); 
+        perror("socket creation error");
+        printf("\n");
         exit(0);
     }
     else{
@@ -60,12 +59,13 @@ int main()
    
     // connect the client socket to server socket
     if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
-        printf("connection with the server failed...\n");
+        printf("connection with the server failed...errno %s\n", strerror(errno));
         exit(0);
     }
-    else
-        write(1, "connected to the server..\n", 26);
-   
+    else {
+        printf("connected to the server...\n");
+    }
+        
     // function for chat
     sock_func(sockfd);
    
