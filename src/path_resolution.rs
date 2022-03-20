@@ -22,7 +22,7 @@ fn to_pathbuf(v: Vec<u8>) -> PathBuf {
 // #[ensures(!is_symlink(out_path))]
 #[ensures(
     match &result {
-        Ok(v) => /*should_follow ==> !is_symlink(&v)*/forall(|i: usize| (i < v.len() - 1) ==> !is_symlink(v.prefix(i)) ) && 
+        Ok(v) => forall(|i: usize| (i < v.len() - 1) ==> !is_symlink(v.prefix(i)) ) && 
             (!should_follow || (should_follow && !is_symlink(&v))),
         _ => true,
     }
@@ -69,7 +69,6 @@ fn expand_path(vec: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResul
     }
 )]
 pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResult<HostPath> {
-
     // TODO: use ? when that works properly in Prusti
     let c = expand_path(path, should_follow, dirfd);
 
@@ -83,11 +82,6 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> Runtim
     if c.len() <= 0 || !is_relative(&c) || min_depth(&c) < 0 {
         return Err(RuntimeError::Enotcapable);
     }
-
-    // assert!(c.len() > 0);
-    // assert!(is_relative(&c));
-    // assert!(min_depth(&c) >= 0);
-    // assert!(!should_follow || (should_follow && !is_symlink(&c)));
 
     match OwnedComponents::unparse(c) {
         Some(result_arr) => Ok(result_arr),

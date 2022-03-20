@@ -39,6 +39,12 @@ pub fn arr_is_symlink(components: &HostPath) -> bool {
     panic!()
 }
 
+#[pure]
+#[trusted]
+pub fn arr_has_no_symlink_prefixes(components: &HostPath) -> bool {
+    panic!()
+}
+
 
 #[extern_spec]
 impl OwnedComponents {
@@ -56,7 +62,13 @@ impl OwnedComponents {
 
     #[ensures(
         match &result {
-            Some(v) => old(is_relative(&self)) ==> arr_is_relative(&v) && old(min_depth(&self)) == arr_depth(&v) && old(is_symlink(&self)) == arr_is_symlink(&v),
+            Some(v) => old(is_relative(&self)) ==> arr_is_relative(&v) && 
+            old(min_depth(&self)) == arr_depth(&v) && 
+            old(is_symlink(&self)) == arr_is_symlink(&v) &&
+            old(has_no_symlink_prefixes(&self))  == arr_has_no_symlink_prefixes(&v),
+            // forall(|i: usize| 
+            //     (i < self.len()) ==> 
+            //         (old(is_symlink(self.prefix(i))) == arr_is_symlink(v.prefix(i)) ))
             _ => true,
         }
     )]
@@ -150,7 +162,17 @@ pub fn fresh_components() -> OwnedComponents {
 
 #[cfg(feature = "verify")]
 predicate! {
+    pub fn has_no_symlink_prefixes(v: &OwnedComponents) -> bool {
+        forall(|i: usize| (i < v.len() - 1) ==> !is_symlink(v.prefix(i)))
+    }
+}
+
+#[cfg(feature = "verify")]
+predicate! {
     pub fn path_safe(v: &HostPath, should_follow: bool) -> bool {
-        arr_is_relative(&v) && (arr_depth(&v) >= 0) && (should_follow ==> !arr_is_symlink(&v))
+        arr_is_relative(&v) && 
+        (arr_depth(&v) >= 0) && 
+        (should_follow ==> !arr_is_symlink(&v)) &&
+        arr_has_no_symlink_prefixes(&v)
     }
 }
