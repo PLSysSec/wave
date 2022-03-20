@@ -1,6 +1,7 @@
 use crate::tcb::verifier::trace::{Effect, EffectType, Trace};
 use crate::types::{addr_in_netlist, VmCtx, HOMEDIR_FD, LINEAR_MEM_SIZE};
 use crate::tcb::path::path_safe;
+use crate::tcb::misc::netlist_unmodified;
 use prusti_contracts::*;
 
 #[cfg(feature = "verify")]
@@ -13,7 +14,8 @@ predicate! {
         ctx.argc < 1024 &&
         ctx.envc < 1024 &&
         ctx.arg_buffer.len() < 1024 * 1024 &&
-        ctx.env_buffer.len() < 1024 * 1024
+        ctx.env_buffer.len() < 1024 * 1024 &&
+        netlist_unmodified(&ctx.netlist)
     }
 }
 

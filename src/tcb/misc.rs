@@ -150,6 +150,13 @@ pub fn empty_netlist() -> Netlist {
     [empty, empty, empty, empty]
 }
 
+// uninterpreted function
+#[trusted]
+#[pure]
+pub fn netlist_unmodified(n: &Netlist) -> bool {
+    unimplemented!();
+}
+
 // uninterpreted ghost function to attach
 // #[pure]
 // #[trusted]
