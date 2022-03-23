@@ -5,37 +5,82 @@ use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path, PathBuf};
+//use std::fs::read_link;
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
+use owned_components::{OwnedComponents, OwnedComponent, readlinkat};
+use std::str;
 
+const DEPTH_ERR: isize = i32::MIN as isize;
+
+// Uninterpreted functions
+
+#[pure]
 #[trusted]
-fn get_components(path: &PathBuf) -> Vec<Component> {
-    path.components().collect()
+pub fn arr_is_relative(v: &HostPath) -> bool {
+    panic!()
 }
 
-impl VmCtx {
-    /// Check whether a path is in the home directory.
-    /// If it is, return it as an absolute path, if it isn't, return error
-    // TODO: verify and make untrusted
-    // #[with_ghost_var(trace: &mut Trace)]
-    #[trusted]
-    // #[requires(trace_safe(trace, self) && ctx_safe(self))]
-    // #[ensures(trace_safe(trace, self) && ctx_safe(self))]
-    pub fn resolve_path(&self, in_path: Vec<u8>) -> RuntimeResult<SandboxedPath> {
-        let path = PathBuf::from(OsString::from_vec(in_path));
-        // println!("resolve_path: path = {:?}", path);
-        let safe_path = PathBuf::from(self.homedir.clone()).join(normalize_path(&path));
-        // println!("safe_path: safe_path = {:?}", safe_path);
-        let path_str = safe_path.into_os_string();
-        // println!("path_str = {:?}, into_string = ", path_str, path_str.into_string());
-        if let Ok(s) = path_str.into_string() {
-            // println!("Checking prefix of s = {:?} as_bytes = {:?}", s, s.clone().into_bytes());
-            if s.starts_with(&self.homedir) {
-                let mut bytepath = s.into_bytes();
-                bytepath.push(0); // push null
-                return Ok(SandboxedPath::from(bytepath));
-            }
+#[pure]
+#[trusted]
+pub fn arr_depth(components: &HostPath) -> isize {
+    panic!()
+}
+
+#[pure]
+#[trusted]
+pub fn is_symlink(components: &OwnedComponents) -> bool {
+    panic!()
+}
+
+#[pure]
+#[trusted]
+pub fn arr_is_symlink(components: &HostPath) -> bool {
+    panic!()
+}
+
+#[pure]
+#[trusted]
+pub fn arr_has_no_symlink_prefixes(components: &HostPath) -> bool {
+    panic!()
+}
+
+
+#[extern_spec]
+impl OwnedComponents {
+    #[pure]
+    fn len(&self) -> usize;
+
+    pub fn new() -> OwnedComponents;
+
+    #[ensures(self.len() == old(self.len()) + 1)]
+    #[ensures(forall(|i: usize| 
+        (i < self.len() - 1) ==> 
+            (old(!is_symlink(self.prefix(i))) ==>
+                !is_symlink(self.prefix(i)) )))]
+    pub fn push(&mut self, value: OwnedComponent);
+
+    #[ensures(
+        match &result {
+            Some(v) => old(is_relative(&self)) ==> arr_is_relative(&v) && 
+            old(min_depth(&self)) == arr_depth(&v) && 
+            old(is_symlink(&self)) == arr_is_symlink(&v) &&
+            old(has_no_symlink_prefixes(&self))  == arr_has_no_symlink_prefixes(&v),
+            // forall(|i: usize| 
+            //     (i < self.len()) ==> 
+            //         (old(is_symlink(self.prefix(i))) == arr_is_symlink(v.prefix(i)) ))
+            _ => true,
         }
-        Err(RuntimeError::Eacces)
-    }
+    )]
+    pub fn unparse(self) -> Option<[u8; 4096]>;
+
+    #[pure]
+    pub fn prefix(&self, end: usize) -> &OwnedComponents;
+}
+
+#[trusted]
+pub fn get_components(path: &PathBuf) -> Vec<Component> {
+    path.components().collect()
 }
 
 #[requires(idx < 4)]
@@ -45,163 +90,89 @@ pub fn addr_matches_netlist_entry(netlist: &Netlist, addr: u32, port: u32, idx: 
     addr == netlist[idx].addr && port == netlist[idx].port
 }
 
-/// Convert relative path to absolute path
-/// Used to check that that paths are sandboxed
-// TODO: verify this
-// Prusti does not like this function at all
-#[trusted]
-pub fn normalize_path(path: &PathBuf) -> PathBuf {
-    // let components = path.components();
-    let mut components = path.components().peekable();
-    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
-        components.next();
-        PathBuf::from(c.as_os_str())
-    } else {
-        PathBuf::new()
-    };
-    // let mut ret = PathBuf::new();
-    //let components = get_components(path);
-    //let mut idx = 0;
-    //while idx < components.len() {
-    for component in components {
-        //let component = components[idx];
-        match component {
-            Component::Prefix(..) => {
-                unreachable!()
-            }
-            Component::RootDir => {
-                ret.push(component.as_os_str());
-            }
-            Component::CurDir => {}
-            Component::ParentDir => {
-                ret.pop();
-            }
-            Component::Normal(c) => {
-                ret.push(c);
-            }
-        }
-    }
-    ret
-}
-/*
-
-
-// https://man7.org/linux/man-pages/man7/path_resolution.7.html
-// linux fails on nonexistant paths so nonexistant_path/.. will fail
-// accordingly, we do not elimintate nonexistant paths
-
-
-// Recursively expands a symlink (without explicit recursion)
-// maintains a queue of path components to process
-#[trusted]
-fn expand_symlink(out_path: &mut PathBuf, linkpath: PathBuf, num_symlinks: &mut isize){
-    for c in linkpath.components(){
-        if *num_symlinks >= MAXSYMLINKS {
-            return;
-        }
-        let maybe_linkpath = maybe_expand_component(out_path, &c, num_symlinks);
-        if let Some(linkpath) = maybe_linkpath {
-            // Fine, I'll do the recursion, whatever
-            expand_symlink(out_path, linkpath, num_symlinks);
-        }
-    }
-}
-
-/// Looks at a single component of a path:
-/// if it is a symlink, return the linkpath.
-/// else, we just append the value to out_path
-#[trusted]
-//#[requires()] requires out_path.depth() > 0
-fn maybe_expand_component(out_path: &mut PathBuf, comp: &Component, num_symlinks: &mut isize) -> Option<PathBuf>{
-    if let Component::Normal(p) = comp {
-        if let Ok(linkpath) = read_link(&out_path.join(p)){
-            *num_symlinks += 1;
-            return Some(linkpath);
-        }
-    }
-    out_path.push(comp);
-    None
-
-
-}
-
-// returns None if there was some problem (should reject)
-#[trusted]
-fn expand_path(vec: &Vec<u8>, should_follow: bool) -> Option<PathBuf> {
-    let path = PathBuf::from(OsStr::from_bytes(vec));
-    let components: Vec<Component> = path.components().collect();
-    let mut out_path = PathBuf::new();
-
-    let mut num_symlinks = 0;
-    let mut idx = 0;
-
-    for comp in components.iter(){
-        idx += 1;
-        // if this is the last element, and we are NO_FOLLOW, then don't expand
-        if !should_follow && idx == components.len(){
-            out_path.push(comp);
-            break;
-        }
-        let maybe_linkpath = maybe_expand_component(&mut out_path, comp, &mut num_symlinks);
-        if let Some(linkpath) = maybe_linkpath {
-            expand_symlink(&mut out_path, linkpath, &mut num_symlinks);
-        }
-        if num_symlinks >= MAXSYMLINKS {
-            return None;
-        }
-    }
-
-    Some(out_path)
-}
-
 // If the first component is not the rootdir or a prefix (like Windows C://) its relative
 #[requires(c.len() > 0)]
-// #[pure]
-// #[trusted]
-fn is_relative(c: &Vec<Component>) -> bool {
-    let start = c[0];
-    !(matches!(start, Component::Prefix(_) | Component::RootDir))
+#[pure]
+#[trusted]
+pub fn is_relative(c: &OwnedComponents) -> bool {
+    let start = c.lookup(0);
+    !(matches!(start, OwnedComponent::RootDir))
 }
-
-
-// Checks a path. We let the *at calls do the actual path extension
-// If the path is absolute ==> return false
-// if the absolute ==> return depth > 0
-// #[trusted]
-fn check_path(path: Vec<u8>, should_follow: bool) -> Option<()> {
-    let path = expand_path(&path, should_follow)?;
-    let c: Vec<Component> = get_components(&path);
-
-    if c.len() <= 0 || !is_relative(&c) || depth(c) <= 0{
-        return None;
-    }
-    Some(())
-}
-
 
 // use really big negative number instead of option because the verifier does not like returning options from pure code
 // apparently I can make it pure or I can make it untrusted but I cannot do both
 #[pure]
 #[trusted]
-fn depth(components: Vec<Component>) -> isize {
+pub fn min_depth(components: &OwnedComponents) -> isize {
     let mut curr_depth = 0;
     let mut idx = 0;
     while idx < components.len() {
-        match components[idx] {
-            Component::Prefix(_) | Component::RootDir => {return DEPTH_ERR;} // not allowed!
-            Component::CurDir => {},
-            Component::ParentDir => {curr_depth -= 1;},
-            Component::Normal(_) => {curr_depth += 1;},
+        body_invariant!(curr_depth >= 0);
+        match components.lookup(idx) {
+            OwnedComponent::RootDir => {return DEPTH_ERR;} // hacky, but fine for now
+            OwnedComponent::CurDir => {},
+            OwnedComponent::ParentDir => {curr_depth -= 1;},
+            OwnedComponent::Normal(_) => {curr_depth += 1;},
         };
         // if curr_depth ever dips below 0, it is illegal
         // this prevents paths like ../other_sandbox_home
         if curr_depth < 0 {
-            return DEPTH_ERR;
+            return curr_depth;
         }
         idx += 1;
     }
     curr_depth
 }
 
+#[trusted]
+#[ensures(result.is_none() ==> old(!is_symlink(out_path)) )]
+fn read_linkat_h(dirfd: HostFd, out_path: &OwnedComponents) -> Option<OwnedComponents> {
+    readlinkat(dirfd.to_raw(), &out_path.as_pathbuf()).ok().map(|p| OwnedComponents::parse(p))
+}
 
-*/
+// Looks at a single component of a path:
+// if it is a symlink, return the linkpath.
+// else, we just append the value to out_path
+#[trusted]
+#[requires(!is_symlink(out_path) )]
+// require that out_path does not contain any symlinks going in
+#[requires(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
+#[ensures(!is_symlink(out_path))]
+// ensures that out_path contains no symlinks on exit 
+#[ensures(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
+pub fn maybe_expand_component(dirfd: HostFd, out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
+    out_path.inner.push(comp);
+    if let Some(linkpath) = read_linkat_h(dirfd, out_path) {
+        out_path.inner.pop(); // pop the component we just added, since it is a symlink
+        *num_symlinks += 1;
+        return Some(linkpath);
+    }
+    return None;
+    
+}
+
+// its an empty path, its not a symlink
+#[trusted]
+#[ensures(result.len() == 0)]
+#[ensures(!is_symlink(&result))]
+#[ensures(forall(|i: usize| (i < result.len()) ==> !is_symlink(result.prefix(i)) ))] // we should be able to solve this by knowing that length = 0
+pub fn fresh_components() -> OwnedComponents {
+    OwnedComponents::new()
+}
+
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn has_no_symlink_prefixes(v: &OwnedComponents) -> bool {
+        forall(|i: usize| (i < v.len() - 1) ==> !is_symlink(v.prefix(i)))
+    }
+}
+
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn path_safe(v: &HostPath, should_follow: bool) -> bool {
+        arr_is_relative(&v) && 
+        (arr_depth(&v) >= 0) && 
+        (should_follow ==> !arr_is_symlink(&v)) &&
+        arr_has_no_symlink_prefixes(&v)
+    }
+}

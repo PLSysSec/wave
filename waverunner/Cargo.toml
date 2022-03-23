@@ -1,0 +1,22 @@
+[package]
+name = "waverunner"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dlopen = "0.1.8"
+dlopen_derive = "0.1.4"
+
+# For mmap, munmap, and mprotect wrappers
+libc = "0.2"
+
+# Runtime
+wave = { path = ".." }
+
+# Arg parsing
+clap = "3.0.14" 
+
+# Error handling
+anyhow = "1.0.53"

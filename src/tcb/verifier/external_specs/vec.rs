@@ -24,6 +24,15 @@ impl<T> Vec<T> {
     #[ensures(self.len() == old(self.len()))]
     fn reserve_exact(&mut self, additional: usize);
 
+    #[pure]
+    fn as_slice(&self) -> &[T];
+
+    // #[pure]
+    // fn as_slice(&self) -> &[T];
+
+    // #[pure]
+    // fn as_mut_slice(&mut self) -> &mut [T];
+
     // #[pure]
     // #[requires (index < MAX_SBOX_FDS )]
     // // #[requires(0 <= index && index < self.len())]

@@ -45,9 +45,9 @@ impl FdMap {
         if (stdin_fd >= 0) && (stdout_fd >= 0) && (stderr_fd >= 0) {
             // upcasting i32 => usize is safe since we checked that it is positive
             // viper overflow checker would yell at us if this was not the case
-            self.create((stdin_fd as usize).into());
-            self.create((stdout_fd as usize).into());
-            self.create((stderr_fd as usize).into());
+            self.create(HostFd::from_raw(stdin_fd as usize));
+            self.create(HostFd::from_raw(stdout_fd as usize));
+            self.create(HostFd::from_raw(stderr_fd as usize));
             return Ok(());
         }
         Err(Emfile) // File descriptor failure
@@ -63,7 +63,6 @@ impl FdMap {
     #[external_calls(vec_checked_lookup)]
     // #[pure]
     #[ensures(result.is_ok() ==> old(v_fd) < MAX_SBOX_FDS)]
-    // TODO: this is the function we should be using - but for some reason prusti does not like it.
     pub fn fd_to_native(&self, v_fd: SboxFd) -> RuntimeResult<HostFd> {
         if v_fd >= MAX_SBOX_FDS {
             return Err(Ebadf);

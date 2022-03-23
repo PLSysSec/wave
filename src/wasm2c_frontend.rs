@@ -30,6 +30,61 @@ use crate::stats::stats::output_syscall_perf_results;
 
 trace::init_depth_var!();
 
+
+pub fn create_ctx(
+    memptr: *mut u8,
+    homedir: &str,
+    mut arg_buffer: Vec<u8>,
+    argc: usize,
+    mut env_buffer: Vec<u8>,
+    envc: usize,
+    netlist: Netlist,
+) -> VmCtx {
+    let memlen = LINEAR_MEM_SIZE;
+    let mut fdmap = FdMap::new();
+    fdmap.init_std_fds();
+    let homedir_file = std::fs::File::open(homedir).unwrap();
+    let homedir_host_fd = homedir_file.as_raw_fd() as usize;
+    if homedir_host_fd >= 0 {
+        fdmap.create(HostFd::from_raw(homedir_host_fd));
+    }
+    // Need to forget file to make sure it does not get auto-closed
+    // when it gets out of scope
+    std::mem::forget(homedir_file);
+    // replace all space with null.
+    // This makes it easy to return the arg_buffer later
+    for i in 0..arg_buffer.len() {
+        if arg_buffer[i] == b' ' {
+            arg_buffer[i] = b'\0';
+        }
+    }
+
+    // replace all space with null.
+    // This makes it easy to return the env_buffer later
+    for i in 0..env_buffer.len() {
+        if env_buffer[i] == b' ' {
+            env_buffer[i] = b'\0';
+        }
+    }
+
+    let mem = ffi_load_vec(memptr, memlen);
+
+    VmCtx {
+        mem,
+        memlen,
+        fdmap,
+        homedir: homedir.to_owned(),
+        homedir_host_fd: HostFd::from_raw(homedir_host_fd),
+        arg_buffer,
+        argc,
+        env_buffer,
+        envc,
+        netlist,
+    }
+
+
+}
+
 /// Used for FFI. (wasm2c frontend)
 /// Initialize a vmctx with a memory that points to memptr
 /// TODO: depulicate with fresh_ctx()
@@ -46,56 +101,14 @@ fn ctx_from_memptr(
     log_path: *mut c_char,
     netlist: *const Netlist,
 ) -> VmCtx {
-    let memlen = LINEAR_MEM_SIZE;
-    let mem = ffi_load_vec(memptr, memlen);
-    let mut fdmap = FdMap::new();
-    fdmap.init_std_fds();
+    let netlist = transmut_netlist(netlist);
     let log_path = ffi_load_cstr(log_path).to_owned().clone();
     let homedir = &(*ffi_load_cstr(homedir).clone()); // Actually copy the inner string
-    let homedir_file = std::fs::File::open(homedir).unwrap();
-    let homedir_fd = homedir_file.as_raw_fd();
-    if homedir_fd > 0 {
-        fdmap.create((homedir_fd as usize).into());
-    }
-    // Need to forget file to make sure it does not get auto-closed
-    // when it gets out of scope
-    std::mem::forget(homedir_file);
 
-    let mut arg_buffer = ffi_load_cstr_as_vec(args).clone();
-    // replace all space with null.
-    // This makes it easy to return the arg_buffer later
-    for i in 0..arg_buffer.len() {
-        if arg_buffer[i] == b' ' {
-            arg_buffer[i] = b'\0';
-        }
-    }
+    let arg_buffer = ffi_load_cstr_as_vec(args).clone();
+    let env_buffer = ffi_load_cstr_as_vec(env).clone();
 
-    let mut env_buffer = ffi_load_cstr_as_vec(env).clone();
-    // replace all space with null.
-    // This makes it easy to return the env_buffer later
-    for i in 0..env_buffer.len() {
-        if env_buffer[i] == b' ' {
-            env_buffer[i] = b'\0';
-        }
-    }
-
-    let netlist = transmut_netlist(netlist);
-
-    //println!("fdmap = {:?}, homedir = {:?}, arg_buffer = {:?}, argc = {:?}, env_buffer = {:?}, envc = {:?}", fdmap, homedir, arg_buffer, argc, env_buffer, envc);
-
-    VmCtx {
-        mem,
-        memlen,
-        fdmap,
-        homedir: homedir.to_owned(),
-        errno: Success,
-        arg_buffer,
-        argc,
-        env_buffer,
-        envc,
-        log_path,
-        netlist,
-    }
+    create_ctx(memptr, homedir, arg_buffer, argc, env_buffer, envc, netlist)
 }
 
 #[no_mangle]
@@ -112,7 +125,6 @@ pub extern "C" fn wave_init(
     netlist: *const Netlist,
 ) -> *mut VmCtx {
     env_logger::init(); // removing this line kills tracing
-
     let ctx = ctx_from_memptr(
         memptr, memsize, homedir, args, argc, env, envc, log_path, netlist,
     );
@@ -854,7 +866,7 @@ pub extern "C" fn Z_wasi_snapshot_preview1Z_proc_raiseZ_ii(
     let r = wasi_proc_raise(ctx_ref, signal);
     let retval = wasm2c_marshal(r);
     let end = stop_timer();
-    push_hostcall_result("proc_Raise", start, end);
+    push_hostcall_result("proc_raise", start, end);
     retval
 }
 

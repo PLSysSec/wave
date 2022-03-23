@@ -1,4 +1,7 @@
 use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
+use crate::path_resolution::resolve_path;
+#[cfg(feature = "verify")]
+use crate::tcb::path::path_safe;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
@@ -19,23 +22,23 @@ use RuntimeError::*;
 //#[ensures(safe(&result))]
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned, clone)]
-#[external_calls(open, forget, get_homedir_fd)]
+#[external_calls(open, forget, get_homedir_fd, from)]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
     let mem = vec![0; memlen];
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
-    let homedir_fd = get_homedir_fd(&homedir);
+    let homedir_host_fd = get_homedir_fd(&homedir) as usize;
     // let homedir_file = std::fs::File::open(&homedir).unwrap();
     // let homedir_fd = homedir_file.as_raw_fd();
-    if homedir_fd > 0 {
-        fdmap.create((homedir_fd as usize).into());
+    if homedir_host_fd >= 0 {
+        fdmap.create(HostFd::from_raw(homedir_host_fd));
     }
     // Need to forget file to make sure it does not get auto-closed
     // when it gets out of scope
     // std::mem::forget(homedir_file);
     // let log_path = "".to_owned();
-    let log_path = String::new();
+    // let log_path = String::new();
 
     let arg_buffer = Vec::new();
     let argc = 0;
@@ -48,12 +51,13 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
         memlen,
         fdmap,
         homedir,
-        errno: Success,
+        homedir_host_fd: HostFd::from_raw(homedir_host_fd),
+        // errno: Success,
         arg_buffer,
         argc,
         env_buffer,
         envc,
-        log_path,
+        // log_path,
         netlist,
     }
 }
@@ -173,23 +177,41 @@ impl VmCtx {
     }
 
     #[with_ghost_var(trace: &mut Trace)]
-    #[external_methods(resolve_path)]
+    #[external_calls(resolve_path)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
     #[ensures(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
-    pub fn translate_path(&self, path: SboxPtr, path_len: u32) -> RuntimeResult<SandboxedPath> {
+    #[ensures(
+        match &result {
+            Ok(v) => path_safe(&v, should_follow),/*vec_is_relative(&v) && (vec_depth(&v) >= 0) && (should_follow ==> !vec_is_symlink(&v))*/
+            _ => true,
+        }
+    )]
+    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool, dirfd: HostFd) -> RuntimeResult<HostPath> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
         let host_buffer = self.copy_buf_from_sandbox(path, path_len);
-        self.resolve_path(host_buffer)
+        resolve_path(host_buffer, should_follow, dirfd)
+        // self.resolve_path(host_buffer)
     }
 
     pub fn get_homedir(&self) -> Vec<u8> {
         string_to_vec_u8(&self.homedir)
         // self.homedir.as_bytes().to_vec()
     }
+
+    // pub fn translate_homedir_fd() -> HostFd {
+    //     if v_fd != HOMEDIR_FD {
+    //         return Err(Enotcapable);
+    //     }
+    //     assert!(v_fd == HOMEDIR_FD);
+    //     let fd = ctx.homedir_host_fd;
+    // }
+
+
+    // TODO: replace read_x and write_x with faster but unsafe raw ptr read/write
 
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
@@ -278,8 +300,8 @@ impl VmCtx {
     // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
-        self.mem[start] = bytes[0];
-        self.mem[start + 1] = bytes[1];
+        self.write_u8(start, bytes[0]);
+        self.write_u8(start + 1, bytes[1]);
     }
 
     /// write u32 to wasm linear memory
@@ -294,12 +316,14 @@ impl VmCtx {
     // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
-        self.mem[start] = bytes[0];
-        self.mem[start + 1] = bytes[1];
-        self.mem[start + 2] = bytes[2];
-        self.mem[start + 3] = bytes[3];
+        self.write_u8(start, bytes[0]);
+        self.write_u8(start + 1, bytes[1]);
+        self.write_u8(start + 2, bytes[2]);
+        self.write_u8(start + 3, bytes[3]);
+
     }
 
+    // TODO: replace with faster but unsafe raw ptr memread/memwrite
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
@@ -310,13 +334,13 @@ impl VmCtx {
     // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
-        self.mem[start] = bytes[0];
-        self.mem[start + 1] = bytes[1];
-        self.mem[start + 2] = bytes[2];
-        self.mem[start + 3] = bytes[3];
-        self.mem[start + 4] = bytes[4];
-        self.mem[start + 5] = bytes[5];
-        self.mem[start + 6] = bytes[6];
-        self.mem[start + 7] = bytes[7];
+        self.write_u8(start, bytes[0]);
+        self.write_u8(start + 1, bytes[1]);
+        self.write_u8(start + 2, bytes[2]);
+        self.write_u8(start + 3, bytes[3]);
+        self.write_u8(start + 4, bytes[4]);
+        self.write_u8(start + 5, bytes[5]);
+        self.write_u8(start + 6, bytes[6]);
+        self.write_u8(start + 7, bytes[7]);
     }
 }

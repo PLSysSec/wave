@@ -23,7 +23,7 @@ pub fn trace_advise(
     len: i64,
     advice: i32,
 ) -> RuntimeResult<usize> {
-    let os_fd: usize = fd.into();
+    let os_fd: usize = fd.to_raw();
     let r = os_advise(os_fd, offset, len, advice);
     RuntimeError::from_syscall_ret(r)
 }
@@ -80,7 +80,7 @@ pub fn trace_nanosleep(
 #[ensures(trace_safe(trace, ctx))]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> RuntimeResult<usize> {
-    let os_fd: usize = fd.into();
+    let os_fd: usize = fd.to_raw();
     let r = os_allocate(os_fd, offset, len);
     RuntimeError::from_syscall_ret(r)
 }
