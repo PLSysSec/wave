@@ -3,7 +3,9 @@ use crate::types::{addr_in_netlist, VmCtx, HOMEDIR_FD, LINEAR_MEM_SIZE};
 use crate::tcb::path::path_safe;
 use crate::tcb::misc::netlist_unmodified;
 use prusti_contracts::*;
-use crate::setup_teardown::{mem_setup_correctly, raw_ptr};
+use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
+
+
 
 #[cfg(feature = "verify")]
 predicate! {
@@ -17,7 +19,7 @@ predicate! {
         ctx.arg_buffer.len() < 1024 * 1024 &&
         ctx.env_buffer.len() < 1024 * 1024 &&
         netlist_unmodified(&ctx.netlist) && 
-        mem_setup_correctly(raw_ptr(&(ctx.mem.as_slice())))
+        valid_linmem(raw_ptr(&(ctx.mem.as_slice())))
     }
 }
 

@@ -210,6 +210,9 @@ impl VmCtx {
     //     let fd = ctx.homedir_host_fd;
     // }
 
+
+    // TODO: replace read_x and write_x with faster but unsafe raw ptr read/write
+
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
     #[with_ghost_var(trace: &mut Trace)]
@@ -297,8 +300,8 @@ impl VmCtx {
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
-        self.mem[start] = bytes[0];
-        self.mem[start + 1] = bytes[1];
+        self.write_u8(start, bytes[0]);
+        self.write_u8(start + 1, bytes[1]);
     }
 
     /// write u32 to wasm linear memory
@@ -313,12 +316,14 @@ impl VmCtx {
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
-        self.mem[start] = bytes[0];
-        self.mem[start + 1] = bytes[1];
-        self.mem[start + 2] = bytes[2];
-        self.mem[start + 3] = bytes[3];
+        self.write_u8(start, bytes[0]);
+        self.write_u8(start + 1, bytes[1]);
+        self.write_u8(start + 2, bytes[2]);
+        self.write_u8(start + 3, bytes[3]);
+
     }
 
+    // TODO: replace with faster but unsafe raw ptr memread/memwrite
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
@@ -329,14 +334,14 @@ impl VmCtx {
     // #[ensures(one_effect!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
-        self.mem[start] = bytes[0];
-        self.mem[start + 1] = bytes[1];
-        self.mem[start + 2] = bytes[2];
-        self.mem[start + 3] = bytes[3];
-        self.mem[start + 4] = bytes[4];
-        self.mem[start + 5] = bytes[5];
-        self.mem[start + 6] = bytes[6];
-        self.mem[start + 7] = bytes[7];
+        self.write_u8(start, bytes[0]);
+        self.write_u8(start + 1, bytes[1]);
+        self.write_u8(start + 2, bytes[2]);
+        self.write_u8(start + 3, bytes[3]);
+        self.write_u8(start + 4, bytes[4]);
+        self.write_u8(start + 5, bytes[5]);
+        self.write_u8(start + 6, bytes[6]);
+        self.write_u8(start + 7, bytes[7]);
     }
 
     #[with_ghost_var(trace: &mut Trace)]

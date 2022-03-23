@@ -169,6 +169,7 @@ impl RuntimeError {
 #[repr(transparent)]
 pub struct SyscallRet(usize);
 
+#[derive(PartialEq, Eq)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
@@ -177,6 +178,7 @@ pub struct FdMap {
     pub counter: SboxFd,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct VmCtx {
     pub mem: Vec<u8>,
     pub memlen: usize,
