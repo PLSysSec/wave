@@ -1308,7 +1308,7 @@ pub fn wasi_fd_readdir(
 
         // If we would overflow - don't :)
         if out_next > host_buf.len() {
-            return Err(RuntimeError::Eoverflow);
+            break;
         }
 
         // Copy in next offset verbatim
