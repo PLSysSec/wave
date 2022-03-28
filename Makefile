@@ -60,9 +60,10 @@ wasm2c:
 	cd rlbox_wasm2c_sandbox && cmake --build ./build --target all
 
 fuzz_trusted:
+	mkdir -p fuzz-dir
 	bash scan_for_trusted.sh
 	RUST_LOG=quickcheck cargo test -- --nocapture
-
+	rm -r fuzz-dir
 
 
 NATIVE_BUILD=linux32-i386-clang linux32-i386-clangzerocost

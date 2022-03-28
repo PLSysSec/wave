@@ -57,6 +57,9 @@ macro_rules! do_effect {
     };
 }
 
+#[cfg(feature = "test")]
+use crate::predicate;
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(usize)]
 pub enum EffectType {
@@ -114,6 +117,7 @@ macro_rules! effect {
     };
 }
 
+#[derive(Clone)]
 pub struct Trace {
     v: Vec<Effect>,
 }

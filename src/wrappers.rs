@@ -270,6 +270,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let posix_flags = flags.to_posix();
 
+    let posix_flags = flags.to_posix();
     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
     Ok(())
 }
@@ -1395,6 +1396,11 @@ pub fn wasi_sock_connect(
 ) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(sockfd)?;
 
+    if addrlen != 16 {
+        return Err(Einval);
+    }
+
+    // since we only support inet4, addrlen will always be 16
     if addrlen != 16 {
         return Err(Einval);
     }

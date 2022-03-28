@@ -1,6 +1,6 @@
 use crate::tcb::misc::vec_checked_lookup;
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::external_specs::vec::*;
+//#[cfg(feature = "verify")]
+//use crate::tcb::verifier::external_specs::vec::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
