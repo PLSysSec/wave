@@ -1290,7 +1290,7 @@ pub fn wasi_fd_readdir(
 
     let mut out_buf: Vec<u8> = Vec::new();
 
-    while in_idx < host_buf.len() && out_idx < host_buf.len() {
+    while in_idx < host_buf.len() && out_idx < buf_len {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
         body_invariant!(in_idx < host_buf.len());
@@ -1307,7 +1307,7 @@ pub fn wasi_fd_readdir(
         let out_next = in_idx + 24 + dirent.out_namlen;
 
         // If we would overflow - don't :)
-        if out_next > host_buf.len() {
+        if out_next > buf_len {
             break;
         }
 
