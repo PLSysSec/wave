@@ -1,12 +1,15 @@
 [submodule "prusti-dev"]
 	path = prusti-dev
 	url = https://github.com/PLSysSec/prusti-dev.git
-[submodule "rlbox_wasm2c_sandbox"]
-	path = rlbox_wasm2c_sandbox
-	url = https://github.com/PLSysSec/rlbox_wasm2c_sandbox.git
 [submodule "wasm-runtime-benchmarks"]
 	path = wasm-runtime-benchmarks
 	url = git@github.com:PLSysSec/wasm-runtime-benchmarks.git
 [submodule "wasix"]
 	path = wasix
 	url = git@github.com:zzjas/wasix.git
+[submodule "tools/wasm2c_sandbox_compiler"]
+	path = tools/wasm2c_sandbox_compiler
+	url = git@github.com:PLSysSec/wasm2c_sandbox_compiler.git
+[submodule "tools/wasi-sdk"]
+	path = tools/wasi-sdk
+	url = git@github.com:PLSysSec/wasi-sdk.git

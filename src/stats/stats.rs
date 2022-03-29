@@ -10,11 +10,11 @@ pub fn output_hostcall_perf_results() {
     let mut f = File::create("./hostcall_results.txt").expect("Unable to open file");
 
     HOSTCALL_RESULTS.with(|r| {
-        // println!("results: {:?}", r);
         for (k, v) in r.borrow().iter() {
             if !v.is_empty() {
                 let mean = mean(v);
-                writeln!(f, "{:?}: num_samples = {:?} mean = {:?} ns", k, v.len(), mean);
+                let geomean = geometric_mean(v);
+                writeln!(f, "{:?},{:?},{:?},{:?}", k, v.len(), mean, geomean);
             }
         }
     });
@@ -24,11 +24,11 @@ pub fn output_syscall_perf_results() {
     let mut f = File::create("./syscall_results.txt").expect("Unable to open file");
 
     SYSCALL_RESULTS.with(|r| {
-        // println!("results: {:?}", r);
         for (k, v) in r.borrow().iter() {
             if !v.is_empty() {
                 let mean = mean(v);
-                writeln!(f, "{:?}: num_samples = {:?} mean = {:?} ns", k, v.len(), mean);
+                let geomean = geometric_mean(v);
+                writeln!(f, "{:?},{:?},{:?},{:?}", k, v.len(), mean, geomean);
             }
         }
     });

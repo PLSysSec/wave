@@ -20,9 +20,9 @@ use wave_macros::{external_calls, external_methods, with_ghost_var};
 mod platform;
 pub use platform::*;
 
-pub const MAX_SBOX_FDS: u32 = 8;
+pub const MAX_SBOX_FDS: u32 = 8; // up to 16 or 32?
 pub const MAX_HOST_FDS: usize = 1024;
-pub const PATH_MAX: u32 = 1024;
+pub const PATH_MAX: usize = 4096;
 
 pub const PAGE_SIZE: usize = 4096;
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
@@ -33,20 +33,40 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 
 pub type SboxPtr = u32;
 
-#[derive(Clone, Copy)]
+pub type HostPath = [u8; PATH_MAX];
+
+// pub type HostFd = usize;
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct HostFd(usize);
-impl From<HostFd> for usize {
-    fn from(w: HostFd) -> usize {
-        w.0
-    }
-}
 
-impl From<usize> for HostFd {
-    fn from(w: usize) -> HostFd {
+// Not using impl From, since Prusti has a hard time understanding
+// that those conversions are pure
+impl HostFd {
+    #[pure]
+    pub(crate) fn to_raw(&self) -> usize {
+        self.0
+    }
+
+    //#[pure]
+    pub(crate) fn from_raw(w: usize) -> HostFd {
         HostFd(w)
     }
 }
+
+// impl From<HostFd> for usize {
+//     //#[pure]
+//     fn from(w: HostFd) -> usize {
+//         w.0
+//     }
+// }
+
+// impl From<usize> for HostFd {
+//     //#[pure]
+//     fn from(w: usize) -> HostFd {
+//         HostFd(w)
+//     }
+// }
 
 pub type SboxFd = u32;
 
@@ -135,7 +155,7 @@ pub enum RuntimeError {
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
-// Apparently wasi errors are not actually the same numbers as posix errors :(
+// Wasi errors are not actually the same numbers as posix errors
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
 // WASI constants: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-bottom-half/headers/public/wasi/api.h#L117-L497
 impl From<RuntimeError> for u32 {
@@ -271,6 +291,7 @@ impl RuntimeError {
 #[repr(transparent)]
 pub struct SyscallRet(usize);
 
+#[derive(PartialEq, Eq)]
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 pub struct FdMap {
     pub m: Vec<RuntimeResult<HostFd>>,
@@ -279,46 +300,50 @@ pub struct FdMap {
     pub counter: SboxFd,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct VmCtx {
     pub mem: Vec<u8>,
     pub memlen: usize,
     pub fdmap: FdMap,
     pub homedir: String,
-    pub errno: RuntimeError,
+    pub homedir_host_fd: HostFd,
+    // pub errno: RuntimeError,
     pub arg_buffer: Vec<u8>,
     pub argc: usize,
     pub env_buffer: Vec<u8>,
     pub envc: usize,
-    pub log_path: String,
+    // pub log_path: String,
     pub netlist: Netlist,
 }
 
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-pub struct SandboxedPath(Vec<u8>);
-impl From<SandboxedPath> for Vec<u8> {
-    fn from(w: SandboxedPath) -> Vec<u8> {
-        w.0
-    }
-}
 
-impl From<Vec<u8>> for SandboxedPath {
-    fn from(w: Vec<u8>) -> SandboxedPath {
-        SandboxedPath(w)
-    }
-}
 
-pub struct RelativePath(Vec<u8>);
-impl From<RelativePath> for Vec<u8> {
-    fn from(w: RelativePath) -> Vec<u8> {
-        w.0
-    }
-}
+// #[cfg_attr(not(feature = "verify"), derive(Debug))]
+// pub struct SandboxedPath(Vec<u8>);
+// impl From<SandboxedPath> for Vec<u8> {
+//     fn from(w: SandboxedPath) -> Vec<u8> {
+//         w.0
+//     }
+// }
 
-impl From<Vec<u8>> for RelativePath {
-    fn from(w: Vec<u8>) -> RelativePath {
-        RelativePath(w)
-    }
-}
+// impl From<Vec<u8>> for SandboxedPath {
+//     fn from(w: Vec<u8>) -> SandboxedPath {
+//         SandboxedPath(w)
+//     }
+// }
+
+// pub struct RelativePath(Vec<u8>);
+// impl From<RelativePath> for Vec<u8> {
+//     fn from(w: RelativePath) -> Vec<u8> {
+//         w.0
+//     }
+// }
+
+// impl From<Vec<u8>> for RelativePath {
+//     fn from(w: Vec<u8>) -> RelativePath {
+//         RelativePath(w)
+//     }
+// }
 
 pub enum Whence {
     Set,
@@ -535,23 +560,6 @@ impl FdFlags {
 impl From<libc::c_int> for FdFlags {
     fn from(flags: libc::c_int) -> Self {
         FdFlags(flags as u16)
-        // let mut result = FdFlags(0);
-        // if bitwise_and(flags, libc::O_APPEND) != 0 {
-        //     result.0 = with_nth_bit_set(result.0, 0);
-        // }
-        // if bitwise_and(flags, libc::O_DSYNC) != 0 {
-        //     result.0 = with_nth_bit_set(result.0, 1);
-        // }
-        // if bitwise_and(flags, libc::O_NONBLOCK) != 0 {
-        //     result.0 = with_nth_bit_set(result.0, 2);
-        // }
-        // if bitwise_and(flags, libc::O_RSYNC) != 0 {
-        //     result.0 = with_nth_bit_set(result.0, 3);
-        // }
-        // if bitwise_and(flags, libc::O_SYNC) != 0 {
-        //     result.0 = with_nth_bit_set(result.0, 4);
-        // }
-        // result
     }
 }
 
@@ -612,6 +620,10 @@ impl LookupFlags {
         LookupFlags(flags)
     }
 
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_calls(bitwise_or, nth_bit_set_u32)]
+    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::AT_SYMLINK_NOFOLLOW))]
+    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_stat_posix(&self) -> i32 {
         let mut flags = 0;
         if !nth_bit_set_u32(self.0, 0) {
@@ -621,6 +633,10 @@ impl LookupFlags {
     }
 
     // annoyingly, these flags are different between the two syscalls
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_calls(bitwise_or, nth_bit_set_u32)]
+    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::AT_SYMLINK_FOLLOW))]
+    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_linkat_posix(&self) -> i32 {
         let mut flags = 0;
         if nth_bit_set_u32(self.0, 0) {
@@ -629,12 +645,22 @@ impl LookupFlags {
         flags
     }
 
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_calls(bitwise_or, nth_bit_set_u32)]
+    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::O_NOFOLLOW))]
+    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_openat_posix(&self) -> i32 {
         let mut flags = 0;
         if !nth_bit_set_u32(self.0, 0) {
             flags = bitwise_or(flags, libc::O_NOFOLLOW);
         }
         flags
+    }
+
+    #[pure]
+    #[ensures(result == nth_bit_set_u32(self.0, 0))]
+    pub fn should_follow(&self) -> bool {
+        nth_bit_set_u32(self.0, 0)
     }
 }
 

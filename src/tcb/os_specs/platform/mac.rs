@@ -2,12 +2,14 @@ use crate::tcb::sbox_mem::as_sbox_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
-use crate::{effect, effects};
+use crate::{effect, path_effect, effects};
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use prusti_contracts::*;
 use syscall::syscall;
 use core::ffi::c_void;
 use libc::{utimensat, __error};
+use crate::tcb::misc::flag_set;
+
 
 use security_framework_sys::random::{SecRandomCopyBytes, kSecRandomDefault};
 use mach2::mach_time::{mach_wait_until, mach_timebase_info, mach_timebase_info_t, mach_timebase_info_data_t};
@@ -51,11 +53,13 @@ pub fn os_allocate(fd: usize, fstore: &libc::fstore_t) -> isize {
     result
 }
 
-//https://man7.org/linux/man-pages/man2/fstatat.2.html
+// https://man7.org/linux/man-pages/man2/fstatat.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
-pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -> isize {
+// follows terminal symlink if O_NOFOLLOW are not set
+// this is the only lookupflags, so we just say flags == 0
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == (flags == 0)))]
+pub fn os_fstatat(dirfd: usize, path:  [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -70,6 +74,7 @@ pub fn os_fstatat(fd: usize, path: Vec<u8>, stat: &mut libc::stat, flags: i32) -
     push_syscall_result("fstatat", __start_ts, __end_ts);
     result
 }
+
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(specs.len() >= 2)]
@@ -88,16 +93,16 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 #[external_calls(utimensat, __error)]
 #[requires(specs.len() >= 2)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, fd)))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW)))]
 pub fn os_utimensat(
-    fd: usize,
-    pathname: Vec<u8>,
+    dirfd: usize,
+    path:  [u8; 4096],
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> isize {
     // TODO: There is no direct utimensat syscall on osx. Instead, we will just call the
     //       libc wrapper
-    let res = unsafe { utimensat(fd as i32, pathname.as_ptr() as *const i8, specs.as_ptr(), flags) as isize };
+    let res = unsafe { utimensat(dirfd as i32, path.as_ptr() as *const i8, specs.as_ptr(), flags) as isize };
     if res == -1 {
        	// convert errno to -errno to conform to our expected syscall api 
 	-1 * unsafe { *__error() } as isize

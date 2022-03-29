@@ -78,6 +78,8 @@ pub struct Effect {
     pub f1: usize,
     pub f2: usize,
     pub f3: usize,
+    pub p: Option<[u8; 4096]>,
+    pub should_follow: Option<bool>,
 }
 
 // TODO: I think this has to become a proc macro if we don't wanna expand every case manually...
@@ -89,6 +91,8 @@ macro_rules! effect {
             f1: 0,
             f2: 0,
             f3: 0,
+            p: None,
+            should_follow: None,
         }
     };
     ($typ:ident, $f1:pat) => {
@@ -97,6 +101,8 @@ macro_rules! effect {
             f1: $f1,
             f2: 0,
             f3: 0,
+            p: None,
+            should_follow: None,
         }
     };
     ($typ:ident, $f1:pat, $f2:pat) => {
@@ -105,6 +111,8 @@ macro_rules! effect {
             f1: $f1,
             f2: $f2,
             f3: 0,
+            p: None,
+            should_follow: None,
         }
     };
     ($typ:ident, $f1:pat, $f2:pat, $f3:pat) => {
@@ -113,11 +121,50 @@ macro_rules! effect {
             f1: $f1,
             f2: $f2,
             f3: $f3,
+            p: None,
+            should_follow: None,
         }
     };
 }
 
-#[derive(Clone)]
+// macro for passing in paths
+#[macro_export]
+macro_rules! path_effect {
+    ($typ:ident, $f1:pat, $f2:pat, $f3:pat) => {
+        Effect {
+            typ: EffectType::$typ,
+            f1: $f1,
+            f2: 0,
+            f3: 0,
+            p: Some($f2),
+            should_follow: Some($f3),
+        }
+    };
+}
+
+// #[trusted]
+// #[pure]
+// #[requires(index < MAX_SBOX_FDS )]
+// pub fn vec_u8_lookup(
+//     vec: &Vec<u8>,
+//     index: usize,
+// ) -> RuntimeResult<HostFd> {
+//     vec[index as usize]
+// }
+
+// use crate::tcb::misc::vec_checked_lookup;
+// #[cfg(feature = "verify")]
+// predicate! {
+//     pub fn vec_is_eq(v0: &Vec<u8>, v1: &Vec<u8>) -> bool {
+//         v0.len() == v1.len() &&
+//         forall(|i: usize|
+//             (i < v0.len() ==> (
+//                 vec_u8_lookup(v0, i) == vec_u8_lookup(v1, i)
+//             ))
+//         )
+//     }
+// }
+
 pub struct Trace {
     v: Vec<Effect>,
 }
@@ -153,4 +200,13 @@ impl Trace {
     pub fn push(&mut self, value: Effect) {
         self.v.push(value);
     }
+
+    // #[trusted]
+    // #[ensures(self.num_paths() == old(self.num_paths()) + 1)]
+    // #[ensures(self.lookup_path(old(self.num_paths())) == old(&value))]
+    // #[ensures(forall(|i: usize| (i < old(self.num_paths())) ==>
+    //                 self.lookup_path(i) == old(self.lookup_path(i))))]
+    // pub fn push_path(&mut self, value: Vec<u8>) {
+    //     self.paths.push(value);
+    // }
 }
