@@ -203,16 +203,4 @@ pub fn netlist_unmodified(n: &Netlist) -> bool {
     unimplemented!();
 }
 
-// uninterpreted ghost function to attach
-// #[pure]
-// #[trusted]
-// pub fn fd_proto(fd: HostFd) -> WasiProto {
-//     unimplemented!()
-// }
 
-// #[pure]
-// #[trusted]
-// #[ensures(fd_proto(fd) == proto)]
-// pub fn tag_proto(fd: HostFd, proto: WasiProto) -> WasiProto {
-//     unimplemented!()
-// }

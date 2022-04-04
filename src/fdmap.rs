@@ -7,8 +7,10 @@ use crate::types::*;
 use prusti_contracts::*;
 use std::io::{stderr, stdin, stdout};
 use std::os::unix::io::AsRawFd;
-use wave_macros::{external_call, external_calls, external_method, with_ghost_var};
+use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
+// use crate::os::trace_close;
+use crate::tcb::os_specs::os_close;
 
 /*
 Data structure to map sandbox file descriptors to host file descriptors.
@@ -17,6 +19,8 @@ We will prove things about it's API as necessary.
 
 //TODO: should not be able to close stdin,stdout,stderr,homedir
 // homedir is hardcoded to 3.
+
+
 
 impl FdMap {
     // #[ensures (result.m.len() == MAX_SBOX_FDS)]
@@ -141,4 +145,25 @@ impl FdMap {
         }
         self.m[from as usize] = Err(Ebadf);
     }
+
+    // auto drop open file descriptors and shutdown sockets
+    #[with_ghost_var(trace: &mut Trace)]
+    // #[requires(ctx_safe(self))]
+    // #[requires(trace_safe(trace, self))]
+    // #[ensures(ctx_safe(self))]
+    // #[ensures(trace_safe(trace, self))]
+    #[external_methods(lookup)]
+    fn drop(&mut self) {
+        let mut idx = 3; // not stdin,stdout,stderr 
+        while idx < MAX_SBOX_FDS {
+            // body_invariant!(ctx_safe(self));
+            // body_invariant!(trace_safe(trace, self));
+            match self.lookup(idx) {
+                Ok(fd) => { os_close(fd.to_raw()); }
+                _ => (),
+            }
+            idx += 1;
+        }
+    }
+    
 }

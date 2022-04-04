@@ -192,7 +192,12 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         let result = syscall!(GETDENTS64, fd, dirp.as_mut_ptr(), count);
-        dirp.set_len(result);
+        if (result as isize) != -1 {
+            dirp.set_len(result);
+        }
+        else {
+            dirp.set_len(0);
+        }
         result as isize
     };
     let __end_ts = stop_timer();
