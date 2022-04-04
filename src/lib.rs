@@ -17,6 +17,7 @@ mod os;
 pub mod runtime;
 pub mod stats;
 pub mod tcb;
+#[cfg(not(feature = "verify"))]
 mod tests;
 pub mod types;
 pub mod verifier_interface;

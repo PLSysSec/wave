@@ -323,6 +323,7 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let posix_flags = flags.to_posix();
 
+    let posix_flags = flags.to_posix();
     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
     Ok(())
 }
@@ -1481,7 +1482,7 @@ pub fn wasi_fd_readdir(
 
     let mut out_buf: Vec<u8> = Vec::new();
 
-    while in_idx < host_buf.len() && out_idx < host_buf.len() {
+    while in_idx < host_buf.len() && out_idx < buf_len {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
         body_invariant!(in_idx < host_buf.len());
@@ -1498,8 +1499,8 @@ pub fn wasi_fd_readdir(
         let out_next = in_idx + 24 + dirent.out_namlen;
 
         // If we would overflow - don't :)
-        if out_next > host_buf.len() {
-            return Err(RuntimeError::Eoverflow);
+        if out_next > buf_len {
+            break;
         }
 
         // Copy in next offset verbatim
@@ -1586,6 +1587,11 @@ pub fn wasi_sock_connect(
 ) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(sockfd)?;
 
+    if addrlen != 16 {
+        return Err(Einval);
+    }
+
+    // since we only support inet4, addrlen will always be 16
     if addrlen != 16 {
         return Err(Einval);
     }

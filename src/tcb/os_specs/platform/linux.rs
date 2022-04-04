@@ -204,3 +204,15 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     push_syscall_result("getdents64", __start_ts, __end_ts);
     result
 }
+
+//https://man7.org/linux/man-pages/man2/fstat.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(FSTAT, fd, stat as *mut libc::stat) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("fstat", __start_ts, __end_ts);
+    result
+}

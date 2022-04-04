@@ -1,12 +1,12 @@
 /// This file contains dummy implementations that do nothing when we are not verifying
 
-#[cfg(not(feature = "verify"))]
+#[cfg(not(any(feature = "verify", test)))]
 #[macro_export]
 macro_rules! effect {
     ($trace:expr, $input:expr) => {};
 }
 
-#[cfg(not(feature = "verify"))]
+#[cfg(not(any(feature = "verify", test)))]
 #[macro_export]
 macro_rules! path_effect {
     ($trace:expr, $input:expr) => {};
@@ -18,7 +18,7 @@ macro_rules! do_effect {
     ($trace:expr, $input:expr) => {};
 }
 
-#[cfg(not(feature = "verify"))]
+#[cfg(not(any(feature = "verify", test)))]
 #[macro_export]
 macro_rules! effects {
     ($trace:expr, $input:expr) => {};

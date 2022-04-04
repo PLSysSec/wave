@@ -57,6 +57,9 @@ macro_rules! do_effect {
     };
 }
 
+#[cfg(feature = "test")]
+use crate::predicate;
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(usize)]
 pub enum EffectType {
@@ -89,7 +92,7 @@ macro_rules! effect {
             f2: 0,
             f3: 0,
             p: None,
-            should_follow: None, 
+            should_follow: None,
         }
     };
     ($typ:ident, $f1:pat) => {
@@ -99,7 +102,7 @@ macro_rules! effect {
             f2: 0,
             f3: 0,
             p: None,
-            should_follow: None, 
+            should_follow: None,
         }
     };
     ($typ:ident, $f1:pat, $f2:pat) => {
@@ -109,7 +112,7 @@ macro_rules! effect {
             f2: $f2,
             f3: 0,
             p: None,
-            should_follow: None, 
+            should_follow: None,
         }
     };
     ($typ:ident, $f1:pat, $f2:pat, $f3:pat) => {
@@ -119,7 +122,7 @@ macro_rules! effect {
             f2: $f2,
             f3: $f3,
             p: None,
-            should_follow: None, 
+            should_follow: None,
         }
     };
 }
@@ -134,12 +137,10 @@ macro_rules! path_effect {
             f2: 0,
             f3: 0,
             p: Some($f2),
-            should_follow: Some($f3), 
+            should_follow: Some($f3),
         }
     };
-
 }
-
 
 // #[trusted]
 // #[pure]
