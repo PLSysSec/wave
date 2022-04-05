@@ -404,6 +404,14 @@ impl TryFrom<u32> for ClockId {
     }
 }
 
+#[with_ghost_var(trace: &Trace)]
+pub fn fresh_libc_timespec() -> libc::timespec {
+    libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    }
+}
+
 /// Wasi timestamp in nanoseconds
 #[repr(transparent)]
 #[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]

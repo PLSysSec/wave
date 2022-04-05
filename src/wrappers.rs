@@ -48,7 +48,6 @@ pub fn wasi_path_open(
     oflags: u32,
     fdflags: i32,
 ) -> RuntimeResult<u32> {
-    // println!("Path open: looking at flags");
     let dirflags = LookupFlags::new(dirflags);
     let oflags = OFlags::new(oflags);
     let fdflags = FdFlags::from(fdflags);
@@ -59,27 +58,14 @@ pub fn wasi_path_open(
     }
     let fd = ctx.homedir_host_fd;
 
-    // println!("Path open: about to translate path");
     let host_pathname = ctx.translate_path(pathname, path_len, should_follow, fd);
     unwrap_result!(host_pathname);
-    // println!("Path open: path translation successful: result = {:?}", str::from_utf8(&host_pathname).unwrap());
     // TODO: support arbitrary *at calls
     // Currently they can only be based off our preopened dir
     // (I've never seen a call that has attempted otherwise)
     // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
     // auto adjusts it to our home directory
 
-
-
-    // let fd = ctx.fdmap.fd_to_native(v_dir_fd)?;
-
-    // assert!(usize::from(fd) == usize::from(ctx.fdmap.fd_to_native(HOMEDIR_FD).unwrap()));
-    // assert!(usize::from(fd) == usize::from(fd));
-
-    // let dirflags_posix = dirflags.to_posix();
-    // let oflags_posix = oflags.to_posix();
-    // let fdflags_posix = fdflags.to_posix();
-    // assert!(should_follow == (dirflags_posix == 0) );
     let dflags = dirflags.to_openat_posix();
     let flags = bitwise_or(
         bitwise_or(dflags, oflags.to_posix()),
@@ -92,12 +78,7 @@ pub fn wasi_path_open(
         // in the proof
         return Err(Einval);
     }
-    assert!(should_follow != flag_set(flags, libc::O_NOFOLLOW) );
 
-    assert!(v_dir_fd == HOMEDIR_FD);
-    // assert!(ctx.fdmap.fd_to_native(v_dir_fd, trace).is_ok());
-    assert!(fd.to_raw() == ctx.homedir_host_fd.to_raw());
-    // assert!(crate::tcb::path::path_safe(&host_pathname, should_follow));
     let fd = trace_openat(ctx, fd, host_pathname, flags)?;
     ctx.fdmap.create(HostFd::from_raw(fd))
 }
@@ -110,12 +91,8 @@ pub fn wasi_path_open(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// if args are not valid, nothing happens
-#[ensures(v_fd >= MAX_SBOX_FDS ==> effects!(old(trace), trace))]
-// #[ensures(v_fd < MAX_SBOX_FDS && old(!ctx.fdmap.contains(v_fd)) ==> effects!(old(trace), trace))]
-// if args are valid, we do invoke an effect
-//#[ensures( (v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd)) ==> effects!(trace, old(trace), Effect::FdAccess) )]
 pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+    // can't replace with fd_to_native until we fix question mark operator
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -277,7 +254,6 @@ pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<()> {
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
     let ret = trace_datasync(ctx, fd)?;
     Ok(ret as u32)
 }
@@ -299,12 +275,11 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 
     let mode_flags = trace_fgetfl(ctx, fd)?;
 
-    // TODO: put rights in once those are implemented
     let result = FdStat {
         fs_filetype: (filetype as libc::mode_t).into(),
-        fs_flags: FdFlags::from_posix(mode_flags as i32), //(mode_flags as libc::c_int).into(),
-        fs_rights_base: 0, // TODO: convert read and write from mode flags to the proper masks?
-        fs_rights_inheriting: u64::MAX, //TODO: we should pass in homedir rights
+        fs_flags: FdFlags::from_posix(mode_flags as i32), 
+        fs_rights_base: 0, // We don't bother to implement rights
+        fs_rights_inheriting: u64::MAX, 
     };
     Ok(result)
 }
@@ -321,7 +296,6 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
 pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
     let flags = FdFlags::from(v_flags as i32);
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    let posix_flags = flags.to_posix();
 
     let posix_flags = flags.to_posix();
     let ret = trace_fsetfl(ctx, fd, posix_flags)?;
@@ -339,7 +313,6 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let mut stat = fresh_stat();
-
     let filetype = trace_fstat(ctx, fd, &mut stat)?;
     Ok(stat.into())
 }
@@ -356,7 +329,6 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
     let ret = trace_ftruncate(ctx, fd, size)?;
     Ok(())
 }
@@ -580,6 +552,7 @@ pub fn wasi_path_filestat_get(
         // this should never happen, but adding an extra dynamic check let me 
         // avoid reasoning about bitwise operation math (which prusti does not support well)
         // in the proof
+        // assert!(false);
         return Err(Einval);
     }
 
@@ -905,10 +878,11 @@ pub fn wasi_path_unlink_file(
 pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
     let id = ClockId::try_from(clock_id)?;
 
-    let mut spec = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
+    // let mut spec = libc::timespec {
+    //     tv_sec: 0,
+    //     tv_nsec: 0,
+    // };
+    let mut spec = fresh_libc_timespec();
 
     let ret = trace_clock_get_res(ctx, id.into(), &mut spec)?;
     Ok(spec.into())
@@ -928,10 +902,11 @@ pub fn wasi_clock_time_get(
     _precision: u64, // ignored
 ) -> RuntimeResult<Timestamp> {
     let id = ClockId::try_from(clock_id)?;
-    let mut spec = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
+    // let mut spec = libc::timespec {
+    //     tv_sec: 0,
+    //     tv_nsec: 0,
+    // };
+    let mut spec = fresh_libc_timespec();
 
     let ret = trace_clock_get_time(ctx, id.into(), &mut spec)?;
     Ok(spec.into())
@@ -1349,10 +1324,11 @@ pub fn wasi_poll_oneoff(
     //               immediatly return. Instead, we use nanosleep on the min timeout.
     let mut res = 0;
     if pollfds.len() == 0 {
-        let mut rem = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
+        // let mut rem = libc::timespec {
+        //     tv_sec: 0,
+        //     tv_nsec: 0,
+        // };
+        let mut rem = fresh_libc_timespec();
         let timespec: libc::timespec = min_timeout.map(|t| t.into()).ok_or(Einval)?;
         res = trace_nanosleep(ctx, &timespec, &mut rem)?;
     } else {

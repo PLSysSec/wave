@@ -61,7 +61,7 @@ pub fn with_nth_bit_set(bv: u16, n: i32) -> u16 {
 #[trusted]
 #[pure]
 pub fn flag_set(bv: i32, flag: i32) -> bool {
-    (bv & flag) == 1
+    (bv & flag) == flag
 }
 
 #[trusted]

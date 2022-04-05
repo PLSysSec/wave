@@ -1,6 +1,6 @@
 use crate::tcb::misc::vec_checked_lookup;
-//#[cfg(feature = "verify")]
-//use crate::tcb::verifier::external_specs::vec::*;
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::external_specs::vec::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
@@ -146,24 +146,24 @@ impl FdMap {
         self.m[from as usize] = Err(Ebadf);
     }
 
-    // auto drop open file descriptors and shutdown sockets
-    #[with_ghost_var(trace: &mut Trace)]
-    // #[requires(ctx_safe(self))]
-    // #[requires(trace_safe(trace, self))]
-    // #[ensures(ctx_safe(self))]
-    // #[ensures(trace_safe(trace, self))]
-    #[external_methods(lookup)]
-    fn drop(&mut self) {
-        let mut idx = 3; // not stdin,stdout,stderr 
-        while idx < MAX_SBOX_FDS {
-            // body_invariant!(ctx_safe(self));
-            // body_invariant!(trace_safe(trace, self));
-            match self.lookup(idx) {
-                Ok(fd) => { os_close(fd.to_raw()); }
-                _ => (),
-            }
-            idx += 1;
-        }
-    }
+    // // auto drop open file descriptors and shutdown sockets
+    // #[with_ghost_var(trace: &mut Trace)]
+    // // #[requires(ctx_safe(self))]
+    // // #[requires(trace_safe(trace, self))]
+    // // #[ensures(ctx_safe(self))]
+    // // #[ensures(trace_safe(trace, self))]
+    // #[external_methods(lookup)]
+    // fn drop(&mut self) {
+    //     let mut idx = 3; // not stdin,stdout,stderr 
+    //     while idx < MAX_SBOX_FDS {
+    //         // body_invariant!(ctx_safe(self));
+    //         // body_invariant!(trace_safe(trace, self));
+    //         match self.lookup(idx) {
+    //             Ok(fd) => { os_close(fd.to_raw()); }
+    //             _ => (),
+    //         }
+    //         idx += 1;
+    //     }
+    // }
     
 }
