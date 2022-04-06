@@ -1,11 +1,9 @@
+use crate::tcb::misc::netlist_unmodified;
+use crate::tcb::path::path_safe;
+use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
 use crate::tcb::verifier::trace::{Effect, EffectType, Trace};
 use crate::types::{addr_in_netlist, VmCtx, HOMEDIR_FD, LINEAR_MEM_SIZE};
-use crate::tcb::path::path_safe;
-use crate::tcb::misc::netlist_unmodified;
 use prusti_contracts::*;
-use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
-
-
 
 #[cfg(feature = "verify")]
 predicate! {
@@ -15,7 +13,7 @@ predicate! {
         ctx.envc < 1024 &&
         ctx.arg_buffer.len() < 1024 * 1024 &&
         ctx.env_buffer.len() < 1024 * 1024 &&
-        netlist_unmodified(&ctx.netlist) && 
+        netlist_unmodified(&ctx.netlist) &&
         valid_linmem(raw_ptr(&(ctx.mem.as_slice())))
     }
 }

@@ -1,23 +1,20 @@
-
+use crate::tcb::path::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
-use crate::tcb::path::*;
-use owned_components::{OwnedComponents, OwnedComponent, readlinkat};
 use crate::types::*;
+use owned_components::{readlinkat, OwnedComponent, OwnedComponents};
 use prusti_contracts::*;
-use std::path::{Component, Path, PathBuf};
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
+use std::path::{Component, Path, PathBuf};
 
 const MAXSYMLINKS: isize = 10;
-
 
 // #[pure]
 // #[ensures()]
 fn to_pathbuf(v: Vec<u8>) -> PathBuf {
     PathBuf::from(OsString::from_vec(v.clone()))
 }
-
 
 // #[ensures(!is_symlink(out_path))]
 #[ensures(
@@ -42,7 +39,7 @@ fn expand_path(vec: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResul
         let comp = components[idx];
         let c = OwnedComponent::from_borrowed(&comp);
         // if this is the last element, and we are NO_FOLLOW, then don't expand
-        if !should_follow && idx + 1 == components.len(){
+        if !should_follow && idx + 1 == components.len() {
             out_path.push(c);
             break;
         }
@@ -89,15 +86,18 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> Runtim
     }
 }
 
-
-
 // Recursively expands a symlink (without explicit recursion)
 // maintains a queue of path components to process
 #[requires(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
 #[requires(!is_symlink(out_path) )]
 #[ensures(!is_symlink(out_path))]
 #[ensures(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
-fn expand_symlink(out_path: &mut OwnedComponents, linkpath_components: OwnedComponents, num_symlinks: &mut isize, dirfd: HostFd){
+fn expand_symlink(
+    out_path: &mut OwnedComponents,
+    linkpath_components: OwnedComponents,
+    num_symlinks: &mut isize,
+    dirfd: HostFd,
+) {
     let mut idx = 0;
     while idx < linkpath_components.len() {
         body_invariant!(!is_symlink(out_path));

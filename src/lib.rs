@@ -25,7 +25,7 @@ pub mod verifier_interface;
 pub mod wasm2c_frontend;
 mod writeback;
 // #[with_ghost_var(trace: &mut Trace)]
-mod wrappers;
 mod path_resolution;
+mod poll;
+mod wrappers;
 //pub mod setup_teardown;
-

@@ -1,5 +1,5 @@
-use prusti_contracts::*;
 use owned_components::*;
+use prusti_contracts::*;
 
 // #[extern_spec]
 // impl std::path::PathBuf {
@@ -11,8 +11,6 @@ use owned_components::*;
 //     // #[ensures(self.is_some() == !result)]
 //     // fn is_none(&self) -> bool;
 // }
-
-
 
 // #[extern_spec]
 // impl OwnedComponents {
@@ -30,14 +28,11 @@ use owned_components::*;
 //     // #[requires(idx < self.len())]
 //     pub fn lookup(&self, idx: usize);
 
-
-
 //     // #[ensures(self.len() == old(self.len()) + 1)]
 //     // #[ensures(self.lookup(old(self.len())) == old(value))]
 //     // #[ensures(forall(|i: usize| (i < old(self.len())) ==>
 //     //                 self.lookup(i) == old(self.lookup(i))))]
 //     pub fn push(&mut self, value: OwnedComponent);
-
 
 //     // #[requires(self.len() > 0)]
 //     // #[ensures(self.len() == old(self.len()) - 1)]
@@ -45,8 +40,6 @@ use owned_components::*;
 //     //                 self.lookup(i) == old(self.lookup(i))))]
 //     pub fn pop(&mut self);
 
-
-    
 //     pub fn unparse(self) -> Vec<u8>;
 
 // }

@@ -20,8 +20,6 @@ We will prove things about it's API as necessary.
 //TODO: should not be able to close stdin,stdout,stderr,homedir
 // homedir is hardcoded to 3.
 
-
-
 impl FdMap {
     // #[ensures (result.m.len() == MAX_SBOX_FDS)]
     #[ensures (result.reserve.len() == 0)]
@@ -154,7 +152,7 @@ impl FdMap {
     // // #[ensures(trace_safe(trace, self))]
     // #[external_methods(lookup)]
     // fn drop(&mut self) {
-    //     let mut idx = 3; // not stdin,stdout,stderr 
+    //     let mut idx = 3; // not stdin,stdout,stderr
     //     while idx < MAX_SBOX_FDS {
     //         // body_invariant!(ctx_safe(self));
     //         // body_invariant!(trace_safe(trace, self));
@@ -165,5 +163,4 @@ impl FdMap {
     //         idx += 1;
     //     }
     // }
-    
 }

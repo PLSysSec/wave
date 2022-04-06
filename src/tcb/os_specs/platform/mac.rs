@@ -1,18 +1,19 @@
+use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::as_sbox_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
-use crate::{effect, path_effect, effects};
-use wave_macros::{external_calls, external_methods, with_ghost_var};
+use crate::{effect, effects, path_effect};
+use core::ffi::c_void;
+use libc::{__error, utimensat};
 use prusti_contracts::*;
 use syscall::syscall;
-use core::ffi::c_void;
-use libc::{utimensat, __error};
-use crate::tcb::misc::flag_set;
+use wave_macros::{external_calls, external_methods, with_ghost_var};
 
-
-use security_framework_sys::random::{SecRandomCopyBytes, kSecRandomDefault};
-use mach2::mach_time::{mach_wait_until, mach_timebase_info, mach_timebase_info_t, mach_timebase_info_data_t};
+use mach2::mach_time::{
+    mach_timebase_info, mach_timebase_info_data_t, mach_timebase_info_t, mach_wait_until,
+};
+use security_framework_sys::random::{kSecRandomDefault, SecRandomCopyBytes};
 
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
@@ -47,7 +48,14 @@ pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn os_allocate(fd: usize, fstore: &libc::fstore_t) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(FCNTL, fd, libc::F_PREALLOCATE, fstore as *const libc::fstore_t) as isize };
+    let result = unsafe {
+        syscall!(
+            FCNTL,
+            fd,
+            libc::F_PREALLOCATE,
+            fstore as *const libc::fstore_t
+        ) as isize
+    };
     let __end_ts = stop_timer();
     push_syscall_result("allocate", __start_ts, __end_ts);
     result
@@ -59,22 +67,14 @@ pub fn os_allocate(fd: usize, fstore: &libc::fstore_t) -> isize {
 // follows terminal symlink if O_NOFOLLOW are not set
 // this is the only lookupflags, so we just say flags == 0
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == (flags == 0)))]
-pub fn os_fstatat(dirfd: usize, path:  [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
+pub fn os_fstatat(dirfd: usize, path: [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe {
-        syscall!(
-            FSTATAT64,
-            fd,
-            path.as_ptr(),
-            stat as *mut libc::stat,
-            flags
-        ) as isize
-    };
+    let result =
+        unsafe { syscall!(FSTATAT64, fd, path.as_ptr(), stat as *mut libc::stat, flags) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("fstatat", __start_ts, __end_ts);
     result
 }
-
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(specs.len() >= 2)]
@@ -96,16 +96,23 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW)))]
 pub fn os_utimensat(
     dirfd: usize,
-    path:  [u8; 4096],
+    path: [u8; 4096],
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> isize {
     // TODO: There is no direct utimensat syscall on osx. Instead, we will just call the
     //       libc wrapper
-    let res = unsafe { utimensat(dirfd as i32, path.as_ptr() as *const i8, specs.as_ptr(), flags) as isize };
+    let res = unsafe {
+        utimensat(
+            dirfd as i32,
+            path.as_ptr() as *const i8,
+            specs.as_ptr(),
+            flags,
+        ) as isize
+    };
     if res == -1 {
-       	// convert errno to -errno to conform to our expected syscall api 
-	-1 * unsafe { *__error() } as isize
+        // convert errno to -errno to conform to our expected syscall api
+        -1 * unsafe { *__error() } as isize
     } else {
         res
     }
@@ -135,7 +142,17 @@ pub fn os_getboottime(timeval: &mut libc::timeval) -> isize {
     let sysctl_len: libc::size_t = sysctl_name.len().into();
     let tv_size: libc::size_t = std::mem::size_of::<libc::timeval>().into();
     // 	T_ASSERT_POSIX_SUCCESS(sysctlbyname("kern.boottime", &bt_tv, &len, NULL, 0), NULL);
-    let result = unsafe { syscall!(__SYSCTL, sysctl_name.as_ptr(), &sysctl_len as *const libc::size_t, timeval as *mut libc::timeval, &tv_size as *const usize, 0, 0) as isize };
+    let result = unsafe {
+        syscall!(
+            __SYSCTL,
+            sysctl_name.as_ptr(),
+            &sysctl_len as *const libc::size_t,
+            timeval as *mut libc::timeval,
+            &tv_size as *const usize,
+            0,
+            0
+        ) as isize
+    };
     let __end_ts = stop_timer();
     push_syscall_result("getboottime", __start_ts, __end_ts);
     result
@@ -146,7 +163,8 @@ pub fn os_getboottime(timeval: &mut libc::timeval) -> isize {
 #[ensures(effects!(old(trace), trace))]
 pub fn os_rusageself(rusage: &mut libc::rusage) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe { syscall!(GETRUSAGE, libc::RUSAGE_SELF, rusage as *mut libc::rusage) as isize };
+    let result =
+        unsafe { syscall!(GETRUSAGE, libc::RUSAGE_SELF, rusage as *mut libc::rusage) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("getrusage", __start_ts, __end_ts);
     result
@@ -178,7 +196,9 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     // May also just read from /dev/random, but then its subject to File Descriptor exhaustion.
 
     // TODO: handle return value
-    unsafe { SecRandomCopyBytes(kSecRandomDefault, cnt, buf.as_mut_ptr() as *mut c_void); }
+    unsafe {
+        SecRandomCopyBytes(kSecRandomDefault, cnt, buf.as_mut_ptr() as *mut c_void);
+    }
     0
 }
 
@@ -192,9 +212,7 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[ensures(effects!(old(trace), trace))]
 pub fn os_wait_until(deadline: u64) -> isize {
     // TODO: handle return value
-    let result = unsafe {
-        mach_wait_until(deadline) as isize
-    };
+    let result = unsafe { mach_wait_until(deadline) as isize };
     result
 }
 
@@ -204,9 +222,7 @@ pub fn os_wait_until(deadline: u64) -> isize {
 #[ensures(effects!(old(trace), trace))]
 pub fn os_timebase_info(info: &mut mach_timebase_info_data_t) -> isize {
     // TODO: handle return value
-    let result = unsafe {
-        mach_timebase_info(info as mach_timebase_info_t) as isize
-    };
+    let result = unsafe { mach_timebase_info(info as mach_timebase_info_t) as isize };
     result
 }
 
@@ -221,11 +237,16 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
     // TODO: ensure directory entry format is correct...
     let mut basep: u64 = 0;
     let result = unsafe {
-        let result = syscall!(GETDIRENTRIES, fd, dirp.as_mut_ptr(), count, &mut basep as *mut u64);
+        let result = syscall!(
+            GETDIRENTRIES,
+            fd,
+            dirp.as_mut_ptr(),
+            count,
+            &mut basep as *mut u64
+        );
         if (result as isize) != -1 {
             dirp.set_len(result);
-        }
-        else {
+        } else {
             dirp.set_len(0);
         }
         result as isize

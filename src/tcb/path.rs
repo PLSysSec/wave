@@ -6,9 +6,9 @@ use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path, PathBuf};
 //use std::fs::read_link;
+use owned_components::{readlinkat, OwnedComponent, OwnedComponents};
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
-use owned_components::{OwnedComponents, OwnedComponent, readlinkat};
 use std::str;
 
 const DEPTH_ERR: isize = i32::MIN as isize;
@@ -44,7 +44,6 @@ pub fn arr_is_symlink(components: &HostPath) -> bool {
 pub fn arr_has_no_symlink_prefixes(components: &HostPath) -> bool {
     panic!()
 }
-
 
 #[extern_spec]
 impl OwnedComponents {
@@ -109,10 +108,16 @@ pub fn min_depth(components: &OwnedComponents) -> isize {
     while idx < components.len() {
         body_invariant!(curr_depth >= 0);
         match components.lookup(idx) {
-            OwnedComponent::RootDir => {return DEPTH_ERR;} // hacky, but fine for now
-            OwnedComponent::CurDir => {},
-            OwnedComponent::ParentDir => {curr_depth -= 1;},
-            OwnedComponent::Normal(_) => {curr_depth += 1;},
+            OwnedComponent::RootDir => {
+                return DEPTH_ERR;
+            } // hacky, but fine for now
+            OwnedComponent::CurDir => {}
+            OwnedComponent::ParentDir => {
+                curr_depth -= 1;
+            }
+            OwnedComponent::Normal(_) => {
+                curr_depth += 1;
+            }
         };
         // if curr_depth ever dips below 0, it is illegal
         // this prevents paths like ../other_sandbox_home
@@ -127,7 +132,9 @@ pub fn min_depth(components: &OwnedComponents) -> isize {
 #[trusted]
 #[ensures(result.is_none() ==> old(!is_symlink(out_path)) )]
 fn read_linkat_h(dirfd: HostFd, out_path: &OwnedComponents) -> Option<OwnedComponents> {
-    readlinkat(dirfd.to_raw(), &out_path.as_pathbuf()).ok().map(|p| OwnedComponents::parse(p))
+    readlinkat(dirfd.to_raw(), &out_path.as_pathbuf())
+        .ok()
+        .map(|p| OwnedComponents::parse(p))
 }
 
 // Looks at a single component of a path:
@@ -138,9 +145,14 @@ fn read_linkat_h(dirfd: HostFd, out_path: &OwnedComponents) -> Option<OwnedCompo
 // require that out_path does not contain any symlinks going in
 #[requires(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
 #[ensures(!is_symlink(out_path))]
-// ensures that out_path contains no symlinks on exit 
+// ensures that out_path contains no symlinks on exit
 #[ensures(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
-pub fn maybe_expand_component(dirfd: HostFd, out_path: &mut OwnedComponents, comp: OwnedComponent, num_symlinks: &mut isize) -> Option<OwnedComponents>{
+pub fn maybe_expand_component(
+    dirfd: HostFd,
+    out_path: &mut OwnedComponents,
+    comp: OwnedComponent,
+    num_symlinks: &mut isize,
+) -> Option<OwnedComponents> {
     out_path.inner.push(comp);
     if let Some(linkpath) = read_linkat_h(dirfd, out_path) {
         out_path.inner.pop(); // pop the component we just added, since it is a symlink
@@ -148,7 +160,6 @@ pub fn maybe_expand_component(dirfd: HostFd, out_path: &mut OwnedComponents, com
         return Some(linkpath);
     }
     return None;
-    
 }
 
 // its an empty path, its not a symlink
@@ -170,8 +181,8 @@ predicate! {
 #[cfg(feature = "verify")]
 predicate! {
     pub fn path_safe(v: &HostPath, should_follow: bool) -> bool {
-        arr_is_relative(&v) && 
-        (arr_depth(&v) >= 0) && 
+        arr_is_relative(&v) &&
+        (arr_depth(&v) >= 0) &&
         (should_follow ==> !arr_is_symlink(&v)) &&
         arr_has_no_symlink_prefixes(&v)
     }

@@ -1,19 +1,17 @@
+use crate::tcb::misc::flag_set;
 use crate::tcb::os_specs::*;
 #[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
-#[cfg(feature = "verify")]
 use crate::tcb::path::path_safe;
+#[cfg(feature = "verify")]
+use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, effects};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::with_ghost_var;
-use crate::tcb::misc::{flag_set};
 
-#[cfg_attr(target_os = "linux",
-           path="platform/linux.rs")]
-#[cfg_attr(target_os = "macos",
-           path="platform/mac.rs")]
+#[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
+#[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
 mod platform;
 pub use platform::*;
 
@@ -30,7 +28,7 @@ pub use platform::*;
 pub fn trace_openat(
     ctx: &VmCtx,
     dir_fd: HostFd,
-    path: HostPath, 
+    path: HostPath,
     flags: i32,
 ) -> RuntimeResult<usize> {
     // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
@@ -183,7 +181,6 @@ pub fn trace_fstat(ctx: &VmCtx, fd: HostFd, stat: &mut libc::stat) -> RuntimeRes
     let r = os_fstat(os_fd, stat);
     RuntimeError::from_syscall_ret(r)
 }
-
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(path_safe(&path, !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW) ))] // flags == 0 means that O_NOFOLLOW is not set and therefore that should_follow is true

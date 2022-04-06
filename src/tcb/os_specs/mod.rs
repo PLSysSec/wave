@@ -1,20 +1,18 @@
 #[cfg(feature = "time_syscalls")]
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
+use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::as_sbox_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
-use crate::{effect, path_effect, effects};
-use wave_macros::{external_call, external_method, with_ghost_var};
+use crate::{effect, effects, path_effect};
 use prusti_contracts::*;
 use syscall::syscall;
-use crate::tcb::misc::flag_set;
+use wave_macros::{external_call, external_method, with_ghost_var};
 
-#[cfg_attr(target_os = "linux",
-           path="platform/linux.rs")]
-#[cfg_attr(target_os = "macos",
-           path="platform/mac.rs")]
+#[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
+#[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
 mod platform;
 pub use platform::*;
 
@@ -25,7 +23,7 @@ pub use platform::*;
 // follows terminal sylink if O_NOFOLLOW is not set
 #[ensures(effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::O_NOFOLLOW) ))]
 // path_effect!(PathAccessAt, fd1, old_p, true) if fd1 == old_fd && old_p == old(old_path)
-pub fn os_openat(dirfd: usize, path:  [u8; 4096], flags: i32) -> isize {
+pub fn os_openat(dirfd: usize, path: [u8; 4096], flags: i32) -> isize {
     let __start_ts = start_timer();
     // all created files should be rdwr
     let result = unsafe { syscall!(OPENAT, dirfd, path.as_ptr(), flags, 0o666) as isize };
@@ -246,7 +244,6 @@ pub fn os_renameat(
     result
 }
 
-
 // https://man7.org/linux/man-pages/man2/symlinkat.2.html
 // From the spec: The string pointed to by path1 shall be treated only as a string and shall not be validated as a pathname.
 // follows terminal symlinks: true (although it might fail)
@@ -256,14 +253,7 @@ pub fn os_renameat(
 #[ensures(effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path2), effect!(FdAccess)))]
 pub fn os_symlinkat(path1: [u8; 4096], dirfd: usize, path2: [u8; 4096]) -> isize {
     let __start_ts = start_timer();
-    let result = unsafe {
-        syscall!(
-            SYMLINKAT,
-            path1.as_ptr(),
-            dirfd,
-            path2.as_ptr()
-        ) as isize
-    };
+    let result = unsafe { syscall!(SYMLINKAT, path1.as_ptr(), dirfd, path2.as_ptr()) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("symlinkat", __start_ts, __end_ts);
     result
@@ -359,4 +349,3 @@ pub fn os_fionread(fd: usize) -> isize {
     push_syscall_result("fionread", __start_ts, __end_ts);
     result
 }
-

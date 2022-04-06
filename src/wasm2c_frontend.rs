@@ -30,7 +30,6 @@ use crate::stats::stats::output_syscall_perf_results;
 
 trace::init_depth_var!();
 
-
 pub fn create_ctx(
     memptr: *mut u8,
     homedir: &str,
@@ -81,8 +80,6 @@ pub fn create_ctx(
         envc,
         netlist,
     }
-
-
 }
 
 /// Used for FFI. (wasm2c frontend)

@@ -1,15 +1,15 @@
 //! Contains call implementations that are specific to MacOs
 //! See src/tcb/os_specs for the raw system calls.
 
+use crate::tcb::misc::{bitwise_or_u32, fresh_rusage};
 use crate::tcb::os_specs::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
-use crate::tcb::misc::{fresh_rusage, bitwise_or_u32};
 use crate::types::*;
 use crate::{effect, effects};
-use wave_macros::{with_ghost_var, external_call};
 use prusti_contracts::*;
 use syscall::syscall;
+use wave_macros::{external_call, with_ghost_var};
 
 use mach2::mach_time::mach_timebase_info_data_t;
 
@@ -80,7 +80,7 @@ pub fn trace_clock_get_time(
             spec.tv_sec = tv.tv_sec;
             spec.tv_nsec = (tv.tv_usec * 1000) as i64;
             ret
-        },
+        }
         libc::CLOCK_MONOTONIC => {
             // Computes a monotonic clock by subtracting the real_time with the boot_time
             // from https://opensource.apple.com/source/xnu/xnu-3789.41.3/tools/tests/darwintests/mach_boottime_usec.c.auto.html
@@ -107,7 +107,7 @@ pub fn trace_clock_get_time(
             spec.tv_sec = diff_sec;
             spec.tv_nsec = (diff_usec * 1000) as i64;
             ret
-        },
+        }
         libc::CLOCK_PROCESS_CPUTIME_ID => {
             let mut ru: libc::rusage = fresh_rusage();
             let ret = os_rusageself(&mut ru);
@@ -124,7 +124,7 @@ pub fn trace_clock_get_time(
             spec.tv_sec = sum_sec;
             spec.tv_nsec = (sum_usec * 1000) as i64;
             ret
-        },
+        }
         libc::CLOCK_THREAD_CPUTIME_ID => {
             let ret = os_thread_selfusage();
             if ret == 0 {
@@ -134,7 +134,7 @@ pub fn trace_clock_get_time(
             spec.tv_sec = ret as i64 / 1_000_000_000;
             spec.tv_nsec = ret as i64 % 1_000_000_000;
             0
-        },
+        }
         _ => {
             return Err(RuntimeError::Einval);
         }
@@ -155,14 +155,15 @@ pub fn trace_clock_get_res(
     spec: &mut libc::timespec,
 ) -> RuntimeResult<usize> {
     match clock_id {
-        libc::CLOCK_REALTIME | libc::CLOCK_MONOTONIC | libc::CLOCK_PROCESS_CPUTIME_ID | libc::CLOCK_THREAD_CPUTIME_ID => {
+        libc::CLOCK_REALTIME
+        | libc::CLOCK_MONOTONIC
+        | libc::CLOCK_PROCESS_CPUTIME_ID
+        | libc::CLOCK_THREAD_CPUTIME_ID => {
             spec.tv_nsec = 1_000;
             spec.tv_sec = 0;
             Ok(0)
-        },
-        _ => {
-            Err(RuntimeError::Einval)
         }
+        _ => Err(RuntimeError::Einval),
     }
 }
 
@@ -179,10 +180,7 @@ pub fn trace_nanosleep(
     rem: &mut libc::timespec,
 ) -> RuntimeResult<usize> {
     let nanos = req.tv_sec * 1_000_000_000 + req.tv_nsec;
-    let mut timebase_info = mach_timebase_info_data_t {
-        numer: 0,
-        denom: 0,
-    };
+    let mut timebase_info = mach_timebase_info_data_t { numer: 0, denom: 0 };
     // TODO: handle errors
     os_timebase_info(&mut timebase_info);
     // TODO: do we need to worry about overflow?

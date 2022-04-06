@@ -37,7 +37,7 @@ pub fn ffi_load_cstr(ptr: *const c_char) -> &'static str {
 pub fn ffi_load_cstr_as_vec(ptr: *mut u8) -> Vec<u8> {
     // The plus one adds the null byte at the end since strlen normally
     // does not count it
-    let mut len = unsafe { strlen(ptr as *const i8)};
+    let mut len = unsafe { strlen(ptr as *const i8) };
     // All non-zero length strings in C are null-terminated
     if len != 0 {
         len += 1

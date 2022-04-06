@@ -20,8 +20,6 @@ pub fn vec_checked_lookup(
     vec[index as usize]
 }
 
-
-
 // // Trusted because I can't convince the verifier tha tthis will never panic.
 // // Used in specification in src/os.rs
 // #[trusted]
@@ -93,7 +91,7 @@ pub fn bitwise_and_u64(bv1: u64, bv2: u64) -> u64 {
 
 #[trusted]
 #[pure]
-// this ensures is mostly to prove that or'ing a nonzero # returns a 
+// this ensures is mostly to prove that or'ing a nonzero # returns a
 // nonzero result
 // #[with_ghost_var(trace: &mut Trace)]
 #[ensures(result >= bv1 && result >= bv2)]
@@ -184,7 +182,6 @@ pub fn empty_netlist() -> Netlist {
     [empty, empty, empty, empty]
 }
 
-
 // this shouldn't need to be trusted, but prusti does not casting an enum to an int
 #[trusted]
 pub fn as_u32(e: RuntimeError) -> u32 {
@@ -202,5 +199,3 @@ pub fn as_u16(e: RuntimeError) -> u16 {
 pub fn netlist_unmodified(n: &Netlist) -> bool {
     unimplemented!();
 }
-
-

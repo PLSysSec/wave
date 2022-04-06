@@ -316,8 +316,6 @@ pub struct VmCtx {
     pub netlist: Netlist,
 }
 
-
-
 // #[cfg_attr(not(feature = "verify"), derive(Debug))]
 // pub struct SandboxedPath(Vec<u8>);
 // impl From<SandboxedPath> for Vec<u8> {
@@ -911,6 +909,22 @@ pub struct SubscriptionFdReadWrite {
 pub enum SubscriptionFdType {
     Read,
     Write,
+}
+
+impl SubscriptionFdType {
+    pub fn to_posix(&self) -> i16 {
+        match self {
+            Self::Read => libc::POLLIN,
+            Self::Write => libc::POLLOUT,
+        }
+    }
+
+    pub fn to_event_type(&self) -> EventType {
+        match self {
+            Self::Read => EventType::FdRead,
+            Self::Write => EventType::FdWrite,
+        }
+    }
 }
 
 #[derive(Clone)]

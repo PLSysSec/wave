@@ -1,16 +1,15 @@
 #[cfg(feature = "time_syscalls")]
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
+use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::as_sbox_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
-use crate::{effect, path_effect, effects};
+use crate::{effect, effects, path_effect};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
-use crate::tcb::misc::flag_set;
-
 
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
@@ -74,7 +73,7 @@ pub fn os_allocate(fd: usize, offset: i64, len: i64) -> isize {
 path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW))
 )]
 // path_effect!(PathAccessAt, fd1, old_p, true) if fd1 == old_fd && old_p == old(old_path)
-pub fn os_fstatat(dirfd: usize, path:  [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
+pub fn os_fstatat(dirfd: usize, path: [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe {
         syscall!(
@@ -114,7 +113,7 @@ pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW) ))]
 pub fn os_utimensat(
     dirfd: usize,
-    path:  [u8; 4096],
+    path: [u8; 4096],
     specs: &Vec<libc::timespec>,
     flags: libc::c_int,
 ) -> isize {
@@ -194,8 +193,7 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
         let result = syscall!(GETDENTS64, fd, dirp.as_mut_ptr(), count);
         if (result as isize) != -1 {
             dirp.set_len(result);
-        }
-        else {
+        } else {
             dirp.set_len(0);
         }
         result as isize

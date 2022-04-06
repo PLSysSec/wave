@@ -1,5 +1,5 @@
-use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
 use crate::path_resolution::resolve_path;
+use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
 #[cfg(feature = "verify")]
 use crate::tcb::path::path_safe;
 #[cfg(feature = "verify")]
@@ -188,7 +188,13 @@ impl VmCtx {
             _ => true,
         }
     )]
-    pub fn translate_path(&self, path: SboxPtr, path_len: u32, should_follow: bool, dirfd: HostFd) -> RuntimeResult<HostPath> {
+    pub fn translate_path(
+        &self,
+        path: SboxPtr,
+        path_len: u32,
+        should_follow: bool,
+        dirfd: HostFd,
+    ) -> RuntimeResult<HostPath> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
@@ -209,7 +215,6 @@ impl VmCtx {
     //     assert!(v_fd == HOMEDIR_FD);
     //     let fd = ctx.homedir_host_fd;
     // }
-
 
     // TODO: replace read_x and write_x with faster but unsafe raw ptr read/write
 
@@ -320,7 +325,6 @@ impl VmCtx {
         self.write_u8(start + 1, bytes[1]);
         self.write_u8(start + 2, bytes[2]);
         self.write_u8(start + 3, bytes[3]);
-
     }
 
     // TODO: replace with faster but unsafe raw ptr memread/memwrite
