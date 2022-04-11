@@ -134,6 +134,64 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     Ok(num)
 }
 
+// alternative implementation of https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_read
+// This one uses actual readv
+// ssize_t readv(int fildes, const struct iovec *iov, int iovcnt);
+//
+// Posix representation
+// =================================
+// pub struct iovec {
+//     pub iov_base: *mut c_void,
+//     pub iov_len: usize,
+// }
+//
+// Wasm representation
+// =================================
+// pub struct iovec {
+//     pub iov_base: u32,
+//     pub iov_len: u32,
+// }
+// 
+// 
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_methods(push)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+pub fn wasi_fd_readv(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    // 1. Marshal IoVec to userspace
+    let mut i = 0;
+    let mut wasm_iov = Vec::new(); 
+    while i < iovcnt {
+        body_invariant!(ctx_safe(ctx));
+        body_invariant!(trace_safe(trace, ctx));
+
+        let start = (iovs + i * 8) as usize;
+        let (ptr, len) = ctx.read_u32_pair(start)?;
+
+        if !ctx.fits_in_lin_mem(ptr, len) {
+            return Err(Efault);
+        }
+
+        wasm_iov.push(WasmIoVec{iov_base: ptr, iov_len: len});
+        i += 1;
+    }
+
+    let result = trace_readv(ctx, fd, &wasm_iov, iovcnt as usize)?;
+    Ok(result as u32)
+    // forall(|i: usize| (i < wasm_iov.len() ==> 
+    //    let (ptr,len) = wasm_iov.lookup(i);
+    //    ctx.in_lin_mem(ptr, len)
+
+    // Actually perform the syscall here
+
+    //Ok(0) // temp
+    //Ok(num)
+}
+
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_write
 // modifies: none
 #[with_ghost_var(trace: &mut Trace)]

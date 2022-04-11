@@ -1152,3 +1152,15 @@ pub struct Dirent {
     pub out_namlen: usize,
     pub typ: u8,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct WasmIoVec {
+    pub iov_base: u32,
+    pub iov_len: u32,
+}
+
+#[repr(C)]
+pub struct NativeIoVec {
+    pub iov_base: usize,
+    pub iov_len: usize,
+}

@@ -347,4 +347,24 @@ impl VmCtx {
         self.write_u8(start + 6, bytes[6]);
         self.write_u8(start + 7, bytes[7]);
     }
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self))]
+    #[external_methods(push)]
+    pub fn translate_iovs(&self, iovs: &Vec<WasmIoVec>, iovcnt: usize) -> Vec<NativeIoVec> {
+        let mut idx = 0;
+        let mut native_iovs = Vec::new();
+        while idx < iovcnt {
+            body_invariant!(ctx_safe(self));
+            body_invariant!(trace_safe(trace, self));
+            let iov = iovs[idx];
+            let native_iov = self.translate_iov(iov);
+            native_iovs.push(native_iov);
+            idx += 1;
+        }        
+        native_iovs
+    }
 }

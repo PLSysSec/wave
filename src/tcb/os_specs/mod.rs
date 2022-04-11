@@ -10,6 +10,7 @@ use crate::{effect, effects, path_effect};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
+use crate::types::NativeIoVec;
 
 #[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
 #[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
@@ -19,10 +20,8 @@ pub use platform::*;
 // https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-//&& (trace.lookup_path(p) == old(&pathname))
 // follows terminal sylink if O_NOFOLLOW is not set
 #[ensures(effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::O_NOFOLLOW) ))]
-// path_effect!(PathAccessAt, fd1, old_p, true) if fd1 == old_fd && old_p == old(old_path)
 pub fn os_openat(dirfd: usize, path: [u8; 4096], flags: i32) -> isize {
     let __start_ts = start_timer();
     // all created files should be rdwr
@@ -47,13 +46,24 @@ pub fn os_close(fd: usize) -> isize {
 // https://man7.org/linux/man-pages/man2/read.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
-#[ensures(result >= 0 ==> buf.len() >= result as usize)]
-#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
 pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("read", __start_ts, __end_ts);
+    result
+}
+
+// https://man7.org/linux/man-pages/man2/read.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(effects!(old(trace), trace))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+pub fn os_readv(fd: usize, buf: &Vec<NativeIoVec>, iovcnt: usize) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(READV, fd, buf.as_ptr(), iovcnt) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("read", __start_ts, __end_ts);
     result
@@ -193,8 +203,6 @@ pub fn os_mkdirat(dirfd: usize, path: [u8; 4096], mode: libc::mode_t) -> isize {
 // follows terminal symlink: false
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
-#[ensures(result >= 0 ==> buf.len() == result as usize)]
-#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
 pub fn os_readlinkat(dirfd: usize, path: [u8; 4096], buf: &mut [u8], cnt: usize) -> isize {
@@ -262,8 +270,6 @@ pub fn os_symlinkat(path1: [u8; 4096], dirfd: usize, path2: [u8; 4096]) -> isize
 //https://man7.org/linux/man-pages/man2/recvfrom.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
-#[ensures(result >= 0 ==> buf.len() >= result as usize)]
-#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
 pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> isize {

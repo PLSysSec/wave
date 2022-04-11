@@ -113,6 +113,25 @@ impl VmCtx {
     pub fn write_u8(&mut self, offset: usize, v: u8) {
         self.mem[offset] = v;
     }
+
+
+    #[with_ghost_var(trace: &mut Trace)]
+    #[requires(ctx_safe(self))]
+    #[requires(trace_safe(trace, self))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self))]
+    #[external_methods(as_ptr, offset)]
+    #[trusted]
+    pub fn translate_iov(&self, iov: WasmIoVec) -> NativeIoVec {
+        let swizzled_base = unsafe {
+            self.mem.as_ptr().offset(iov.iov_base as isize) as usize
+        };
+        NativeIoVec {
+            iov_base: swizzled_base, 
+            iov_len: iov.iov_len as usize,
+        }     
+    }
+
 }
 
 // Linear memory allocation stuff

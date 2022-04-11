@@ -31,13 +31,7 @@ pub fn trace_openat(
     path: HostPath,
     flags: i32,
 ) -> RuntimeResult<usize> {
-    // #[requires(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw())]
-    // assert!(dir_fd.to_raw() == ctx.homedir_host_fd.to_raw());
     let os_fd: usize = dir_fd.to_raw();
-    // assert!(os_fd == ctx.homedir_host_fd.to_raw());
-    // let os_path: Vec<u8> = path.into();
-
-    // assert!(os_path.is_relative());
     let r = os_openat(os_fd, path, flags);
     RuntimeError::from_syscall_ret(r)
 }
@@ -67,6 +61,20 @@ pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Runt
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
     let r = os_read(os_fd, slice, cnt);
+    RuntimeError::from_syscall_ret(r)
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+//#[requires(cnt < ctx.memlen)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+pub fn trace_readv(ctx: &mut VmCtx, fd: HostFd, iov: &Vec<WasmIoVec>, iovcnt: usize) -> RuntimeResult<usize> {
+    //let slice = ctx.slice_mem_mut(ptr, cnt as u32);
+    let native_iov = ctx.translate_iovs(iov, iovcnt);
+    let os_fd: usize = fd.to_raw();
+    let r = os_readv(os_fd, &native_iov, iovcnt);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -125,10 +133,6 @@ pub fn trace_pwrite(
     offset: usize,
 ) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
-    //let start = ptr as usize;
-    //let end = ptr as usize + cnt as usize;
-    //let slice = &ctx.mem[start..end];
-    //Ok(1)
     let os_fd: usize = fd.to_raw();
     let r = os_pwrite(os_fd, slice, cnt, offset);
     RuntimeError::from_syscall_ret(r)

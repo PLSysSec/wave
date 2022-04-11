@@ -8,24 +8,24 @@ impl<T> Vec<T> {
     fn new() -> Vec<T>;
 
     #[pure]
-    fn len(&self) -> usize;
+    fn len<A>(&self) -> usize;
 
     #[ensures(self.len() == old(self.len()) + 1)]
     #[ensures(self.capacity() >= old(self.capacity()))]
-    fn push(&mut self, value: T);
+    fn push<A>(&mut self, value: T);
 
     #[ensures(self.len() == 0)]
-    fn clear(&mut self);
+    fn clear<A>(&mut self);
 
     #[pure]
-    fn capacity(&self) -> usize;
+    fn capacity<A>(&self) -> usize;
 
     #[ensures(self.capacity() >= old(self.len() + additional))]
     #[ensures(self.len() == old(self.len()))]
-    fn reserve_exact(&mut self, additional: usize);
+    fn reserve_exact<A>(&mut self, additional: usize);
 
     #[pure]
-    fn as_slice(&self) -> &[T];
+    fn as_slice<A>(&self) -> &[T];
 
     // #[pure]
     // fn as_slice(&self) -> &[T];

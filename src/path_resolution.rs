@@ -35,7 +35,7 @@ fn expand_path(vec: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResul
     while idx < components.len() {
         body_invariant!(!is_symlink(&out_path));
         // out_path should never contain symlinks
-        body_invariant!(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ) );
+        body_invariant!(forall(|i: usize| i < out_path.len() ==> !is_symlink(out_path.prefix(i)) ) );
         let comp = components[idx];
         let c = OwnedComponent::from_borrowed(&comp);
         // if this is the last element, and we are NO_FOLLOW, then don't expand
@@ -102,7 +102,7 @@ fn expand_symlink(
     while idx < linkpath_components.len() {
         body_invariant!(!is_symlink(out_path));
         // out_path should never contain symlinks
-        body_invariant!(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i))));
+        body_invariant!(forall(|i: usize| i < out_path.len() ==> !is_symlink(out_path.prefix(i))));
         if *num_symlinks >= MAXSYMLINKS {
             return;
         }

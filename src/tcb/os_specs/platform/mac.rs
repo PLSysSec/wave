@@ -18,8 +18,6 @@ use security_framework_sys::random::{kSecRandomDefault, SecRandomCopyBytes};
 //https://man7.org/linux/man-pages/man2/pread.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
-#[ensures(result >= 0 ==> buf.len() >= result as usize)]
-#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
 pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
@@ -187,8 +185,6 @@ pub fn os_thread_selfusage() -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[external_calls(SecRandomCopyBytes)]
 #[requires(buf.len() >= cnt)]
-#[ensures(result >= 0 ==> buf.len() >= result as usize)]
-#[ensures(result >= 0 ==> result as usize <= cnt)]
 #[trusted]
 #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
 pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
