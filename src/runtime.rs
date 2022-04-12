@@ -107,8 +107,10 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(reserve_exact)]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
+    #[requires( (n as usize) < self.memlen)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
+    
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
     #[ensures(result.len() == (n as usize) )]

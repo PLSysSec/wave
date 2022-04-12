@@ -32,7 +32,7 @@ pub const HOMEDIR_FD: SboxFd = 3; //4GB
 // Note: prusti does not like derive(Debug)
 
 pub type SboxPtr = u32;
-
+pub type HostPtr = usize;
 pub type HostPath = [u8; PATH_MAX];
 
 // pub type HostFd = usize;

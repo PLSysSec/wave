@@ -1,7 +1,7 @@
 #[cfg(feature = "time_syscalls")]
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::tcb::misc::flag_set;
-use crate::tcb::sbox_mem::as_sbox_ptr;
+use crate::tcb::sbox_mem::raw_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
@@ -15,7 +15,8 @@ use wave_macros::{external_call, external_method, with_ghost_var};
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PREAD64, fd, buf.as_mut_ptr(), cnt, offset) as isize };
@@ -28,7 +29,7 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PWRITE64, fd, buf.as_ptr(), cnt, offset) as isize };
@@ -150,7 +151,8 @@ pub fn os_clock_get_res(clock_id: libc::clockid_t, spec: &mut libc::timespec) ->
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(GETRANDOM, buf.as_mut_ptr(), cnt, flags) as isize };

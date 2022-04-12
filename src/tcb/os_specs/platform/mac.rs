@@ -1,5 +1,5 @@
 use crate::tcb::misc::flag_set;
-use crate::tcb::sbox_mem::as_sbox_ptr;
+use crate::tcb::sbox_mem::raw_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
@@ -19,7 +19,8 @@ use security_framework_sys::random::{kSecRandomDefault, SecRandomCopyBytes};
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PREAD, fd, buf.as_mut_ptr(), cnt, offset) as isize };
@@ -32,7 +33,7 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(PWRITE, fd, buf.as_ptr(), cnt, offset) as isize };
@@ -186,7 +187,8 @@ pub fn os_thread_selfusage() -> isize {
 #[external_calls(SecRandomCopyBytes)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     // no native syscall, use mac's secure random framework.
     // May also just read from /dev/random, but then its subject to File Descriptor exhaustion.

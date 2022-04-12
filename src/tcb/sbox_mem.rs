@@ -32,7 +32,7 @@ pub fn as_sbox_ptr(slice: &[u8]) -> usize {
 
 #[pure]
 #[trusted]
-pub fn raw_ptr(memptr: &[u8]) -> usize {
+pub fn raw_ptr(memptr: &[u8]) -> HostPtr {
     unimplemented!()
 }
 
@@ -46,10 +46,13 @@ impl VmCtx {
     #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
-    // #[ensures(ctx_safe(self))]
-    // #[ensures(trace_safe(trace, self))]
+    #[ensures(ctx_safe(self))]
+    #[ensures(trace_safe(trace, self))]
     #[ensures(dst.len() == (n as usize) )]
-    #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if addr == src as usize && count == n as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if 
+    //     addr == raw_ptr(self.mem.as_slice()) + src as usize && 
+    //     count == n as usize
+    // ))]
     #[trusted]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
         unsafe {
@@ -72,7 +75,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == dst as usize && count == n as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == dst as usize && count == n as usize))]
     #[trusted]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
         unsafe {
@@ -91,15 +94,24 @@ impl VmCtx {
     // #[ensures(trace_safe(trace, old(self).memlen))]
     #[ensures(result.len() == (len as usize))]
     #[ensures(effects!(old(trace), trace))]
-    #[ensures(as_sbox_ptr(result) == old(ptr as usize))]
+    #[ensures(raw_ptr(result) == old(raw_ptr(self.mem.as_slice())) + ptr as usize)]
+    //#[ensures(raw_ptr(result) == raw_ptr(self.mem.as_slice()) + ptr as usize)]
+    // #[ensures(result == old(self.mem.as_slice()))]
+    //#[ensures(old(raw_ptr(self.mem.as_slice())) == raw_ptr(self.mem.as_slice()))]
     //#[after_expiry(old(self.netlist) == self.netlist)]
-    #[after_expiry(ctx_safe(self) && old(self.netlist) == self.netlist && old(self.homedir_host_fd) == self.homedir_host_fd)]
+    #[after_expiry(
+        ctx_safe(self) && 
+        old(raw_ptr(self.mem.as_slice())) == before_expiry(raw_ptr(result)) && 
+        raw_ptr(self.mem.as_slice()) == before_expiry(raw_ptr(result)) && 
+        old(self.netlist) == self.netlist && 
+        old(self.homedir_host_fd) == self.homedir_host_fd)]
     #[trusted]
     pub fn slice_mem_mut(&mut self, ptr: SboxPtr, len: u32) -> &mut [u8] {
         let start = ptr as usize;
         let end = ptr as usize + len as usize;
         &mut self.mem[start..end]
     }
+
 
     // This needs to be trusted only because I can't seem to convice Prusti
     // that these safe memory writes do not update the linmem ptr

@@ -55,8 +55,9 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
+// #[trusted]
 // read writes `cnt` bytes to sandbox memory
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
@@ -65,16 +66,15 @@ pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Runt
 }
 
 #[with_ghost_var(trace: &mut Trace)]
-//#[requires(cnt < ctx.memlen)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 pub fn trace_readv(ctx: &mut VmCtx, fd: HostFd, iov: &Vec<WasmIoVec>, iovcnt: usize) -> RuntimeResult<usize> {
     //let slice = ctx.slice_mem_mut(ptr, cnt as u32);
-    let native_iov = ctx.translate_iovs(iov, iovcnt);
+    let mut native_iov = ctx.translate_iovs(iov, iovcnt);
     let os_fd: usize = fd.to_raw();
-    let r = os_readv(os_fd, &native_iov, iovcnt);
+    let r = os_readv(os_fd, &mut native_iov, iovcnt);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -86,7 +86,7 @@ pub fn trace_readv(ctx: &mut VmCtx, fd: HostFd, iov: &Vec<WasmIoVec>, iovcnt: us
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // pread writes `cnt` bytes to sandbox memory
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_pread(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -108,11 +108,24 @@ pub fn trace_pread(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // write reads `cnt` bytes to the sandbox
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
 pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
     let r = os_write(os_fd, slice, cnt);
+    RuntimeError::from_syscall_ret(r)
+}
+
+
+#[with_ghost_var(trace: &mut Trace)]
+#[requires(ctx_safe(ctx))]
+#[requires(trace_safe(trace, ctx))]
+#[ensures(ctx_safe(ctx))]
+#[ensures(trace_safe(trace, ctx))]
+pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iov: &Vec<WasmIoVec>, iovcnt: usize) -> RuntimeResult<usize> {
+    let native_iov = ctx.translate_iovs(iov, iovcnt);
+    let os_fd: usize = fd.to_raw();
+    let r = os_writev(os_fd, &native_iov, iovcnt);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -124,7 +137,7 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // pwrite writes `cnt` bytes to the sandbox
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
 pub fn trace_pwrite(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -425,7 +438,7 @@ pub fn trace_utimensat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count)))]
 pub fn trace_getrandom(
     ctx: &mut VmCtx,
     ptr: SboxPtr,
@@ -445,7 +458,7 @@ pub fn trace_getrandom(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_recv(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -466,7 +479,7 @@ pub fn trace_recv(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
 pub fn trace_send(
     ctx: &mut VmCtx,
     fd: HostFd,

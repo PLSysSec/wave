@@ -1,7 +1,7 @@
 #[cfg(feature = "time_syscalls")]
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::tcb::misc::flag_set;
-use crate::tcb::sbox_mem::as_sbox_ptr;
+use crate::tcb::sbox_mem::raw_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
@@ -47,7 +47,8 @@ pub fn os_close(fd: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) as isize };
@@ -60,25 +61,38 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(effects!(old(trace), trace))]
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
-pub fn os_readv(fd: usize, buf: &Vec<NativeIoVec>, iovcnt: usize) -> isize {
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
+pub fn os_readv(fd: usize, buf: &mut Vec<NativeIoVec>, iovcnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(READV, fd, buf.as_ptr(), iovcnt) as isize };
     let __end_ts = stop_timer();
-    push_syscall_result("read", __start_ts, __end_ts);
+    push_syscall_result("readv", __start_ts, __end_ts);
     result
 }
 
 //https://man7.org/linux/man-pages/man2/write.2.html
 #[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
+//#[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("write", __start_ts, __end_ts);
+    result
+}
+
+// https://man7.org/linux/man-pages/man2/read.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(effects!(old(trace), trace))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
+pub fn os_writev(fd: usize, buf: &Vec<NativeIoVec>, iovcnt: usize) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(WRITEV, fd, buf.as_ptr(), iovcnt) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("writev", __start_ts, __end_ts);
     result
 }
 
@@ -204,7 +218,8 @@ pub fn os_mkdirat(dirfd: usize, path: [u8; 4096], mode: libc::mode_t) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_readlinkat(dirfd: usize, path: [u8; 4096], buf: &mut [u8], cnt: usize) -> isize {
     let __start_ts = start_timer();
     let result =
@@ -214,7 +229,7 @@ pub fn os_readlinkat(dirfd: usize, path: [u8; 4096], buf: &mut [u8], cnt: usize)
     result
 }
 
-//https://man7.org/linux/man-pages/man2/unlinkat.2.html
+// https://man7.org/linux/man-pages/man2/unlinkat.2.html
 // follows terminal symlink: false
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
@@ -271,7 +286,8 @@ pub fn os_symlinkat(path1: [u8; 4096], dirfd: usize, path2: [u8; 4096]) -> isize
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) as isize };
@@ -284,7 +300,7 @@ pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
 #[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(as_sbox_ptr(buf)) && count == cnt))]
+#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: i32) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize };
