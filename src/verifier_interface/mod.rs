@@ -24,6 +24,13 @@ macro_rules! effects {
     ($trace:expr, $input:expr) => {};
 }
 
+#[cfg(not(any(feature = "verify", test)))]
+#[macro_export]
+macro_rules! map_effects {
+    ($trace:expr, $input:expr) => {};
+}
+
+
 // Dummy timing functions that should not exist during verification
 // #[cfg(feature = "verify")]
 #[inline]

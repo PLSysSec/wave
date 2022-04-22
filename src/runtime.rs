@@ -14,7 +14,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::os::unix::io::AsRawFd;
 use std::path::{Component, Path, PathBuf};
 use wave_macros::{external_calls, external_methods, with_ghost_var};
-
+use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
 use RuntimeError::*;
 
 // Exit codes for wasi-libc: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-top-half/musl/include/sysexits.h
@@ -67,26 +67,31 @@ impl VmCtx {
     // TODO: can I eliminate this in favor os in_lin_mem_usize?
     #[with_ghost_var(trace: &Trace)]
     #[pure]
-    #[ensures((result == true) ==> (ptr as usize) < self.memlen)]
+    #[ensures((result == true) ==> (ptr as usize >= 0) && (ptr as usize) < self.memlen)]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
-        (ptr as usize) < self.memlen
+        (ptr as usize >= 0) && (ptr as usize) < self.memlen
     }
 
     #[with_ghost_var(trace: &Trace)]
     #[pure]
-    #[ensures((result == true) ==> ptr < self.memlen)]
+    #[ensures((result == true) ==> ptr >= 0 && ptr < self.memlen)]
     pub fn in_lin_mem_usize(&self, ptr: usize) -> bool {
-        ptr < self.memlen
+        ptr >= 0 && ptr < self.memlen
     }
 
     /// Check whether buffer is entirely within sandbox
     // Can I eliminate this in favor of fits_in_lin_mem_usize
     #[pure]
     #[with_ghost_var(trace: &Trace)]
-    #[ensures(result == true ==> (buf as usize) < self.memlen && (buf <= buf + cnt) && (cnt as usize) < self.memlen)]
+    #[ensures(result == true ==> 
+        ((buf as usize) >= 0) && ((cnt as usize) >= 0) && 
+        (buf as usize) + (cnt as usize) < self.memlen && 
+        (buf <= buf + cnt) //&& 
+        // (cnt as usize) < self.memlen
+    )]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         let total_size = (buf as usize) + (cnt as usize);
-        if total_size > self.memlen || total_size > LINEAR_MEM_SIZE {
+        if total_size >= self.memlen || total_size >= LINEAR_MEM_SIZE {
             return false;
         }
         self.in_lin_mem(buf) && self.in_lin_mem(cnt) && buf <= buf + cnt
@@ -94,10 +99,17 @@ impl VmCtx {
 
     #[pure]
     #[with_ghost_var(trace: &Trace)]
-    #[ensures(result == true ==> buf < self.memlen && (buf <= buf + cnt) && cnt < self.memlen)]
+    #[ensures(result == true ==> 
+        buf >= 0 && cnt >= 0 &&
+        buf + cnt < self.memlen && 
+        (buf <= buf + cnt) //&&
+        // buf < self.memlen && cnt < self.memlen
+        //cnt < self.memlen 
+        // buf + cnt < self.memlen
+    )]
     pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> bool {
         let total_size = buf + cnt;
-        if total_size > self.memlen || total_size > LINEAR_MEM_SIZE {
+        if total_size >= self.memlen || total_size >= LINEAR_MEM_SIZE {
             return false;
         }
         self.in_lin_mem_usize(buf) && self.in_lin_mem_usize(cnt) && buf <= buf + cnt
@@ -106,8 +118,9 @@ impl VmCtx {
     /// Copy buffer from sandbox to host
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(reserve_exact)]
+
     #[requires(self.fits_in_lin_mem(src, n, trace))]
-    #[requires( (n as usize) < self.memlen)]
+    // #[requires( (n as usize) < self.memlen && n >= 0 && src >= 0)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
     
@@ -117,10 +130,14 @@ impl VmCtx {
     pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
         let mut host_buffer: Vec<u8> = Vec::new();
         host_buffer.reserve_exact(n as usize);
+        // assert!(src >= 0);
+        // assert!(((n as usize) < self.memlen) && ((n as usize) >= 0));
         self.memcpy_from_sandbox(&mut host_buffer, src, n);
         host_buffer
     }
 
+
+    
     /// Copy buffer from from host to sandbox
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some)]
@@ -350,23 +367,58 @@ impl VmCtx {
         self.write_u8(start + 7, bytes[7]);
     }
 
+/* 
+    #[ensures(
+        forall(|idx: usize|  (idx < buf.len()) ==> {
+        let iov = buf.lookup(idx); 
+        self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
+    )]
+*/
+
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
+    // #[requires(
+    //     forall(|idx: usize|  (idx < iovs.len()) ==> {
+    //         let iov = iovs.lookup(idx); 
+    //         self.fits_in_lin_mem(iov.iov_base, iov.iov_len, trace)
+    //     })
+    // )]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    #[external_methods(push)]
-    pub fn translate_iovs(&self, iovs: &Vec<WasmIoVec>, iovcnt: usize) -> Vec<NativeIoVec> {
+    #[external_methods(push, lookup)]
+    #[ensures(
+        {
+        let mem_ptr = raw_ptr(self.mem.as_slice());
+        let mem_len = self.memlen;
+        old(iovs.len()) == result.len() && 
+        forall(|idx: usize|  (idx < result.len()) ==> {
+            let wasm_iov = old(iovs.lookup(idx));
+            let iov = result.lookup(idx); 
+            iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) && 
+            iov.iov_len == (wasm_iov.iov_len as usize) 
+        })
+    }
+    )]
+    #[trusted]
+    pub fn translate_iovs(&self, iovs: &WasmIoVecs, iovcnt: usize) -> NativeIoVecs {
         let mut idx = 0;
         let mut native_iovs = Vec::new();
         while idx < iovcnt {
             body_invariant!(ctx_safe(self));
             body_invariant!(trace_safe(trace, self));
-            let iov = iovs[idx];
+            // body_invariant!(
+            //     forall(|idx: usize|  (idx < native_iovs.len()) ==> {
+            //     let iov = native_iovs.lookup(idx); 
+            //     self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
+            //     }));
+            let iov = iovs.lookup(idx);
             let native_iov = self.translate_iov(iov);
             native_iovs.push(native_iov);
             idx += 1;
-        }        
-        native_iovs
+        };        
+        NativeIoVecs {
+            iovs: native_iovs
+        }
     }
 }

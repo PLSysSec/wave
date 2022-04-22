@@ -20,6 +20,28 @@ pub fn vec_checked_lookup(
     vec[index as usize]
 }
 
+// Once again, Prusti does not accept that this is pure
+#[trusted]
+#[pure]
+#[requires(index < vec.len() )]
+pub fn iovs_checked_lookup(
+    vec: &NativeIoVecs,
+    index: usize,
+) -> NativeIoVec {
+    vec.iovs[index]
+}
+
+// Once again, Prusti does not accept that this is pure
+#[trusted]
+#[pure]
+#[requires(index < vec.len() )]
+pub fn wasm_iovs_checked_lookup(
+    vec: &WasmIoVecs,
+    index: usize,
+) -> WasmIoVec {
+    vec.iovs[index]
+}
+
 // // Trusted because I can't convince the verifier tha tthis will never panic.
 // // Used in specification in src/os.rs
 // #[trusted]

@@ -8,17 +8,17 @@ use prusti_contracts::*;
 #[cfg(feature = "verify")]
 predicate! {
     pub fn ctx_safe(ctx: &VmCtx) -> bool {
+        //let mem_ptr = raw_ptr(ctx.mem.as_slice());
         ctx.memlen == LINEAR_MEM_SIZE &&
         ctx.argc < 1024 &&
         ctx.envc < 1024 &&
         ctx.arg_buffer.len() < 1024 * 1024 &&
         ctx.env_buffer.len() < 1024 * 1024 &&
         netlist_unmodified(&ctx.netlist) &&
-        valid_linmem(raw_ptr(ctx.mem.as_slice()))
+        valid_linmem(raw_ptr(ctx.mem.as_slice())) //&&
+        //mem_ptr <= mem_ptr + count
     }
 }
-
-// TODO: make the memory-safety spec more convincing
 
 #[cfg(feature = "verify")]
 predicate! {
@@ -26,13 +26,14 @@ predicate! {
         forall(|i: usize|
             (i < trace.len() ==> (
                 match trace.lookup(i) {
-                    // dumb right now, just make sure count less than size of mem...
                     Effect { typ: EffectType::ReadN | EffectType::WriteN, f1: addr, f2: count, .. } => {
                         let mem_ptr = raw_ptr(ctx.mem.as_slice());
+                        //let mem_end = mem_ptr + ctx.memlen;
                         valid_linmem(mem_ptr) && 
-                            addr >= mem_ptr &&
-                            addr + count < mem_ptr + ctx.memlen &&
-                            addr <= addr + count // double check that there is no overflow
+                        addr >= mem_ptr &&
+                        // addr + count < mem_ptr + ctx.memlen &&
+                        mem_ptr <= mem_ptr + ctx.memlen &&  
+                        addr <= addr + count // double check that there is no overflow
                     },//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
                     //Effect { typ: EffectType::WriteN, f1: addr, f2: count, .. } => valid_linmem(raw_ptr(ctx.mem.as_slice())),//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
                     Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe

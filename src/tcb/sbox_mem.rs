@@ -32,6 +32,7 @@ pub fn as_sbox_ptr(slice: &[u8]) -> usize {
 
 #[pure]
 #[trusted]
+#[ensures(result >= 0)]
 pub fn raw_ptr(memptr: &[u8]) -> HostPtr {
     unimplemented!()
 }
@@ -42,17 +43,21 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(copy_nonoverlapping)]
     #[external_methods(set_len)]
+    
+    //#[requires(n as usize <= self.memlen)]
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
+
     #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
+    // #[ensures(trace_safe(trace, self))]
     #[ensures(dst.len() == (n as usize) )]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if 
-    //     addr == raw_ptr(self.mem.as_slice()) + src as usize && 
-    //     count == n as usize
-    // ))]
+    // #[ensures(old(raw_ptr(self.mem.as_slice())) == raw_ptr(self.mem.as_slice()))]
+    #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if 
+        addr == raw_ptr(self.mem.as_slice()) + src as usize && 
+        count == n as usize
+    ))]
     #[trusted]
     pub fn memcpy_from_sandbox(&self, dst: &mut Vec<u8>, src: SboxPtr, n: u32) {
         unsafe {
@@ -61,7 +66,7 @@ impl VmCtx {
                 dst.as_mut_ptr(),
                 n as usize,
             );
-            dst.set_len(n as usize);
+            dst.set_len(n as usize); // TODO: wrong, need to make sure copy_nonoverlapping actually copied it
         };
         // do_effect!(effect!(ReadN, src, n));
     }
@@ -69,13 +74,19 @@ impl VmCtx {
     /// Function for memcpy from sandbox to host
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(copy_nonoverlapping)]
-    #[requires(src.len() >= (n as usize) )]
+
+    // #[requires(src.len() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n, trace))]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
+    
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == dst as usize && count == n as usize))]
+    // #[ensures(old(raw_ptr(self.mem.as_slice())) == raw_ptr(self.mem.as_slice()))]
+    #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if 
+    addr == raw_ptr(self.mem.as_slice()) + dst as usize && 
+    count == n as usize
+))]
     #[trusted]
     pub fn memcpy_to_sandbox(&mut self, dst: SboxPtr, src: &Vec<u8>, n: u32) {
         unsafe {
@@ -101,8 +112,8 @@ impl VmCtx {
     //#[after_expiry(old(self.netlist) == self.netlist)]
     #[after_expiry(
         ctx_safe(self) && 
-        old(raw_ptr(self.mem.as_slice())) == before_expiry(raw_ptr(result)) && 
-        raw_ptr(self.mem.as_slice()) == before_expiry(raw_ptr(result)) && 
+        old(raw_ptr(self.mem.as_slice()) + ptr as usize) == before_expiry(raw_ptr(result)) && 
+        raw_ptr(self.mem.as_slice()) + ptr as usize == before_expiry(raw_ptr(result)) && 
         old(self.netlist) == self.netlist && 
         old(self.homedir_host_fd) == self.homedir_host_fd)]
     #[trusted]
@@ -132,6 +143,11 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
+    // #[ensures(self.fits_in_lin_mem_usize(result.iov_base, result.iov_len, trace))]
+    #[ensures(
+        result.iov_base == raw_ptr(self.mem.as_slice()) + (iov.iov_base as usize) && 
+        result.iov_len == (iov.iov_len as usize)
+    )]
     #[external_methods(as_ptr, offset)]
     #[trusted]
     pub fn translate_iov(&self, iov: WasmIoVec) -> NativeIoVec {

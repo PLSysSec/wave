@@ -1159,8 +1159,64 @@ pub struct WasmIoVec {
     pub iov_len: u32,
 }
 
+
+// Wrapper around Vec<NativeIoVecs> used to make proof cleaner
+pub struct WasmIoVecs {
+    pub iovs: Vec<WasmIoVec>,
+}
+
+impl WasmIoVecs {
+    #[pure]
+    pub fn len(&self) -> usize {
+        self.iovs.len()
+    }
+
+    #[ensures(result.len() == 0)]
+    pub fn new() -> Self {
+        Self { iovs: Vec::new() }
+    }
+
+    // Have to dispatch to trusted function because Prusti won't let me
+    // inspect a vector inside a proof 
+    #[pure]
+    #[requires(index < self.len())]
+    pub fn lookup(&self, index: usize) -> WasmIoVec {
+        wasm_iovs_checked_lookup(self, index)
+    }
+}
+
+
+
 #[repr(C)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct NativeIoVec {
     pub iov_base: usize,
     pub iov_len: usize,
 }
+
+// Wrapper around Vec<NativeIoVecs> used to make proof cleaner
+pub struct NativeIoVecs {
+    pub iovs: Vec<NativeIoVec>,
+}
+
+impl NativeIoVecs {
+    #[pure]
+    pub fn len(&self) -> usize {
+        self.iovs.len()
+    }
+
+    #[ensures(result.len() == 0)]
+    pub fn new() -> Self {
+        Self { iovs: Vec::new() }
+    }
+
+    // Have to dispatch to trusted function because Prusti won't let me
+    // inspect a vector inside a proof 
+    #[pure]
+    #[requires(index < self.len())]
+    pub fn lookup(&self, index: usize) -> NativeIoVec {
+        iovs_checked_lookup(self, index)
+    }
+}
+
+

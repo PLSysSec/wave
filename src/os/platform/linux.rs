@@ -15,7 +15,7 @@ use wave_macros::with_ghost_var;
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_advise(
     ctx: &VmCtx,
     fd: HostFd,
