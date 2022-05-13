@@ -1,6 +1,8 @@
 counterexample = false
 check_overflows = false
 assert_timeout = 0
-extra_verifier_args = [ "--checkTimeout=50",  "--z3SaturationTimeout=500", "--numberOfParallelVerifiers=1" ]
+extra_verifier_args = [ "--checkTimeout=0", "--qpSplitTimeout=0", "--z3SaturationTimeout=0", "--numberOfParallelVerifiers=1" ]
+#encode_unsigned_num_constraint=true
 enable_cache=true
 no_verify_deps = true # Don't verify macro generation code
+dump_debug_info=true

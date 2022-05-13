@@ -146,13 +146,16 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(
-    forall(|idx: usize|  (idx < iovs.len()) ==> {
+    iovs.len() >= 0 &&
+    forall(|idx: usize|  (idx < iovs.len() && idx >= 0) ==> {
         let iov = iovs.lookup(idx);
         let buf = iov.iov_base;
         let cnt = iov.iov_len;
         // iov.iov_base == 3 &&
         // iov.iov_len == 2
-        ((buf as usize) >= 0) && ((cnt as usize) >= 0) && 
+
+
+        (buf >= 0) && (cnt >= 0) && 
         (buf as usize) + (cnt as usize) < ctx.memlen 
         // (buf <= buf + cnt)
         //ctx.fits_in_lin_mem(iov.iov_base, iov.iov_len, trace)
@@ -161,28 +164,29 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
 // #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-#[ensures(
-    {
-    let mem_ptr = raw_ptr(ctx.mem.as_slice());
-    let mem_len = ctx.memlen;
-    forall(|idx: usize|  (idx < result.len()) ==> {
-        let iov = result.lookup(idx);
-        let addr = iov.iov_base;
-        let count = iov.iov_len; 
-            valid_linmem(mem_ptr) && 
-            addr >= mem_ptr &&
-            addr + count < mem_ptr + mem_len && // addr + count < mem_ptr + ctx.memlen &&
-            mem_ptr <= mem_ptr + mem_len &&  
-            addr <= addr + count 
-    })
-})]
-pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize) -> NativeIoVecs {
+
+#[ensures(trace_safe(trace, ctx))]
+// #[ensures(
+//     {
+//     let mem_ptr = raw_ptr(ctx.mem.as_slice());
+//     let mem_len = ctx.memlen;
+//     forall(|idx: usize|  (idx < result.len()) ==> {
+//         let iov = result.lookup(idx);
+//         let addr = iov.iov_base;
+//         let count = iov.iov_len; 
+//             valid_linmem(mem_ptr) && 
+//             addr >= mem_ptr &&
+//             addr + count < mem_ptr + mem_len && // addr + count < mem_ptr + ctx.memlen &&
+//             mem_ptr <= mem_ptr + mem_len &&  
+//             addr <= addr + count 
+//     })
+// })]
+pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize) -> RuntimeResult<usize> {
     let native_iovs = ctx.translate_iovs(iovs, iovcnt);
-    native_iovs
-    // let os_fd: usize = fd.to_raw();
-    // let r = os_writev(os_fd, &native_iovs, iovcnt);
-    // RuntimeError::from_syscall_ret(r)
+    // native_iovs
+    let os_fd: usize = fd.to_raw();
+    let r = os_writev(os_fd, &native_iovs, iovcnt);
+    RuntimeError::from_syscall_ret(r)
 }
 
 // #[with_ghost_var(trace: &mut Trace)]
