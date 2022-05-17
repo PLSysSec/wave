@@ -57,7 +57,6 @@ pub use platform::*;
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[trusted]
 // read writes `cnt` bytes to sandbox memory
 // #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
 pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {

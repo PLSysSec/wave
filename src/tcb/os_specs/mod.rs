@@ -11,6 +11,7 @@ use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
 use crate::types::{NativeIoVec, NativeIoVecs};
+use crate::iov::*;
 
 #[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
 #[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
@@ -18,17 +19,7 @@ mod platform;
 pub use platform::*;
 
 
-#[cfg(feature = "verify")]
-predicate! {
-    pub fn iov_eq(ev: Effect, iov: &NativeIoVec) -> bool {
-        match ev {
-            effect!(ReadN,addr,count) => 
-                addr == iov.iov_base && 
-                count == iov.iov_len,
-            _ => false,
-        }
-    }
-}
+
 
 
 // https://man7.org/linux/man-pages/man2/open.2.html

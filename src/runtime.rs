@@ -235,7 +235,7 @@ impl VmCtx {
     //     let fd = ctx.homedir_host_fd;
     // }
 
-    // TODO: replace read_x and write_x with faster but unsafe raw ptr read/write
+    // TODO: replace read_x and write_x with faster raw ptr read/write
 
     /// read u16 from wasm linear memory
     // Not thrilled about this implementation, but it works
@@ -346,7 +346,7 @@ impl VmCtx {
         self.write_u8(start + 3, bytes[3]);
     }
 
-    // TODO: replace with faster but unsafe raw ptr memread/memwrite
+    // TODO: replace with faster raw ptr memread/memwrite
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(to_le_bytes)]
     #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]

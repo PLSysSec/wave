@@ -3,7 +3,7 @@ use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::raw_ptr;
 use crate::types::NativeIoVecs;
-use crate::tcb::os_specs::iov_eq;
+use crate::iov::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
