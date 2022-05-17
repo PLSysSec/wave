@@ -84,7 +84,7 @@ impl VmCtx {
     #[pure]
     #[with_ghost_var(trace: &Trace)]
     #[ensures(result == true ==> 
-        ((buf as usize) >= 0) && ((cnt as usize) >= 0) && 
+        (buf >= 0) && (cnt >= 0) && 
         (buf as usize) + (cnt as usize) < self.memlen && 
         (buf <= buf + cnt) //&& 
         // (cnt as usize) < self.memlen

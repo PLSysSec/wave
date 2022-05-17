@@ -2,6 +2,8 @@
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::raw_ptr;
+use crate::types::NativeIoVecs;
+use crate::tcb::os_specs::iov_eq;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
@@ -25,6 +27,32 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
     result
 }
 
+
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(
+    trace.len() == old(trace.len() + buf.len()) &&
+    forall(|i: usize| (i < trace.len()) ==> 
+    {
+        if i < old(trace.len()) 
+            { trace.lookup(i) == old(trace.lookup(i)) }
+        else
+        {
+            let this = buf.lookup(i - old(trace.len())); 
+            let ev = trace.lookup(i);
+            iov_eq(ev, &this)
+        }
+    }
+)
+)]
+pub fn os_preadv(fd: usize, buf: &NativeIoVecs, iovcnt: usize, offset: usize) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(PREADV, fd, buf.iovs.as_ptr(), iovcnt, offset) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("preadv", __start_ts, __end_ts);
+    result
+}
+
 //https://man7.org/linux/man-pages/man2/pwrite.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(buf.len() >= cnt)]
@@ -35,6 +63,33 @@ pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     let result = unsafe { syscall!(PWRITE64, fd, buf.as_ptr(), cnt, offset) as isize };
     let __end_ts = stop_timer();
     push_syscall_result("pwrite", __start_ts, __end_ts);
+    result
+}
+
+
+//man7.org/linux/man-pages/man2/pwritev.2.html
+#[with_ghost_var(trace: &mut Trace)]
+#[trusted]
+#[ensures(
+    trace.len() == old(trace.len() + buf.len()) &&
+    forall(|i: usize| (i < trace.len()) ==> 
+    {
+        if i < old(trace.len()) 
+            { trace.lookup(i) == old(trace.lookup(i)) }
+        else
+        {
+            let this = buf.lookup(i - old(trace.len())); 
+            let ev = trace.lookup(i);
+            iov_eq(ev, &this)
+        }
+    }
+)
+)]
+pub fn os_pwritev(fd: usize, buf: &NativeIoVecs, iovcnt: usize, offset: usize) -> isize {
+    let __start_ts = start_timer();
+    let result = unsafe { syscall!(PWRITEV, fd, buf.iovs.as_ptr(), iovcnt, offset) as isize };
+    let __end_ts = stop_timer();
+    push_syscall_result("pwritev", __start_ts, __end_ts);
     result
 }
 

@@ -17,6 +17,20 @@ use crate::types::{NativeIoVec, NativeIoVecs};
 mod platform;
 pub use platform::*;
 
+
+#[cfg(feature = "verify")]
+predicate! {
+    pub fn iov_eq(ev: Effect, iov: &NativeIoVec) -> bool {
+        match ev {
+            effect!(ReadN,addr,count) => 
+                addr == iov.iov_base && 
+                count == iov.iov_len,
+            _ => false,
+        }
+    }
+}
+
+
 // https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
@@ -69,42 +83,52 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
 //         iovcnt, 
 //         effect!(WriteN, addr, count) if addr == this.iov_base && count == iovcnt
 // ))]
+// #[ensures(
+//     old(buf.len()) == iovcnt && 
+//     takes_n_steps(old(trace), trace, iovcnt) &&
+//     forall(|idx: usize|  (idx < old(buf.len())) ==> {
+//         let this = old(buf.lookup(idx)); 
+//         match trace.lookup(trace.len() - old(buf.len()) + idx) {
+//             effect!(WriteN,addr,count) => 
+//                 addr == this.iov_base && 
+//                 count == this.iov_len,
+//             _ => false,
+//         }
+//     })
+// )]
+
+// // #[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
+// #[ensures(
+//     buf.len() == old(buf.len()) && 
+//     forall(|idx: usize|  (idx < buf.len()) ==>
+//         buf.lookup(idx) == old(buf.lookup(idx))
+//     // self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
+//     // })
+// ))]
+
+
+
+
+
 #[ensures(
-    old(buf.len()) == iovcnt && 
-    takes_n_steps(old(trace), trace, iovcnt) &&
-    forall(|idx: usize|  (idx < old(buf.len())) ==> {
-        let this = old(buf.lookup(idx)); 
-        match trace.lookup(trace.len() - old(buf.len()) + idx) {
-            effect!(WriteN,addr,count) => 
-                addr == this.iov_base && 
-                count == this.iov_len,
-            _ => false,
+    // effects_from_iov(trace, buf)
+    trace.len() == old(trace.len() + buf.len()) &&
+    forall(|i: usize| (i < trace.len()) ==> 
+    {
+        if i < old(trace.len()) 
+            { trace.lookup(i) == old(trace.lookup(i)) }
+        else
+        {
+            let this = buf.lookup(i - old(trace.len())); 
+            let ev = trace.lookup(i);
+            iov_eq(ev, &this)
         }
-    })
+    }
+)
 )]
+// #[ensures(effects!(old(trace), trace))]
 
-// #[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-#[ensures(
-    buf.len() == old(buf.len()) && 
-    forall(|idx: usize|  (idx < buf.len()) ==>
-        buf.lookup(idx) == old(buf.lookup(idx))
-    // self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
-    // })
-))]
-
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), 
-// effect!(WriteN, addr, count) if 
-// addr == old(raw_ptr(buf)) && 
-// count == cnt))]
-
-//     //     trace.lookup($old_trace.len() + idx) {
-//     //         $( $pattern )|+ => $($guard &&)? true,
-//     //         _ => false,
-//     //     }
-//     // )
-//)]
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_readv(fd: usize, buf: &mut NativeIoVecs, iovcnt: usize) -> isize {
+pub fn os_readv(fd: usize, buf: &NativeIoVecs, iovcnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(READV, fd, buf.iovs.as_ptr(), iovcnt) as isize };
     let __end_ts = stop_timer();
@@ -125,87 +149,13 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
     result
 }
 
-
-
-#[cfg(feature = "verify")]
-predicate! {
-    pub fn iov_eq(ev: Effect, iov: &NativeIoVec) -> bool {
-        match ev {
-            effect!(ReadN,addr,count) => 
-                addr == iov.iov_base && 
-                count == iov.iov_len,
-            _ => false,
-        }
-    }
-}
-
-#[cfg(feature = "verify")]
-predicate! {
-    pub fn iov_eq_idx(trace: &Trace, buf: &NativeIoVecs, idx: usize) -> bool {
-        trace.len() > idx && idx >= 0 && buf.len() < idx &&
-        {
-        let this = buf.lookup(idx); 
-        let ev = trace.lookup(trace.len() - idx - 1);
-        iov_eq(ev, &this)
-        }
-    }
-}
-
-
-
-// https://man7.org/linux/man-pages/man2/read.2.html
+//man7.org/linux/man-pages/man2/read.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-// #[ensures(effects!(old(trace), trace))]
-// #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if 
-//     //let this = buf.lookup(0);
-//     //addr == old(raw_ptr(buf)) && count == cnt 
-//     addr == buf.lookup(0).iov_base && 
-//     count == buf.lookup(0).iov_len
-// ))]
-
 #[ensures(
-    // takes_n_steps(old(trace), trace, 2) &&
-    // { 
-    //     let this = buf.lookup(0); 
-    //     let first = match trace.lookup(trace.len() - 1) {
-    //         effect!(ReadN,addr,count) => 
-    //             addr == this.iov_base && 
-    //             count == this.iov_len,
-    //         _ => false,
-    //     };
-    //     let that = buf.lookup(1); 
-    //     let second = match trace.lookup(trace.len() - 2) {
-    //         effect!(ReadN,addr,count) => 
-    //             addr == that.iov_base && 
-    //             count == that.iov_len,
-    //         _ => false,
-    //     };
-    //     first && second 
-    // }
-
-
-    // takes_n_steps(old(trace), trace, 1) &&
-    // forall(|idx: usize|  (idx < 1  ==> {
-    // //{ 
-    //     let this = buf.lookup(0); 
-    //     let ev = trace.lookup(trace.len() - 1);
-    //     let first = match ev {
-    //         effect!(ReadN,addr,count) => 
-    //             addr == this.iov_base && 
-    //             count == this.iov_len,
-    //         _ => false,
-    //     };
-    //     first 
-    // }))
-
-    //n >= 0 &&
-    // We added n more steps
+    // effects_from_iov(trace, buf)
     trace.len() == old(trace.len() + buf.len()) &&
-    // buf.len() == 2 &&
-    // But the other effects were not affected
     forall(|i: usize| (i < trace.len()) ==> 
-    // trace.lookup(i) == old(trace.lookup(i))
     {
         if i < old(trace.len()) 
             { trace.lookup(i) == old(trace.lookup(i)) }
@@ -217,36 +167,8 @@ predicate! {
         }
     }
 )
-    
-    // takes_n_steps(old(trace), trace, 1) &&
-    // {
-    //     // let buf_len = buf.len();
-    //     //let buf_len = 1;
-    //     //trace.len() >= 0 && buf.len() >= 0 &&
-    //     forall(|idx: usize|  (idx < 1  ==> {
-    //         // iov_eq_idx(trace, buf, 0)
-    //         let this = buf.lookup(0); 
-    //         let ev = trace.lookup(trace.len() - 1);
-    //         iov_eq(ev, &this)
-    //     }))
-    // }
-
-//     {
-//     // let buf_len = buf.len();
-//     let buf_len = 1;
-//     trace.len() >= 0 &&
-//     takes_n_steps(old(trace), trace, buf_len) &&
-//     forall(|idx: usize|  (idx < buf_len  ==> {
-//         let this = buf.lookup(idx); 
-//         match trace.lookup(trace.len() - idx - 1) {
-//             effect!(ReadN,addr,count) => 
-//                 addr == this.iov_base && 
-//                 count == this.iov_len,
-//             _ => false,
-//         }
-//     }))
-// }
 )]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 // #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_writev(fd: usize, buf: &NativeIoVecs, iovcnt: usize) -> isize {
     let __start_ts = start_timer();
