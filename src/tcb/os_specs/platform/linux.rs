@@ -40,7 +40,7 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
         {
             let this = buf.lookup(i - old(trace.len())); 
             let ev = trace.lookup(i);
-            iov_eq(ev, &this)
+            iov_eq_write(ev, &this)
         }
     }
 )
@@ -80,7 +80,7 @@ pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
         {
             let this = buf.lookup(i - old(trace.len())); 
             let ev = trace.lookup(i);
-            iov_eq(ev, &this)
+            iov_eq_read(ev, &this)
         }
     }
 )

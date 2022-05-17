@@ -6,7 +6,7 @@ use crate::tcb::sbox_mem::raw_ptr;
 use crate::tcb::verifier::*;
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
-use crate::{effect, effects, path_effect, map_effects};
+use crate::{effect, effects, path_effect};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
@@ -65,44 +65,7 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
 // https://man7.org/linux/man-pages/man2/read.2.html
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
-// #[ensures(effects!(old(trace), trace))]
-// #[ensures(
-//     map_effects!(
-//         old(trace), 
-//         trace, 
-//         buf, 
-//         iovcnt, 
-//         effect!(WriteN, addr, count) if addr == this.iov_base && count == iovcnt
-// ))]
-// #[ensures(
-//     old(buf.len()) == iovcnt && 
-//     takes_n_steps(old(trace), trace, iovcnt) &&
-//     forall(|idx: usize|  (idx < old(buf.len())) ==> {
-//         let this = old(buf.lookup(idx)); 
-//         match trace.lookup(trace.len() - old(buf.len()) + idx) {
-//             effect!(WriteN,addr,count) => 
-//                 addr == this.iov_base && 
-//                 count == this.iov_len,
-//             _ => false,
-//         }
-//     })
-// )]
-
-// // #[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-// #[ensures(
-//     buf.len() == old(buf.len()) && 
-//     forall(|idx: usize|  (idx < buf.len()) ==>
-//         buf.lookup(idx) == old(buf.lookup(idx))
-//     // self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
-//     // })
-// ))]
-
-
-
-
-
 #[ensures(
-    // effects_from_iov(trace, buf)
     trace.len() == old(trace.len() + buf.len()) &&
     forall(|i: usize| (i < trace.len()) ==> 
     {
@@ -112,13 +75,11 @@ pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
         {
             let this = buf.lookup(i - old(trace.len())); 
             let ev = trace.lookup(i);
-            iov_eq(ev, &this)
+            iov_eq_write(ev, &this)
         }
     }
 )
 )]
-// #[ensures(effects!(old(trace), trace))]
-
 pub fn os_readv(fd: usize, buf: &NativeIoVecs, iovcnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(READV, fd, buf.iovs.as_ptr(), iovcnt) as isize };
@@ -144,7 +105,6 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
 #[ensures(
-    // effects_from_iov(trace, buf)
     trace.len() == old(trace.len() + buf.len()) &&
     forall(|i: usize| (i < trace.len()) ==> 
     {
@@ -154,13 +114,11 @@ pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
         {
             let this = buf.lookup(i - old(trace.len())); 
             let ev = trace.lookup(i);
-            iov_eq(ev, &this)
+            iov_eq_read(ev, &this)
         }
     }
 )
 )]
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_writev(fd: usize, buf: &NativeIoVecs, iovcnt: usize) -> isize {
     let __start_ts = start_timer();
     let result = unsafe { syscall!(WRITEV, fd, buf.iovs.as_ptr(), iovcnt) as isize };
