@@ -367,23 +367,10 @@ impl VmCtx {
         self.write_u8(start + 7, bytes[7]);
     }
 
-/* 
-    #[ensures(
-        forall(|idx: usize|  (idx < buf.len()) ==> {
-        let iov = buf.lookup(idx); 
-        self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
-    )]
-*/
-
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
-    // #[requires(
-    //     forall(|idx: usize|  (idx < iovs.len()) ==> {
-    //         let iov = iovs.lookup(idx); 
-    //         self.fits_in_lin_mem(iov.iov_base, iov.iov_len, trace)
-    //     })
-    // )]
+    #[requires(iovs.len() >= 0)]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
     #[external_methods(push, lookup)]
@@ -391,8 +378,8 @@ impl VmCtx {
         {
         let mem_ptr = raw_ptr(self.mem.as_slice());
         let mem_len = self.memlen;
-        old(iovs.len()) == result.len() && 
-        forall(|idx: usize|  (idx < result.len()) ==> {
+        iovs.len() == result.len() && 
+        forall(|idx: usize|  (idx >= 0 && idx < result.len()) ==> {
             let wasm_iov = old(iovs.lookup(idx));
             let iov = result.lookup(idx); 
             iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) && 
@@ -400,25 +387,30 @@ impl VmCtx {
         })
     }
     )]
-    #[trusted]
-    pub fn translate_iovs(&self, iovs: &WasmIoVecs, iovcnt: usize) -> NativeIoVecs {
+    pub fn translate_iovs(&self, iovs: &WasmIoVecs) -> NativeIoVecs {
         let mut idx = 0;
-        let mut native_iovs = Vec::new();
+        let mut native_iovs = NativeIoVecs::new();
+        let iovcnt = iovs.len();
         while idx < iovcnt {
+            body_invariant!(idx < iovcnt );
+            body_invariant!(native_iovs.len() == idx);
             body_invariant!(ctx_safe(self));
             body_invariant!(trace_safe(trace, self));
-            // body_invariant!(
-            //     forall(|idx: usize|  (idx < native_iovs.len()) ==> {
-            //     let iov = native_iovs.lookup(idx); 
-            //     self.fits_in_lin_mem_usize(iov.iov_base, iov.iov_len, trace)
-            //     }));
+            body_invariant!(
+                forall(|idx: usize|  (idx >= 0 && idx < native_iovs.len()) ==> {
+                let wasm_iov = iovs.lookup(idx);
+                let iov = native_iovs.lookup(idx); 
+                iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) && 
+                iov.iov_len == (wasm_iov.iov_len as usize) 
+                }));
+
             let iov = iovs.lookup(idx);
             let native_iov = self.translate_iov(iov);
             native_iovs.push(native_iov);
             idx += 1;
-        };        
-        NativeIoVecs {
-            iovs: native_iovs
-        }
+        };
+
+        native_iovs        
     }
 }
+

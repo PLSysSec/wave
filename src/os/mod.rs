@@ -92,7 +92,7 @@ pub fn trace_readv(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize
     // let r = os_readv(os_fd, &mut native_iovs, iovcnt);
     // RuntimeError::from_syscall_ret(r)
 
-    let mut native_iovs = ctx.translate_iovs(iovs, iovcnt);
+    let mut native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
     let r = os_readv(os_fd, &mut native_iovs, iovcnt);
@@ -139,7 +139,7 @@ pub fn trace_pread(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 pub fn trace_preadv(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize, offset: usize) -> RuntimeResult<usize> {
-    let mut native_iovs = ctx.translate_iovs(iovs, iovcnt);
+    let mut native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
     let r = os_preadv(os_fd, &mut native_iovs, iovcnt, offset);
@@ -181,7 +181,7 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize) -> RuntimeResult<usize> {
-    let native_iovs = ctx.translate_iovs(iovs, iovcnt);
+    let native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
     let r = os_writev(os_fd, &native_iovs, iovcnt);
@@ -207,7 +207,7 @@ pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usiz
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 pub fn trace_pwritev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize, offset: usize) -> RuntimeResult<usize> {
-    let native_iovs = ctx.translate_iovs(iovs, iovcnt);
+    let native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
     let r = os_pwritev(os_fd, &native_iovs, iovcnt, offset);
