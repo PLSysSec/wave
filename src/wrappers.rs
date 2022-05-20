@@ -103,36 +103,6 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Ok(result as u32)
 }
 
-// // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_read
-// // modifies: mem
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact, map_err)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-//     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(ctx_safe(ctx));
-//         body_invariant!(trace_safe(trace, ctx));
-
-//         let start = (iovs + i * 8) as usize;
-//         let (ptr, len) = ctx.read_u32_pair(start)?;
-
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-
-//         let result = trace_read(ctx, fd, ptr, len as usize)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
 
 // alternative implementation of https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_read
 // This one uses actual readv
@@ -196,45 +166,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 
     let result = trace_readv(ctx, fd, &wasm_iovs, iovcnt as usize)?;
     Ok(result as u32)
-    // forall(|i: usize| (i < wasm_iov.len() ==>
-    //    let (ptr,len) = wasm_iov.lookup(i);
-    //    ctx.in_lin_mem(ptr, len)
-
-    // Actually perform the syscall here
-
-    //Ok(0) // temp
-    //Ok(num)
 }
-
-// // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_write
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-//     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(ctx_safe(ctx));
-//         body_invariant!(trace_safe(trace, ctx));
-
-//         let start = (iovs + i * 8) as usize;
-
-//         let (ptr, len) = ctx.read_u32_pair(start)?;
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-
-//         let result = trace_write(ctx, fd, ptr, len as usize)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
 
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
@@ -478,41 +410,6 @@ pub fn wasi_fd_filestat_set_times(
     Ok(())
 }
 
-// // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_pread
-// // modifies: mem
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(reserve_exact, push)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_fd_pread(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     iovs: u32,
-//     iovcnt: u32,
-//     offset: u64,
-// ) -> RuntimeResult<u32> {
-//     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(ctx_safe(ctx));
-//         body_invariant!(trace_safe(trace, ctx));
-
-//         let start = (iovs + i * 8) as usize;
-
-//         let (ptr, len) = ctx.read_u32_pair(start)?;
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         let result = trace_pread(ctx, fd, ptr, len as usize, offset as usize)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
 #[requires(ctx_safe(ctx))]
@@ -563,14 +460,6 @@ pub fn wasi_fd_pread(
 
     let result = trace_preadv(ctx, fd, &wasm_iovs, iovcnt as usize, offset as usize)?;
     Ok(result as u32)
-    // forall(|i: usize| (i < wasm_iov.len() ==>
-    //    let (ptr,len) = wasm_iov.lookup(i);
-    //    ctx.in_lin_mem(ptr, len)
-
-    // Actually perform the syscall here
-
-    //Ok(0) // temp
-    //Ok(num)
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#prestat_dirname
@@ -617,41 +506,6 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     Err(Ebadf)
 }
 
-// // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_pwrite
-// // modifies: none
-// #[with_ghost_var(trace: &mut Trace)]
-// #[external_methods(push)]
-// #[requires(ctx_safe(ctx))]
-// #[requires(trace_safe(trace, ctx))]
-// #[ensures(ctx_safe(ctx))]
-// #[ensures(trace_safe(trace, ctx))]
-// pub fn wasi_fd_pwrite(
-//     ctx: &mut VmCtx,
-//     v_fd: u32,
-//     iovs: u32,
-//     iovcnt: u32,
-//     offset: u64,
-// ) -> RuntimeResult<u32> {
-//     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-
-//     let mut num: u32 = 0;
-//     let mut i = 0;
-//     while i < iovcnt {
-//         body_invariant!(ctx_safe(ctx));
-//         body_invariant!(trace_safe(trace, ctx));
-
-//         let start = (iovs + i * 8) as usize;
-
-//         let (ptr, len) = ctx.read_u32_pair(start)?;
-//         if !ctx.fits_in_lin_mem(ptr, len) {
-//             return Err(Efault);
-//         }
-//         let result = trace_pwrite(ctx, fd, ptr, len as usize, offset as usize)?;
-//         num += result as u32;
-//         i += 1;
-//     }
-//     Ok(num)
-// }
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
 #[requires(ctx_safe(ctx))]
