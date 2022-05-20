@@ -1,11 +1,11 @@
+use crate::iov::*;
 #[cfg(feature = "time_syscalls")]
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::raw_ptr;
-use crate::types::NativeIoVecs;
-use crate::iov::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
+use crate::types::NativeIoVecs;
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
 use crate::{effect, effects, path_effect};
@@ -26,7 +26,6 @@ pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
     push_syscall_result("pread", __start_ts, __end_ts);
     result
 }
-
 
 #[with_ghost_var(trace: &mut Trace)]
 #[trusted]
@@ -65,7 +64,6 @@ pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
     push_syscall_result("pwrite", __start_ts, __end_ts);
     result
 }
-
 
 //man7.org/linux/man-pages/man2/pwritev.2.html
 #[with_ghost_var(trace: &mut Trace)]

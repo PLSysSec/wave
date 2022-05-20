@@ -1,26 +1,22 @@
+use crate::iov::*;
 #[cfg(feature = "time_syscalls")]
 use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::tcb::misc::flag_set;
 use crate::tcb::sbox_mem::raw_ptr;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
+use crate::types::{NativeIoVec, NativeIoVecs};
 #[cfg(not(feature = "time_syscalls"))]
 use crate::verifier_interface::{push_syscall_result, start_timer, stop_timer};
 use crate::{effect, effects, path_effect};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_call, external_method, with_ghost_var};
-use crate::types::{NativeIoVec, NativeIoVecs};
-use crate::iov::*;
 
 #[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
 #[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
 mod platform;
 pub use platform::*;
-
-
-
-
 
 // https://man7.org/linux/man-pages/man2/open.2.html
 #[with_ghost_var(trace: &mut Trace)]

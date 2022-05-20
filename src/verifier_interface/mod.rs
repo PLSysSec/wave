@@ -30,7 +30,6 @@ macro_rules! map_effects {
     ($trace:expr, $input:expr) => {};
 }
 
-
 // Dummy timing functions that should not exist during verification
 // #[cfg(feature = "verify")]
 #[inline]

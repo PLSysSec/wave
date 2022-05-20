@@ -7,6 +7,7 @@ use crate::tcb::verifier::external_specs::result::*;
 use crate::tcb::verifier::*;
 // use crate::tcb::path::{arr_depth, arr_is_relative, arr_is_symlink};
 // use crate::poll::{parse_subscriptions, writeback_timeouts, writeback_fds};
+use crate::poll::*;
 use crate::types::*;
 use crate::{effect, effects};
 use prusti_contracts::*;
@@ -15,8 +16,6 @@ use std::mem;
 use std::str;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
-use crate::poll::*;
-
 
 // TODO: support arbitrary *at calls
 // Currently they can only be based off our preopened dir
@@ -153,8 +152,6 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 //     pub iov_len: u32,
 // }
 
-
-
 #[with_ghost_var(trace: &mut Trace)]
 #[external_methods(push)]
 #[requires(ctx_safe(ctx))]
@@ -165,7 +162,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     // 1. Marshal IoVec to userspace
     let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new(); 
+    let mut wasm_iovs = WasmIoVecs::new();
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
@@ -176,7 +173,7 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
                 let buf = iov.iov_base;
                 let cnt = iov.iov_len;
                 // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) && 
+                (buf >= 0) && (cnt >= 0) &&
                 (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
                 (buf <= buf + cnt)
             })
@@ -190,13 +187,16 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
             return Err(Efault);
         }
 
-        wasm_iovs.push(WasmIoVec{iov_base: ptr, iov_len: len});
+        wasm_iovs.push(WasmIoVec {
+            iov_base: ptr,
+            iov_len: len,
+        });
         i += 1;
     }
 
     let result = trace_readv(ctx, fd, &wasm_iovs, iovcnt as usize)?;
     Ok(result as u32)
-    // forall(|i: usize| (i < wasm_iov.len() ==> 
+    // forall(|i: usize| (i < wasm_iov.len() ==>
     //    let (ptr,len) = wasm_iov.lookup(i);
     //    ctx.in_lin_mem(ptr, len)
 
@@ -246,7 +246,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     // 1. Marshal IoVec to userspace
     let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new(); 
+    let mut wasm_iovs = WasmIoVecs::new();
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
@@ -257,7 +257,7 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
                 let buf = iov.iov_base;
                 let cnt = iov.iov_len;
                 // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) && 
+                (buf >= 0) && (cnt >= 0) &&
                 (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
                 (buf <= buf + cnt)
             })
@@ -271,7 +271,10 @@ pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runt
             return Err(Efault);
         }
 
-        wasm_iovs.push(WasmIoVec{iov_base: ptr, iov_len: len});
+        wasm_iovs.push(WasmIoVec {
+            iov_base: ptr,
+            iov_len: len,
+        });
         i += 1;
     }
 
@@ -516,11 +519,17 @@ pub fn wasi_fd_filestat_set_times(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32, offset: u64) -> RuntimeResult<u32> {
+pub fn wasi_fd_pread(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+    offset: u64,
+) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     // 1. Marshal IoVec to userspace
     let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new(); 
+    let mut wasm_iovs = WasmIoVecs::new();
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
@@ -531,7 +540,7 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32, offset:
                 let buf = iov.iov_base;
                 let cnt = iov.iov_len;
                 // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) && 
+                (buf >= 0) && (cnt >= 0) &&
                 (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
                 (buf <= buf + cnt)
             })
@@ -545,13 +554,16 @@ pub fn wasi_fd_pread(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32, offset:
             return Err(Efault);
         }
 
-        wasm_iovs.push(WasmIoVec{iov_base: ptr, iov_len: len});
+        wasm_iovs.push(WasmIoVec {
+            iov_base: ptr,
+            iov_len: len,
+        });
         i += 1;
     }
 
     let result = trace_preadv(ctx, fd, &wasm_iovs, iovcnt as usize, offset as usize)?;
     Ok(result as u32)
-    // forall(|i: usize| (i < wasm_iov.len() ==> 
+    // forall(|i: usize| (i < wasm_iov.len() ==>
     //    let (ptr,len) = wasm_iov.lookup(i);
     //    ctx.in_lin_mem(ptr, len)
 
@@ -646,11 +658,17 @@ pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32, offset: u64) -> RuntimeResult<u32> {
+pub fn wasi_fd_pwrite(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+    offset: u64,
+) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     // 1. Marshal IoVec to userspace
     let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new(); 
+    let mut wasm_iovs = WasmIoVecs::new();
     while i < iovcnt {
         body_invariant!(ctx_safe(ctx));
         body_invariant!(trace_safe(trace, ctx));
@@ -661,7 +679,7 @@ pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32, offset
                 let buf = iov.iov_base;
                 let cnt = iov.iov_len;
                 // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) && 
+                (buf >= 0) && (cnt >= 0) &&
                 (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
                 (buf <= buf + cnt)
             })
@@ -675,7 +693,10 @@ pub fn wasi_fd_pwrite(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32, offset
             return Err(Efault);
         }
 
-        wasm_iovs.push(WasmIoVec{iov_base: ptr, iov_len: len});
+        wasm_iovs.push(WasmIoVec {
+            iov_base: ptr,
+            iov_len: len,
+        });
         i += 1;
     }
 
@@ -1406,7 +1427,16 @@ pub fn wasi_poll_oneoff(
     let mut min_timeout = None;
     let precision = 0;
 
-    parse_subscriptions(ctx, in_ptr, nsubscriptions, precision, &mut min_timeout, &mut timeouts, &mut pollfds, &mut fd_data)?;
+    parse_subscriptions(
+        ctx,
+        in_ptr,
+        nsubscriptions,
+        precision,
+        &mut min_timeout,
+        &mut timeouts,
+        &mut pollfds,
+        &mut fd_data,
+    )?;
     // Special case: If we only got Clock subscriptions, we have no pollfds to poll on, so it will
     //               immediatly return. Instead, we use nanosleep on the min timeout.
     let res = if pollfds.len() == 0 {

@@ -1,4 +1,5 @@
 // use crate::os::trace_fionread;
+use crate::os::trace_fionread;
 use crate::runtime::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::result::*;
@@ -10,7 +11,6 @@ use prusti_contracts::*;
 use std::convert::{TryFrom, TryInto};
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
-use crate::os::trace_fionread;
 
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]

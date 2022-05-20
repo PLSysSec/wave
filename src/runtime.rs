@@ -2,6 +2,7 @@ use crate::path_resolution::resolve_path;
 use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
 #[cfg(feature = "verify")]
 use crate::tcb::path::path_safe;
+use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::option::*;
 #[cfg(feature = "verify")]
@@ -14,7 +15,6 @@ use std::os::unix::ffi::OsStringExt;
 use std::os::unix::io::AsRawFd;
 use std::path::{Component, Path, PathBuf};
 use wave_macros::{external_calls, external_methods, with_ghost_var};
-use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
 use RuntimeError::*;
 
 // Exit codes for wasi-libc: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-top-half/musl/include/sysexits.h
@@ -118,12 +118,10 @@ impl VmCtx {
     /// Copy buffer from sandbox to host
     #[with_ghost_var(trace: &mut Trace)]
     #[external_methods(reserve_exact)]
-
     #[requires(self.fits_in_lin_mem(src, n, trace))]
     // #[requires( (n as usize) < self.memlen && n >= 0 && src >= 0)]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
-    
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
     #[ensures(result.len() == (n as usize) )]
@@ -136,8 +134,6 @@ impl VmCtx {
         host_buffer
     }
 
-
-    
     /// Copy buffer from from host to sandbox
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(Some)]
@@ -392,25 +388,24 @@ impl VmCtx {
         let mut native_iovs = NativeIoVecs::new();
         let iovcnt = iovs.len();
         while idx < iovcnt {
-            body_invariant!(idx < iovcnt );
+            body_invariant!(idx < iovcnt);
             body_invariant!(native_iovs.len() == idx);
             body_invariant!(ctx_safe(self));
             body_invariant!(trace_safe(trace, self));
             body_invariant!(
-                forall(|idx: usize|  (idx >= 0 && idx < native_iovs.len()) ==> {
-                let wasm_iov = iovs.lookup(idx);
-                let iov = native_iovs.lookup(idx); 
-                iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) && 
-                iov.iov_len == (wasm_iov.iov_len as usize) 
-                }));
+            forall(|idx: usize|  (idx >= 0 && idx < native_iovs.len()) ==> {
+            let wasm_iov = iovs.lookup(idx);
+            let iov = native_iovs.lookup(idx);
+            iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) &&
+            iov.iov_len == (wasm_iov.iov_len as usize)
+            }));
 
             let iov = iovs.lookup(idx);
             let native_iov = self.translate_iov(iov);
             native_iovs.push(native_iov);
             idx += 1;
-        };
+        }
 
-        native_iovs        
+        native_iovs
     }
 }
-

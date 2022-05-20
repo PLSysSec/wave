@@ -28,10 +28,10 @@ predicate! {
                 match trace.lookup(i) {
                     Effect { typ: EffectType::ReadN | EffectType::WriteN, f1: addr, f2: count, .. } => {
                         let mem_ptr = raw_ptr(ctx.mem.as_slice());
-                        valid_linmem(mem_ptr) && 
+                        valid_linmem(mem_ptr) &&
                         addr >= mem_ptr &&
                         addr + count < mem_ptr + ctx.memlen &&
-                        mem_ptr <= mem_ptr + ctx.memlen &&  
+                        mem_ptr <= mem_ptr + ctx.memlen &&
                         addr <= addr + count // double check that there is no overflow
                     },//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
                     //Effect { typ: EffectType::WriteN, f1: addr, f2: count, .. } => valid_linmem(raw_ptr(ctx.mem.as_slice())),//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),

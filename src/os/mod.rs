@@ -2,6 +2,7 @@ use crate::tcb::misc::flag_set;
 use crate::tcb::os_specs::*;
 #[cfg(feature = "verify")]
 use crate::tcb::path::path_safe;
+use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
@@ -9,13 +10,11 @@ use crate::{effect, effects};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::with_ghost_var;
-use crate::tcb::sbox_mem::{valid_linmem, raw_ptr};
 
 #[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
 #[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
 mod platform;
 pub use platform::*;
-
 
 // Common implementations between operating systems
 
@@ -84,7 +83,12 @@ pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Runt
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn trace_readv(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize) -> RuntimeResult<usize> {
+pub fn trace_readv(
+    ctx: &mut VmCtx,
+    fd: HostFd,
+    iovs: &WasmIoVecs,
+    iovcnt: usize,
+) -> RuntimeResult<usize> {
     //let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     // let mut native_iovs = ctx.translate_iovs(iovs, iovcnt);
     // native_iovs
@@ -138,7 +142,13 @@ pub fn trace_pread(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn trace_preadv(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize, offset: usize) -> RuntimeResult<usize> {
+pub fn trace_preadv(
+    ctx: &mut VmCtx,
+    fd: HostFd,
+    iovs: &WasmIoVecs,
+    iovcnt: usize,
+    offset: usize,
+) -> RuntimeResult<usize> {
     let mut native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
@@ -162,7 +172,6 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
     RuntimeError::from_syscall_ret(r)
 }
 
-
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(
     iovs.len() >= 0 &&
@@ -180,7 +189,12 @@ pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> Run
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize) -> RuntimeResult<usize> {
+pub fn trace_writev(
+    ctx: &mut VmCtx,
+    fd: HostFd,
+    iovs: &WasmIoVecs,
+    iovcnt: usize,
+) -> RuntimeResult<usize> {
     let native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
@@ -188,7 +202,6 @@ pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usiz
     RuntimeError::from_syscall_ret(r)
 }
 
-
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(
     iovs.len() >= 0 &&
@@ -206,7 +219,13 @@ pub fn trace_writev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usiz
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-pub fn trace_pwritev(ctx: &mut VmCtx, fd: HostFd, iovs: &WasmIoVecs, iovcnt: usize, offset: usize) -> RuntimeResult<usize> {
+pub fn trace_pwritev(
+    ctx: &mut VmCtx,
+    fd: HostFd,
+    iovs: &WasmIoVecs,
+    iovcnt: usize,
+    offset: usize,
+) -> RuntimeResult<usize> {
     let native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();

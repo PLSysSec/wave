@@ -43,13 +43,11 @@ impl VmCtx {
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(copy_nonoverlapping)]
     #[external_methods(set_len)]
-    
     //#[requires(n as usize <= self.memlen)]
     #[requires(dst.capacity() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(src, n, trace))]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
-
     #[ensures(ctx_safe(self))]
     // #[ensures(trace_safe(trace, self))]
     #[ensures(dst.len() == (n as usize) )]
@@ -74,12 +72,10 @@ impl VmCtx {
     /// Function for memcpy from sandbox to host
     #[with_ghost_var(trace: &mut Trace)]
     #[external_calls(copy_nonoverlapping)]
-
     // #[requires(src.len() >= (n as usize) )]
     #[requires(self.fits_in_lin_mem(dst, n, trace))]
     #[requires(ctx_safe(self))]
     #[requires(trace_safe(trace, self))]
-    
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
     // #[ensures(old(raw_ptr(self.mem.as_slice())) == raw_ptr(self.mem.as_slice()))]
@@ -123,7 +119,6 @@ impl VmCtx {
         &mut self.mem[start..end]
     }
 
-
     // This needs to be trusted only because I can't seem to convice Prusti
     // that these safe memory writes do not update the linmem ptr
     #[with_ghost_var(trace: &mut Trace)]
@@ -136,7 +131,6 @@ impl VmCtx {
     pub fn write_u8(&mut self, offset: usize, v: u8) {
         self.mem[offset] = v;
     }
-
 
     #[with_ghost_var(trace: &mut Trace)]
     #[requires(ctx_safe(self))]
@@ -151,18 +145,15 @@ impl VmCtx {
     #[external_methods(as_ptr, offset)]
     #[trusted]
     pub fn translate_iov(&self, iov: WasmIoVec) -> NativeIoVec {
-        let swizzled_base = unsafe {
-            self.mem.as_ptr().offset(iov.iov_base as isize) as usize
-        };
+        let swizzled_base = unsafe { self.mem.as_ptr().offset(iov.iov_base as isize) as usize };
         NativeIoVec {
-            iov_base: swizzled_base, 
+            iov_base: swizzled_base,
             iov_len: iov.iov_len as usize,
-        }     
+        }
     }
-
 }
 
-impl NativeIoVecs{
+impl NativeIoVecs {
     #[trusted]
     #[ensures(self.len() == old(self.len()) + 1)]
     #[ensures(self.lookup(old(self.len())) == old(value))]
@@ -173,7 +164,7 @@ impl NativeIoVecs{
     }
 }
 
-impl WasmIoVecs{
+impl WasmIoVecs {
     #[trusted]
     #[ensures(self.len() == old(self.len()) + 1)]
     #[ensures(self.lookup(old(self.len())) == old(value))]
@@ -183,10 +174,6 @@ impl WasmIoVecs{
         self.iovs.push(value);
     }
 }
-    
-
-
-
 
 // Linear memory allocation stuff
 

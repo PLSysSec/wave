@@ -52,8 +52,8 @@ macro_rules! effects {
 macro_rules! map_effects {
     ($old_trace:expr, $trace:expr, $struct_iter:expr, $cnt:expr, $($pattern: pat_param)|+ $( if $guard: expr)?) => {
         takes_n_steps($old_trace, $trace, $cnt) &&
-        forall(|idx: usize|  (idx < $cnt) ==> 
-            let this = $struct_iter.lookup(idx); 
+        forall(|idx: usize|  (idx < $cnt) ==>
+            let this = $struct_iter.lookup(idx);
             match $trace.lookup($old_trace.len() + idx) {
                 $( $pattern )|+ => $($guard &&)? true,
                 _ => false,
@@ -61,8 +61,6 @@ macro_rules! map_effects {
         )
     };
 }
-
-
 
 #[macro_export]
 macro_rules! do_effect {
@@ -72,7 +70,6 @@ macro_rules! do_effect {
         }
     };
 }
-
 
 #[cfg(feature = "test")]
 use crate::predicate;

@@ -24,10 +24,7 @@ pub fn vec_checked_lookup(
 #[trusted]
 #[pure]
 #[requires(index < vec.len() )]
-pub fn iovs_checked_lookup(
-    vec: &NativeIoVecs,
-    index: usize,
-) -> NativeIoVec {
+pub fn iovs_checked_lookup(vec: &NativeIoVecs, index: usize) -> NativeIoVec {
     vec.iovs[index]
 }
 
@@ -35,10 +32,7 @@ pub fn iovs_checked_lookup(
 #[trusted]
 #[pure]
 #[requires(index < vec.len() )]
-pub fn wasm_iovs_checked_lookup(
-    vec: &WasmIoVecs,
-    index: usize,
-) -> WasmIoVec {
+pub fn wasm_iovs_checked_lookup(vec: &WasmIoVecs, index: usize) -> WasmIoVec {
     vec.iovs[index]
 }
 
