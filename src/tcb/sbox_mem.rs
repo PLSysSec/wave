@@ -173,6 +173,21 @@ impl NativeIoVecs{
     }
 }
 
+impl WasmIoVecs{
+    #[trusted]
+    #[ensures(self.len() == old(self.len()) + 1)]
+    #[ensures(self.lookup(old(self.len())) == old(value))]
+    #[ensures(forall(|i: usize| (i < old(self.len())) ==>
+                    self.lookup(i) == old(self.lookup(i))))]
+    pub fn push(&mut self, value: WasmIoVec) {
+        self.iovs.push(value);
+    }
+}
+    
+
+
+
+
 // Linear memory allocation stuff
 
 #[trusted]
