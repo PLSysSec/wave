@@ -65,6 +65,10 @@ fn syscall_results_init() -> RefCell<ResultsType> {
     h.insert("pread".to_owned(), Vec::new());
     h.insert("write".to_owned(), Vec::new());
     h.insert("pwrite".to_owned(), Vec::new());
+    h.insert("readv".to_owned(), Vec::new());
+    h.insert("preadv".to_owned(), Vec::new());
+    h.insert("writev".to_owned(), Vec::new());
+    h.insert("pwritev".to_owned(), Vec::new());
     h.insert("seek".to_owned(), Vec::new());
     h.insert("advise".to_owned(), Vec::new());
     h.insert("allocate".to_owned(), Vec::new());
