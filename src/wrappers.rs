@@ -9,32 +9,20 @@ use crate::tcb::verifier::*;
 // use crate::poll::{parse_subscriptions, writeback_timeouts, writeback_fds};
 use crate::poll::*;
 use crate::types::*;
-use crate::{effect, effects};
+use crate::{effect, effects, unwrap_result};
 use prusti_contracts::*;
 use std::convert::{TryFrom, TryInto};
 use std::mem;
 use std::str;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
+use crate::iov::parse_iovs;
 
 // TODO: support arbitrary *at calls
 // Currently they can only be based off our preopened dir
 // (I've never seen a call that has attempted otherwise)
 // We also don't need to handle the magic AT_FDCWD constant, because wasi-libc
 // auto adjusts it to our home directory
-
-// manual implementation of the `?` operator because it is currently
-// broken in prusti
-macro_rules! unwrap_result {
-    ($p:ident) => {
-        let $p = match $p {
-            Ok(oc) => oc,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-    };
-}
 
 // TODO: eliminate as many external_methods and external_calls as possible
 
@@ -130,39 +118,8 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    // 1. Marshal IoVec to userspace
-    let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new();
-    while i < iovcnt {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
-        body_invariant!(wasm_iovs.len() >= 0);
-        body_invariant!(
-            forall(|idx: usize|  (idx < wasm_iovs.len() && idx >= 0) ==> {
-                let iov = wasm_iovs.lookup(idx);
-                let buf = iov.iov_base;
-                let cnt = iov.iov_len;
-                // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) &&
-                (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
-                (buf <= buf + cnt)
-            })
-
-        );
-
-        let start = (iovs + i * 8) as usize;
-        let (ptr, len) = ctx.read_u32_pair(start)?;
-
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-
-        wasm_iovs.push(WasmIoVec {
-            iov_base: ptr,
-            iov_len: len,
-        });
-        i += 1;
-    }
+    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
+    unwrap_result!(wasm_iovs);
 
     let result = trace_readv(ctx, fd, &wasm_iovs, iovcnt as usize)?;
     Ok(result as u32)
@@ -176,39 +133,8 @@ pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> Runti
 #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    // 1. Marshal IoVec to userspace
-    let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new();
-    while i < iovcnt {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
-        body_invariant!(wasm_iovs.len() >= 0);
-        body_invariant!(
-            forall(|idx: usize|  (idx < wasm_iovs.len() && idx >= 0) ==> {
-                let iov = wasm_iovs.lookup(idx);
-                let buf = iov.iov_base;
-                let cnt = iov.iov_len;
-                // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) &&
-                (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
-                (buf <= buf + cnt)
-            })
-
-        );
-
-        let start = (iovs + i * 8) as usize;
-        let (ptr, len) = ctx.read_u32_pair(start)?;
-
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-
-        wasm_iovs.push(WasmIoVec {
-            iov_base: ptr,
-            iov_len: len,
-        });
-        i += 1;
-    }
+    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
+    unwrap_result!(wasm_iovs);
 
     let result = trace_writev(ctx, fd, &wasm_iovs, iovcnt as usize)?;
     Ok(result as u32)
@@ -424,40 +350,9 @@ pub fn wasi_fd_pread(
     offset: u64,
 ) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    // 1. Marshal IoVec to userspace
-    let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new();
-    while i < iovcnt {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
-        body_invariant!(wasm_iovs.len() >= 0);
-        body_invariant!(
-            forall(|idx: usize|  (idx < wasm_iovs.len() && idx >= 0) ==> {
-                let iov = wasm_iovs.lookup(idx);
-                let buf = iov.iov_base;
-                let cnt = iov.iov_len;
-                // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) &&
-                (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
-                (buf <= buf + cnt)
-            })
-
-        );
-
-        let start = (iovs + i * 8) as usize;
-        let (ptr, len) = ctx.read_u32_pair(start)?;
-
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-
-        wasm_iovs.push(WasmIoVec {
-            iov_base: ptr,
-            iov_len: len,
-        });
-        i += 1;
-    }
-
+    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
+    unwrap_result!(wasm_iovs);
+   
     let result = trace_preadv(ctx, fd, &wasm_iovs, iovcnt as usize, offset as usize)?;
     Ok(result as u32)
 }
@@ -520,39 +415,8 @@ pub fn wasi_fd_pwrite(
     offset: u64,
 ) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    // 1. Marshal IoVec to userspace
-    let mut i = 0;
-    let mut wasm_iovs = WasmIoVecs::new();
-    while i < iovcnt {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
-        body_invariant!(wasm_iovs.len() >= 0);
-        body_invariant!(
-            forall(|idx: usize|  (idx < wasm_iovs.len() && idx >= 0) ==> {
-                let iov = wasm_iovs.lookup(idx);
-                let buf = iov.iov_base;
-                let cnt = iov.iov_len;
-                // ctx.fits_in_lin_mem(buf, cnt, trace)
-                (buf >= 0) && (cnt >= 0) &&
-                (buf as usize) + (cnt as usize) < LINEAR_MEM_SIZE &&
-                (buf <= buf + cnt)
-            })
-
-        );
-
-        let start = (iovs + i * 8) as usize;
-        let (ptr, len) = ctx.read_u32_pair(start)?;
-
-        if !ctx.fits_in_lin_mem(ptr, len) {
-            return Err(Efault);
-        }
-
-        wasm_iovs.push(WasmIoVec {
-            iov_base: ptr,
-            iov_len: len,
-        });
-        i += 1;
-    }
+    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
+    unwrap_result!(wasm_iovs);
 
     let result = trace_pwritev(ctx, fd, &wasm_iovs, iovcnt as usize, offset as usize)?;
     Ok(result as u32)

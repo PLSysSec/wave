@@ -8,6 +8,20 @@ use std::convert::TryFrom;
 use std::ops::Sub;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
+// manual implementation of the `?` operator because it is currently
+// broken in prusti
+#[macro_export]
+macro_rules! unwrap_result {
+    ($p:ident) => {
+        let $p = match $p {
+            Ok(oc) => oc,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+    };
+}
+
 // include platform specific implementations
 #[cfg_attr(
     all(target_os = "macos", target_arch = "aarch64"),
