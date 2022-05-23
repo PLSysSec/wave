@@ -4,7 +4,7 @@
     unused_variables,
     unused_must_use,
     unused_comparisons,
-    unused_parens,
+    unused_parens
 )]
 
 use wave_macros::{external_call, external_method, with_ghost_var};

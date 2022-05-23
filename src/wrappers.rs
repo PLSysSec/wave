@@ -7,6 +7,7 @@ use crate::tcb::verifier::external_specs::result::*;
 use crate::tcb::verifier::*;
 // use crate::tcb::path::{arr_depth, arr_is_relative, arr_is_symlink};
 // use crate::poll::{parse_subscriptions, writeback_timeouts, writeback_fds};
+use crate::iov::parse_iovs;
 use crate::poll::*;
 use crate::types::*;
 use crate::{effect, effects, unwrap_result};
@@ -16,7 +17,6 @@ use std::mem;
 use std::str;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
-use crate::iov::parse_iovs;
 
 // TODO: support arbitrary *at calls
 // Currently they can only be based off our preopened dir
@@ -90,7 +90,6 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     let result = trace_close(ctx, fd)?;
     Ok(result as u32)
 }
-
 
 // alternative implementation of https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_read
 // This one uses actual readv
@@ -352,7 +351,7 @@ pub fn wasi_fd_pread(
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
     unwrap_result!(wasm_iovs);
-   
+
     let result = trace_preadv(ctx, fd, &wasm_iovs, iovcnt as usize, offset as usize)?;
     Ok(result as u32)
 }

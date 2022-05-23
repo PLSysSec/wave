@@ -2,8 +2,8 @@
 use crate::tcb::verifier::*;
 use crate::types::*;
 use crate::{effect, effects, unwrap_result};
-use wave_macros::{with_ghost_var, external_methods};
 use prusti_contracts::*;
+use wave_macros::{external_methods, with_ghost_var};
 
 use RuntimeError::*;
 
@@ -69,8 +69,6 @@ predicate! {
     }
 }
 
-
-
 #[with_ghost_var(trace: &mut Trace)]
 #[requires(ctx_safe(ctx))]
 #[requires(trace_safe(trace, ctx))]
@@ -91,11 +89,7 @@ predicate! {
     }
 )]
 #[external_methods(push)]
-pub fn parse_iovs(
-    ctx: &VmCtx,
-    iovs: u32,
-    iovcnt: u32,
-) -> RuntimeResult<WasmIoVecs> {
+pub fn parse_iovs(ctx: &VmCtx, iovs: u32, iovcnt: u32) -> RuntimeResult<WasmIoVecs> {
     let mut i = 0;
     let mut wasm_iovs = WasmIoVecs::new();
     while i < iovcnt {
@@ -120,7 +114,7 @@ pub fn parse_iovs(
         //let (ptr, len) = ctx.read_u32_pair(start)?;
         let v = ctx.read_u32_pair(start);
         unwrap_result!(v);
-        let (ptr,len) = v;
+        let (ptr, len) = v;
 
         if !ctx.fits_in_lin_mem(ptr, len) {
             return Err(Efault);
