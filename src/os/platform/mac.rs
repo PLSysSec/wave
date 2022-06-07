@@ -39,7 +39,7 @@ pub fn trace_advise(
 #[ensures(trace_safe(trace, ctx))]
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> RuntimeResult<usize> {
-    let os_fd: usize = fd.into();
+    let os_fd: usize = fd.to_raw();
     let fstore = libc::fstore_t {
         // we want to allocate contiguous space, and we want to allocate all space or none (TODO: CHECK THIS)
         fst_flags: bitwise_or_u32(libc::F_ALLOCATECONTIG, libc::F_ALLOCATEALL),
@@ -186,6 +186,7 @@ pub fn trace_nanosleep(
     // TODO: do we need to worry about overflow?
     let mach_ticks = (nanos * timebase_info.numer as i64) * timebase_info.denom as i64;
     // TODO: handle errors and type cast
-    os_wait_until(mach_ticks as u64);
+    let current_ticks = os_absolute_time();
+    os_wait_until(current_ticks + (mach_ticks as u64));
     Ok(0)
 }

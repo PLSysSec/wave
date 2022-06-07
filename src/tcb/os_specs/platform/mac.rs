@@ -11,7 +11,8 @@ use syscall::syscall;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
 
 use mach2::mach_time::{
-    mach_timebase_info, mach_timebase_info_data_t, mach_timebase_info_t, mach_wait_until,
+    mach_absolute_time, mach_timebase_info, mach_timebase_info_data_t, mach_timebase_info_t,
+    mach_wait_until,
 };
 use security_framework_sys::random::{kSecRandomDefault, SecRandomCopyBytes};
 
@@ -68,8 +69,15 @@ pub fn os_allocate(fd: usize, fstore: &libc::fstore_t) -> isize {
 #[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == (flags == 0)))]
 pub fn os_fstatat(dirfd: usize, path: [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
     let __start_ts = start_timer();
-    let result =
-        unsafe { syscall!(FSTATAT64, fd, path.as_ptr(), stat as *mut libc::stat, flags) as isize };
+    let result = unsafe {
+        syscall!(
+            FSTATAT64,
+            dirfd,
+            path.as_ptr(),
+            stat as *mut libc::stat,
+            flags
+        ) as isize
+    };
     let __end_ts = stop_timer();
     push_syscall_result("fstatat", __start_ts, __end_ts);
     result
@@ -145,7 +153,7 @@ pub fn os_getboottime(timeval: &mut libc::timeval) -> isize {
         syscall!(
             __SYSCTL,
             sysctl_name.as_ptr(),
-            &sysctl_len as *const libc::size_t,
+            sysctl_len,
             timeval as *mut libc::timeval,
             &tv_size as *const usize,
             0,
@@ -209,8 +217,16 @@ pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
 #[trusted]
 #[ensures(effects!(old(trace), trace))]
 pub fn os_wait_until(deadline: u64) -> isize {
-    // TODO: handle return value
     let result = unsafe { mach_wait_until(deadline) as isize };
+    result
+}
+
+#[with_ghost_var(trace: &mut Trace)]
+#[external_calls(mach_wait_until)]
+#[trusted]
+#[ensures(effects!(old(trace), trace))]
+pub fn os_absolute_time() -> u64 {
+    let result = unsafe { mach_absolute_time() };
     result
 }
 
