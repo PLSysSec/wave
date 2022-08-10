@@ -18,434 +18,315 @@ use wave_macros::{external_call, external_method, with_ghost_var};
 mod platform;
 pub use platform::*;
 
-// https://man7.org/linux/man-pages/man2/open.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-// follows terminal sylink if O_NOFOLLOW is not set
-#[ensures(effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::O_NOFOLLOW) ))]
-pub fn os_openat(dirfd: usize, path: [u8; 4096], flags: i32) -> isize {
-    let __start_ts = start_timer();
-    // all created files should be rdwr
-    let result = unsafe { syscall!(OPENAT, dirfd, path.as_ptr(), flags, 0o666) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("openat", __start_ts, __end_ts);
-    result
-}
+pub use paste::paste;
 
-//https://man7.org/linux/man-pages/man2/close.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_close(fd: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(CLOSE, fd) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("close", __start_ts, __end_ts);
-    result
-}
-
-// https://man7.org/linux/man-pages/man2/read.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_read(fd: usize, buf: &mut [u8], cnt: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(READ, fd, buf.as_mut_ptr(), cnt) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("read", __start_ts, __end_ts);
-    result
-}
-
-// https://man7.org/linux/man-pages/man2/read.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(
-    trace.len() == old(trace.len() + buf.len()) &&
-    forall(|i: usize| (i < trace.len()) ==> 
-    {
-        if i < old(trace.len()) 
-            { trace.lookup(i) == old(trace.lookup(i)) }
-        else
-        {
-            let this = buf.lookup(i - old(trace.len())); 
-            let ev = trace.lookup(i);
-            iov_eq_write(ev, &this)
-        }
-    }
-)
-)]
-pub fn os_readv(fd: usize, buf: &NativeIoVecs, iovcnt: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(READV, fd, buf.iovs.as_ptr(), iovcnt) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("readv", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/write.2.html
-#[with_ghost_var(trace: &mut Trace)]
-//#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_write(fd: usize, buf: &[u8], cnt: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(WRITE, fd, buf.as_ptr(), cnt) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("write", __start_ts, __end_ts);
-    result
-}
-
-//man7.org/linux/man-pages/man2/read.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(
-    trace.len() == old(trace.len() + buf.len()) &&
-    forall(|i: usize| (i < trace.len()) ==> 
-    {
-        if i < old(trace.len()) 
-            { trace.lookup(i) == old(trace.lookup(i)) }
-        else
-        {
-            let this = buf.lookup(i - old(trace.len())); 
-            let ev = trace.lookup(i);
-            iov_eq_read(ev, &this)
-        }
-    }
-)
-)]
-pub fn os_writev(fd: usize, buf: &NativeIoVecs, iovcnt: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(WRITEV, fd, buf.iovs.as_ptr(), iovcnt) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("writev", __start_ts, __end_ts);
-    result
-}
-
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(
-    trace.len() == old(trace.len() + buf.len()) &&
-    forall(|i: usize| (i < trace.len()) ==> 
-    {
-        if i < old(trace.len()) 
-            { trace.lookup(i) == old(trace.lookup(i)) }
-        else
-        {
-            let this = buf.lookup(i - old(trace.len())); 
-            let ev = trace.lookup(i);
-            iov_eq_write(ev, &this)
-        }
-    }
-)
-)]
-pub fn os_preadv(fd: usize, buf: &NativeIoVecs, iovcnt: usize, offset: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(PREADV, fd, buf.iovs.as_ptr(), iovcnt, offset) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("preadv", __start_ts, __end_ts);
-    result
-}
-
-//man7.org/linux/man-pages/man2/pwritev.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(
-    trace.len() == old(trace.len() + buf.len()) &&
-    forall(|i: usize| (i < trace.len()) ==> 
-    {
-        if i < old(trace.len()) 
-            { trace.lookup(i) == old(trace.lookup(i)) }
-        else
-        {
-            let this = buf.lookup(i - old(trace.len())); 
-            let ev = trace.lookup(i);
-            iov_eq_read(ev, &this)
-        }
-    }
-)
-)]
-pub fn os_pwritev(fd: usize, buf: &NativeIoVecs, iovcnt: usize, offset: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(PWRITEV, fd, buf.iovs.as_ptr(), iovcnt, offset) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("pwritev", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/lseek.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_seek(fd: usize, offset: i64, whence: i32) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(LSEEK, fd, offset, whence) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("seek", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/fsync.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_sync(fd: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FSYNC, fd) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("sync", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/fdatasync.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_datasync(fd: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FDATASYNC, fd) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("datasync", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/fcntl.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fgetfl(fd: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FCNTL, fd, libc::F_GETFL, 0) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("fgetfl", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/fcntl.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fsetfl(fd: usize, flags: libc::c_int) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FCNTL, fd, libc::F_SETFL, flags) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("fsetfl", __start_ts, __end_ts);
-    result
-}
-
-//https://man7.org/linux/man-pages/man2/ftruncate.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_ftruncate(fd: usize, length: libc::off_t) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FTRUNCATE, fd, length) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("ftruncate", __start_ts, __end_ts);
-    result
-}
-
-// https://man7.org/linux/man-pages/man2/linkat.2.html
-// follows terminal symlink: true
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), 
-    effect!(FdAccess), 
-    path_effect!(PathAccessAt, fd1, old_p, f) if fd1 == old_fd && old_p == old(old_path) && f == flag_set(flags, libc::AT_SYMLINK_FOLLOW), 
-    path_effect!(PathAccessAt, fd2, new_p, f) if fd2 == new_fd && new_p == old(new_path) && f == flag_set(flags, libc::AT_SYMLINK_FOLLOW) 
-))]
-pub fn os_linkat(
-    old_fd: usize,
-    old_path: [u8; 4096],
-    new_fd: usize,
-    new_path: [u8; 4096],
-    flags: i32,
-) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe {
-        syscall!(
-            LINKAT,
-            old_fd,
-            old_path.as_ptr(),
-            new_fd,
-            new_path.as_ptr(),
-            flags
-        ) as isize
+#[macro_export]
+macro_rules! arg_converter {
+    ($arg:ident: (&NativeIoVecs)) => {
+        $arg.iovs.as_ptr()
     };
-    let __end_ts = stop_timer();
-    push_syscall_result("linkat", __start_ts, __end_ts);
-    result
+    ($arg:ident: (&[$type:ty])) => {
+        $arg.as_ptr()
+    };
+    ($arg:ident: (&$type:ty)) => {
+        $arg as *const $type
+    };
+    ($arg:ident: (&mut [$type:ty])) => {
+        $arg.as_mut_ptr()
+    };
+    ($arg:ident: (&mut $type:ty)) => {
+        $arg as *mut $type
+    };
+    ($arg:ident: [$type:ty; $size:expr]) => {
+        $arg.as_ptr()
+    };
+    ($arg:ident: $type:ty) => {
+        $arg
+    };
+}
+
+#[macro_export]
+macro_rules! syscall_spec_gen {
+    {   $tr:ident;
+        $(requires($pre:tt);)*
+        $(ensures($post:tt);)*
+        syscall($name:ident, $($arg:ident: $type:tt),*)
+    } => {
+        paste! {
+            #[with_ghost_var($tr: &mut Trace)]
+            #[trusted]
+            $(#[requires($pre)])*
+            $(#[ensures($post)])*
+            pub fn [<os_ $name>]($($arg: $type),*) -> isize {
+                use $crate::arg_converter;
+                let __start_ts = start_timer();
+                let result = unsafe { syscall!([<$name:upper>], $(arg_converter!($arg: $type)),*) as isize };
+                let __end_ts = stop_timer();
+                push_syscall_result(stringify!($name), __start_ts, __end_ts);
+                return result;
+            }
+        }
+    };
+    {   $tr:ident;
+        $(requires($pre:tt);)*
+        $(ensures($post:tt);)*
+        syscall($name:ident ALIAS $os_name:ident, $($arg:ident: $type:tt),*)
+    } => {
+        paste! {
+            #[with_ghost_var($tr: &mut Trace)]
+            #[trusted]
+            $(#[requires($pre)])*
+            $(#[ensures($post)])*
+            pub fn [<os_ $os_name>]($($arg: $type),*) -> isize {
+                use $crate::arg_converter;
+                let __start_ts = start_timer();
+                let result = unsafe { syscall!([<$name:upper>], $(arg_converter!($arg: $type)),*) as isize };
+                let __end_ts = stop_timer();
+                push_syscall_result(stringify!($name), __start_ts, __end_ts);
+                return result;
+            }
+        }
+    }
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::O_NOFOLLOW))));
+    syscall(openat, dirfd: usize, path: [u8; 4096], flags: i32, mode: i32)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(close, fd: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    requires((buf.len() >= cnt));
+    ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    syscall(read, fd: usize, buf: (&mut [u8]), cnt: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((trace.len() == old(trace.len() + buf.len()) &&
+    forall(|i: usize| (i < trace.len()) ==>
+    {
+        if i < old(trace.len())
+            { trace.lookup(i) == old(trace.lookup(i)) }
+        else
+        {
+            let this = buf.lookup(i - old(trace.len()));
+            let ev = trace.lookup(i);
+            iov_eq_write(ev, &this)
+        }
+    }
+    )));
+    syscall(readv, fd: usize, buf: (&NativeIoVecs), iovcnt: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    syscall(write, fd: usize, buf: (&[u8]), cnt: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((
+        trace.len() == old(trace.len() + buf.len()) &&
+        forall(|i: usize| (i < trace.len()) ==>
+            {
+                if i < old(trace.len())
+                    { trace.lookup(i) == old(trace.lookup(i)) }
+                else
+                {
+                    let this = buf.lookup(i - old(trace.len()));
+                    let ev = trace.lookup(i);
+                    iov_eq_read(ev, &this)
+                }
+            }
+        )
+    ));
+    syscall(writev, fd: usize, buf: (&NativeIoVecs), iovcnt: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((
+        trace.len() == old(trace.len() + buf.len()) &&
+        forall(|i: usize| (i < trace.len()) ==>
+            {
+                if i < old(trace.len())
+                    { trace.lookup(i) == old(trace.lookup(i)) }
+                else
+                {
+                    let this = buf.lookup(i - old(trace.len()));
+                    let ev = trace.lookup(i);
+                    iov_eq_write(ev, &this)
+                }
+            }
+        )
+    ));
+    syscall(preadv, fd: usize, buf: (&NativeIoVecs), iovcnt: usize, offset: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((
+        trace.len() == old(trace.len() + buf.len()) &&
+        forall(|i: usize| (i < trace.len()) ==>
+            {
+                if i < old(trace.len())
+                    { trace.lookup(i) == old(trace.lookup(i)) }
+                else
+                {
+                    let this = buf.lookup(i - old(trace.len()));
+                    let ev = trace.lookup(i);
+                    iov_eq_read(ev, &this)
+                }
+            }
+        )
+    ));
+    syscall(pwritev, fd: usize, buf: (&NativeIoVecs), iovcnt: usize, offset: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(lseek, fd: usize, offset: i64, whence: i32)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(sync, fd: usize)
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(fdatasync, fd: usize)
+}
+
+// TODO: for very broad syscalls might just want to keep them manually
+//       written to reduce the expsure to unsafe
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(fcntl, fd: usize, cmd: i32, arg: (libc::c_int))
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(ftruncate, fd: usize, length: (libc::off_t))
+}
+
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess),
+        effect!(FdAccess),
+        path_effect!(PathAccessAt, fd1, old_p, f) if fd1 == old_fd && old_p == old(old_path) && f == flag_set(flags, libc::AT_SYMLINK_FOLLOW),
+        path_effect!(PathAccessAt, fd2, new_p, f) if fd2 == new_fd && new_p == old(new_path) && f == flag_set(flags, libc::AT_SYMLINK_FOLLOW)
+    )));
+    syscall(linkat, old_fd: usize, old_path: [u8; 4096], new_fd: usize, new_path: [u8; 4096], flags: i32)
 }
 
 // https://man7.org/linux/man-pages/man2/mkdirat.2.html
 // follows terminal symlink: true
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path) ))]
-pub fn os_mkdirat(dirfd: usize, path: [u8; 4096], mode: libc::mode_t) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(MKDIRAT, dirfd, path.as_ptr(), mode) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("mkdirat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path) )));
+    syscall(mkdirat, dirfd: usize, path: [u8; 4096], mode: (libc::mode_t))
 }
 
 // https://man7.org/linux/man-pages/man2/readlinkat.2.html
 // follows terminal symlink: false
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_readlinkat(dirfd: usize, path: [u8; 4096], buf: &mut [u8], cnt: usize) -> isize {
-    let __start_ts = start_timer();
-    let result =
-        unsafe { syscall!(READLINKAT, dirfd, path.as_ptr(), buf.as_mut_ptr(), cnt) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("readlinkat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    requires((buf.len() >= cnt));
+    ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    syscall(readlinkat, dirfd: usize, path: [u8; 4096], buf: (&mut [u8]), cnt: usize)
 }
 
 // https://man7.org/linux/man-pages/man2/unlinkat.2.html
 // follows terminal symlink: false
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path)))]
-pub fn os_unlinkat(dirfd: usize, path: [u8; 4096], flags: libc::c_int) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(UNLINKAT, dirfd, path.as_ptr(), flags) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("unlinkat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path))));
+    syscall(unlinkat, dirfd: usize, path: [u8; 4096], flags: (libc::c_int))
 }
+
 //https://man7.org/linux/man-pages/man2/renameat.2.html
 // follows terminal symlinks: false
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd1, old_p, false) if fd1 == old_dir_fd && old_p == old(old_path), effect!(FdAccess), path_effect!(PathAccessAt, fd2, new_p, false) if fd2 == new_dir_fd && new_p == old(new_path)))]
-pub fn os_renameat(
-    old_dir_fd: usize,
-    old_path: [u8; 4096],
-    new_dir_fd: usize,
-    new_path: [u8; 4096],
-) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe {
-        syscall!(
-            RENAMEAT,
-            old_dir_fd,
-            old_path.as_ptr(),
-            new_dir_fd,
-            new_path.as_ptr()
-        ) as isize
-    };
-    let __end_ts = stop_timer();
-    push_syscall_result("renameat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd1, old_p, false) if fd1 == old_dir_fd && old_p == old(old_path), effect!(FdAccess), path_effect!(PathAccessAt, fd2, new_p, false) if fd2 == new_dir_fd && new_p == old(new_path))));
+    syscall(renameat, old_dir_fd: usize, old_path: [u8; 4096], new_dir_fd: usize, new_path: [u8; 4096])
 }
 
 // https://man7.org/linux/man-pages/man2/symlinkat.2.html
 // From the spec: The string pointed to by path1 shall be treated only as a string and shall not be validated as a pathname.
 // follows terminal symlinks: true (although it might fail)
 // TODO: do we actually need to check the second path or can we just let the resolver do its thing?
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path2), effect!(FdAccess)))]
-pub fn os_symlinkat(path1: [u8; 4096], dirfd: usize, path2: [u8; 4096]) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(SYMLINKAT, path1.as_ptr(), dirfd, path2.as_ptr()) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("symlinkat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path2), effect!(FdAccess))));
+    syscall(symlinkat, path1: [u8; 4096], dirfd: usize, path2: [u8; 4096])
 }
 
 //https://man7.org/linux/man-pages/man2/recvfrom.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_recv(fd: usize, buf: &mut [u8], cnt: usize, flags: i32) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(RECVFROM, fd, buf.as_mut_ptr(), cnt, flags, 0, 0) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("recv", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    requires((buf.len() >= cnt));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
+    syscall(recvfrom, fd: usize, buf: (&mut [u8]), cnt: usize, flags: i32, src: i32, addrlen: i32)
 }
 
 //https://man7.org/linux/man-pages/man2/sendto.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_send(fd: usize, buf: &[u8], cnt: usize, flags: i32) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(SENDTO, fd, buf.as_ptr(), cnt, flags, 0, 0) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("send", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    requires((buf.len() >= cnt));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    syscall(sendto, fd: usize, buf: (&[u8]), cnt: usize, flags: i32, dest_addr: i32, addrlen: i32)
 }
 
 //https://man7.org/linux/man-pages/man2/shutdown.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess)))]
-pub fn os_shutdown(fd: usize, how: libc::c_int) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(SHUTDOWN, fd, how) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("shutdown", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(Shutdown), effect!(FdAccess))));
+    syscall(shutdown, fd: usize, how: (libc::c_int))
 }
 
 //https://man7.org/linux/man-pages/man2/poll.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_poll(pollfds: &mut [libc::pollfd], timeout: libc::c_int) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(POLL, pollfds.as_mut_ptr(), pollfds.len(), timeout) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("poll", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(poll, pollfds: (&mut [libc::pollfd]), timeout: (libc::c_int))
 }
 
 //https://man7.org/linux/man-pages/man2/socket.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(SockCreation, d, t) if d == (domain as usize) && t == (ty as usize) ))]
-pub fn os_socket(domain: i32, ty: i32, protocol: i32) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(SOCKET, domain, ty, protocol) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("socket", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(SockCreation, d, t) if d == (domain as usize) && t == (ty as usize) )));
+    syscall(socket, domain: i32, ty: i32, protocol: i32)
 }
 
 //https://man7.org/linux/man-pages/man2/connect.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-// TODO: finish spec
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port) if ip == addr.sin_addr.s_addr as usize && port == addr.sin_port as usize))]
-pub fn os_connect(sockfd: usize, addr: &libc::sockaddr_in, addrlen: u32) -> isize {
-    let __start_ts = start_timer();
-    let result =
-        unsafe { syscall!(CONNECT, sockfd, addr as *const libc::sockaddr_in, addrlen) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("connect", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(NetAccess, protocol, ip, port) if ip == addr.sin_addr.s_addr as usize && port == addr.sin_port as usize)));
+    syscall(connect, sockfd: usize, addr: (&libc::sockaddr_in), addrlen: u32)
 }
 
 //https://man7.org/linux/man-pages/man2/ioctl.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-// TODO: finish spec
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fionread(fd: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(IOCTL, fd, libc::FIONREAD) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("fionread", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(ioctl, fd: usize, request: (libc::c_ulong))
 }

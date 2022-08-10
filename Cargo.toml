@@ -16,6 +16,7 @@ trace = "*"
 #extra_args = "=0.1.69"
 wave-macros = { path = "wave-macros"}
 owned-components = { path = "owned-components"}
+paste = "1.0" # used in syscall function generation
 
 # Used for debugging
 log = "0.4.14"

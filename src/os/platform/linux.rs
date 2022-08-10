@@ -24,7 +24,7 @@ pub fn trace_advise(
     advice: i32,
 ) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
-    let r = os_advise(os_fd, offset, len, advice);
+    let r = os_fadvise64(os_fd, offset, len, advice);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -39,7 +39,7 @@ pub fn trace_clock_get_time(
     clock_id: libc::clockid_t,
     spec: &mut libc::timespec,
 ) -> RuntimeResult<usize> {
-    let r = os_clock_get_time(clock_id, spec);
+    let r = os_clock_gettime(clock_id, spec);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -54,7 +54,7 @@ pub fn trace_clock_get_res(
     clock_id: libc::clockid_t,
     spec: &mut libc::timespec,
 ) -> RuntimeResult<usize> {
-    let r = os_clock_get_res(clock_id, spec);
+    let r = os_clock_getres(clock_id, spec);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -81,6 +81,6 @@ pub fn trace_nanosleep(
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
-    let r = os_allocate(os_fd, offset, len);
+    let r = os_fallocate(os_fd, 0, offset, len);
     RuntimeError::from_syscall_ret(r)
 }

@@ -33,7 +33,7 @@ pub fn trace_openat(
     flags: i32,
 ) -> RuntimeResult<usize> {
     let os_fd: usize = dir_fd.to_raw();
-    let r = os_openat(os_fd, path, flags);
+    let r = os_openat(os_fd, path, flags, 0o666);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -149,10 +149,10 @@ pub fn trace_preadv(
     iovcnt: usize,
     offset: usize,
 ) -> RuntimeResult<usize> {
-    let mut native_iovs = ctx.translate_iovs(iovs);
+    let native_iovs = ctx.translate_iovs(iovs);
     // native_iovs
     let os_fd: usize = fd.to_raw();
-    let r = os_preadv(os_fd, &mut native_iovs, iovcnt, offset);
+    let r = os_preadv(os_fd, &native_iovs, iovcnt, offset);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -263,7 +263,7 @@ pub fn trace_pwrite(
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_seek(ctx: &VmCtx, fd: HostFd, offset: i64, whence: i32) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
-    let r = os_seek(os_fd, offset, whence);
+    let r = os_lseek(os_fd, offset, whence);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -287,7 +287,7 @@ pub fn trace_sync(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_datasync(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
-    let r = os_datasync(os_fd);
+    let r = os_fdatasync(os_fd);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -331,7 +331,7 @@ pub fn trace_fstatat(
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
-    let r = os_fgetfl(os_fd);
+    let r = os_fcntl(os_fd, libc::F_GETFL, 0);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -343,7 +343,7 @@ pub fn trace_fgetfl(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_fsetfl(ctx: &VmCtx, fd: HostFd, flags: libc::c_int) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
-    let r = os_fsetfl(os_fd, flags);
+    let r = os_fcntl(os_fd, libc::F_SETFL, flags);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -572,7 +572,7 @@ pub fn trace_recv(
 ) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
-    let r = os_recv(os_fd, slice, cnt, flags);
+    let r = os_recvfrom(os_fd, slice, cnt, flags, 0, 0);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -593,7 +593,7 @@ pub fn trace_send(
 ) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
-    let r = os_send(os_fd, slice, cnt, flags);
+    let r = os_sendto(os_fd, slice, cnt, flags, 0, 0);
     RuntimeError::from_syscall_ret(r)
 }
 
@@ -682,6 +682,6 @@ pub fn trace_connect(
 #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_fionread(ctx: &VmCtx, sockfd: HostFd) -> RuntimeResult<usize> {
     let os_fd: usize = sockfd.to_raw();
-    let r = os_fionread(os_fd);
+    let r = os_ioctl(os_fd, libc::FIONREAD);
     RuntimeError::from_syscall_ret(r)
 }

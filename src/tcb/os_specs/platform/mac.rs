@@ -17,82 +17,40 @@ use mach2::mach_time::{
 use security_framework_sys::random::{kSecRandomDefault, SecRandomCopyBytes};
 
 //https://man7.org/linux/man-pages/man2/pread.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_pread(fd: usize, buf: &mut [u8], cnt: usize, offset: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(PREAD, fd, buf.as_mut_ptr(), cnt, offset) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("pread", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    requires((buf.len() >= cnt));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
+    syscall(pread, fd: usize, buf: &mut [u8], cnt: usize, offset: usize)
 }
 
 //https://man7.org/linux/man-pages/man2/pwrite.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(buf.len() >= cnt)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
-pub fn os_pwrite(fd: usize, buf: &[u8], cnt: usize, offset: usize) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(PWRITE, fd, buf.as_ptr(), cnt, offset) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("pwrite", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    requires((buf.len() >= cnt));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    syscall(pwrite, fd: usize, buf: &[u8], cnt: usize, offset: usize)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_allocate(fd: usize, fstore: &libc::fstore_t) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe {
-        syscall!(
-            FCNTL,
-            fd,
-            libc::F_PREALLOCATE,
-            fstore as *const libc::fstore_t
-        ) as isize
-    };
-    let __end_ts = stop_timer();
-    push_syscall_result("allocate", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(allocate, fd: usize, fstore: &libc::fstore_t)
 }
 
 // https://man7.org/linux/man-pages/man2/fstatat.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-// follows terminal symlink if O_NOFOLLOW are not set
-// this is the only lookupflags, so we just say flags == 0
-#[ensures(effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == (flags == 0)))]
-pub fn os_fstatat(dirfd: usize, path: [u8; 4096], stat: &mut libc::stat, flags: i32) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe {
-        syscall!(
-            FSTATAT64,
-            dirfd,
-            path.as_ptr(),
-            stat as *mut libc::stat,
-            flags
-        ) as isize
-    };
-    let __end_ts = stop_timer();
-    push_syscall_result("fstatat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == (flags == 0))));
+    syscall(fstatat64, dirfd: usize, path: [u8; 4096], stat: &mut libc::stat, flags: i32)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(specs.len() >= 2)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_futimens(fd: usize, specs: &Vec<libc::timespec>) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FUTIMES, fd, specs.as_ptr()) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("futimens", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    requires((specs.len() >= 2));
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(futimens, fd: usize, specs: &Vec<libc::timespec>)
 }
 
 //https://man7.org/linux/man-pages/man2/utimensat.2.html
@@ -125,15 +83,10 @@ pub fn os_utimensat(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace))]
-pub fn os_gettimeofday(timeval: &mut libc::timeval) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(GETTIMEOFDAY, timeval as *mut libc::timeval, 0) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("gettimeofday", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace)));
+    syscall(gettimeofday, timeval: &mut libc::timeval, zero: usize)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -153,7 +106,7 @@ pub fn os_getboottime(timeval: &mut libc::timeval) -> isize {
         syscall!(
             __SYSCTL,
             sysctl_name.as_ptr(),
-            sysctl_len,
+            &sysctl_len as *const libc::size_t,
             timeval as *mut libc::timeval,
             &tv_size as *const usize,
             0,
@@ -165,30 +118,19 @@ pub fn os_getboottime(timeval: &mut libc::timeval) -> isize {
     result
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace))]
-pub fn os_rusageself(rusage: &mut libc::rusage) -> isize {
-    let __start_ts = start_timer();
-    let result =
-        unsafe { syscall!(GETRUSAGE, libc::RUSAGE_SELF, rusage as *mut libc::rusage) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("getrusage", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace)));
+    syscall(rusageself, rusage: &mut libc::rusage)
 }
 
 // TODO: unclear to me that the raw syscall! will handle return values correctly.
 //       e.g. from https://opensource.apple.com/source/xnu/xnu-792.25.20/bsd/kern/syscalls.master
 //       it seems that this directly returns the value as ret val.
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace))]
-pub fn os_thread_selfusage() -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(THREAD_SELFUSAGE) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("thread_selfusage", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace)));
+    syscall(thread_selfusage)
 }
 
 #[with_ghost_var(trace: &mut Trace)]
@@ -271,13 +213,8 @@ pub fn os_getdents64(fd: usize, dirp: &mut Vec<u8>, count: usize) -> isize {
 }
 
 //https://man7.org/linux/man-pages/man2/fstat.2.html
-#[with_ghost_var(trace: &mut Trace)]
-#[trusted]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
-pub fn os_fstat(fd: usize, stat: &mut libc::stat) -> isize {
-    let __start_ts = start_timer();
-    let result = unsafe { syscall!(FSTAT64, fd, stat as *mut libc::stat) as isize };
-    let __end_ts = stop_timer();
-    push_syscall_result("fstat", __start_ts, __end_ts);
-    result
+syscall_spec_gen! {
+    trace;
+    ensures((effects!(old(trace), trace, effect!(FdAccess))));
+    syscall(fstat64 ALIAS fstat, fd: usize, stat: &mut libc::stat)
 }
