@@ -69,15 +69,13 @@ fn syscall_results_init() -> RefCell<ResultsType> {
     h.insert("preadv".to_owned(), Vec::new());
     h.insert("writev".to_owned(), Vec::new());
     h.insert("pwritev".to_owned(), Vec::new());
-    h.insert("seek".to_owned(), Vec::new());
+    h.insert("lseek".to_owned(), Vec::new()); // seek
     h.insert("advise".to_owned(), Vec::new());
     h.insert("allocate".to_owned(), Vec::new());
-    h.insert("sync".to_owned(), Vec::new());
-    h.insert("datasync".to_owned(), Vec::new());
+    h.insert("fsync".to_owned(), Vec::new()); // sync
+    h.insert("fdatasync".to_owned(), Vec::new()); // datasync
     h.insert("fstat".to_owned(), Vec::new());
-    h.insert("fstatat".to_owned(), Vec::new());
-    h.insert("fgetfl".to_owned(), Vec::new());
-    h.insert("fsetfl".to_owned(), Vec::new());
+    h.insert("newfstatat".to_owned(), Vec::new()); // fstatat
     h.insert("ftruncate".to_owned(), Vec::new());
     h.insert("linkat".to_owned(), Vec::new());
     h.insert("mkdirat".to_owned(), Vec::new());
@@ -87,17 +85,18 @@ fn syscall_results_init() -> RefCell<ResultsType> {
     h.insert("symlinkat".to_owned(), Vec::new());
     h.insert("futimens".to_owned(), Vec::new());
     h.insert("utimensat".to_owned(), Vec::new());
-    h.insert("clock_get_time".to_owned(), Vec::new());
-    h.insert("clock_get_res".to_owned(), Vec::new());
+    h.insert("clock_gettime".to_owned(), Vec::new());
+    h.insert("clock_getres".to_owned(), Vec::new());
     h.insert("getrandom".to_owned(), Vec::new());
-    h.insert("recv".to_owned(), Vec::new());
-    h.insert("send".to_owned(), Vec::new());
+    h.insert("recvfrom".to_owned(), Vec::new()); // recv
+    h.insert("sendto".to_owned(), Vec::new()); // send
     h.insert("shutdown".to_owned(), Vec::new());
     h.insert("nanosleep".to_owned(), Vec::new());
     h.insert("poll".to_owned(), Vec::new());
     h.insert("getdents64".to_owned(), Vec::new());
     h.insert("socket".to_owned(), Vec::new());
     h.insert("connect".to_owned(), Vec::new());
+    h.insert("fcntl".to_owned(), Vec::new()); // fsetfl, fgetfl
     RefCell::new(h)
 }
 
@@ -128,7 +127,11 @@ pub fn push_hostcall_result(name: &str, start: u64, end: u64) {
     // println!("name: {:?}", name);
     HOSTCALL_RESULTS.with(|r| {
         let mut index = r.borrow_mut();
-        let vec = index.get_mut(&name.to_owned()).unwrap();
+        // let vec = index.get_mut(&name.to_owned()).unwrap();
+        let vec = match index.get_mut(&name.to_owned()){
+            Some(v) => v,
+            None => panic!("Unknown hostcall: {}", name) ,
+        };
         let ticks = end - start;
         vec.push(ticks as f64 / 2.1); // convert to nanoseconds using 2.1 GHZ clock (elk)
     });
@@ -138,7 +141,10 @@ pub fn push_syscall_result(name: &str, start: u64, end: u64) {
     // println!("name: {:?}", name);
     SYSCALL_RESULTS.with(|r| {
         let mut index = r.borrow_mut();
-        let vec = index.get_mut(&name.to_owned()).unwrap();
+        let vec = match index.get_mut(&name.to_owned()){
+            Some(v) => v,
+            None => panic!("Unknown syscall: {}", name) ,
+        };
         let ticks = end - start;
         vec.push(ticks as f64 / 2.1); // convert to nanoseconds using 2.1 GHZ clock (elk)
     });
