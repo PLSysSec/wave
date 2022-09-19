@@ -26,15 +26,15 @@ predicate! {
         forall(|i: usize|
             (i < trace.len() ==> (
                 match trace.lookup(i) {
-                    Effect { typ: EffectType::ReadN | EffectType::WriteN, f1: addr, f2: count, .. } => {
+                    Effect { typ: EffectType::ReadMem | EffectType::WriteMem, f1: addr, f2: count, .. } => {
                         let mem_ptr = raw_ptr(ctx.mem.as_slice());
-                        valid_linmem(mem_ptr) &&
-                        addr >= mem_ptr &&
-                        addr + count < mem_ptr + ctx.memlen &&
-                        mem_ptr <= mem_ptr + ctx.memlen &&
-                        addr <= addr + count // double check that there is no overflow
-                    },//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
-                    //Effect { typ: EffectType::WriteN, f1: addr, f2: count, .. } => valid_linmem(raw_ptr(ctx.mem.as_slice())),//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
+                        valid_linmem(mem_ptr) && // sbox mem has been initialized
+                        addr >= mem_ptr && // start of buffer in sbox mem
+                        addr + count < mem_ptr + ctx.memlen && // end of buffer in sbox mem
+                        mem_ptr <= mem_ptr + ctx.memlen && // memory region does not overflow address space
+                        addr <= addr + count // buffer does not overflow
+                    },
+                    //Effect { typ: EffectType::WriteMem, f1: addr, f2: count, .. } => valid_linmem(raw_ptr(ctx.mem.as_slice())),//(addr < ctx.memlen) && (count < ctx.memlen) && (addr <= (addr + count)),
                     Effect { typ: EffectType::Shutdown, ..  } => true, // currently, all shutdowns are safe
                     Effect { typ: EffectType::FdAccess, ..  } => true,
                     Effect { typ: EffectType::PathAccessAt, f1: dir_fd, f2:_, f3:_, p: Some(path), should_follow: Some(b) } => dir_fd == ctx.homedir_host_fd.to_raw() && path.len() == 4096 && path_safe(&path, b),
@@ -46,3 +46,16 @@ predicate! {
         )
     }
 }
+/*
+pub fn path_safe(v: &HostPath, should_follow: bool) -> bool {
+    arr_is_relative(&v) &&
+    (arr_depth(&v) >= 0) &&
+    (should_follow ==> !arr_is_symlink(&v)) &&
+    arr_has_no_symlink_prefixes(&v)
+}
+*/
+
+/*
+#[ensures(effects!(old(trace), trace, effect!(PathAccessAt, dirfd, path, !flag_set(flags, libc::O_NOFOLLOW))
+pub fn os_openat(dirfd: usize, path: [u8; PATH_MAX], flags: i32) -> isize {
+*/

@@ -105,7 +105,7 @@ syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
     ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     syscall(read, fd: usize, buf: (&mut [u8]), cnt: usize)
 }
 
@@ -129,7 +129,7 @@ syscall_spec_gen! {
 
 syscall_spec_gen! {
     trace;
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     syscall(write, fd: usize, buf: (&[u8]), cnt: usize)
 }
 
@@ -249,7 +249,7 @@ syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
     ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     syscall(readlinkat, dirfd: usize, path: [u8; 4096], buf: (&mut [u8]), cnt: usize)
 }
 
@@ -283,7 +283,7 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
     syscall(recvfrom, fd: usize, buf: (&mut [u8]), cnt: usize, flags: i32, src: i32, addrlen: i32)
 }
@@ -292,7 +292,7 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     syscall(sendto, fd: usize, buf: (&[u8]), cnt: usize, flags: i32, dest_addr: i32, addrlen: i32)
 }
 

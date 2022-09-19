@@ -20,7 +20,7 @@ use paste::paste;
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
     syscall(pread64 ALIAS pread, fd: usize, buf: (&mut [u8]), cnt: usize, offset: usize)
 }
@@ -29,7 +29,7 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     syscall(pwrite64 ALIAS pwrite, fd: usize, buf: (&[u8]), cnt: usize, offset: usize)
 }
 
@@ -97,7 +97,7 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
     syscall(getrandom, buf: (&mut [u8]), cnt: usize, flags: u32)
 }

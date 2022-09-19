@@ -57,7 +57,7 @@ pub fn trace_close(ctx: &VmCtx, fd: HostFd) -> RuntimeResult<usize> {
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // read writes `cnt` bytes to sandbox memory
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count)))]
 pub fn trace_read(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
@@ -111,7 +111,7 @@ pub fn trace_readv(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // pread writes `cnt` bytes to sandbox memory
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count)))]
 pub fn trace_pread(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -164,7 +164,7 @@ pub fn trace_preadv(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // write reads `cnt` bytes to the sandbox
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count)))]
 pub fn trace_write(ctx: &mut VmCtx, fd: HostFd, ptr: SboxPtr, cnt: usize) -> RuntimeResult<usize> {
     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
     let os_fd: usize = fd.to_raw();
@@ -241,7 +241,7 @@ pub fn trace_pwritev(
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
 // pwrite writes `cnt` bytes to the sandbox
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count)))]
 pub fn trace_pwrite(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -414,7 +414,7 @@ pub fn trace_mkdirat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd), effect!(WriteN, addr, count)))]
+// #[ensures(three_effects!(old(trace), trace, effect!(FdAccess), effect!(PathAccessAt, os_fd), effect!(WriteMem, addr, count)))]
 pub fn trace_readlinkat(
     ctx: &mut VmCtx,
     dir_fd: HostFd,
@@ -542,7 +542,7 @@ pub fn trace_utimensat(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, count)))]
 pub fn trace_getrandom(
     ctx: &mut VmCtx,
     ptr: SboxPtr,
@@ -562,7 +562,7 @@ pub fn trace_getrandom(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count)))]
 pub fn trace_recv(
     ctx: &mut VmCtx,
     fd: HostFd,
@@ -583,7 +583,7 @@ pub fn trace_recv(
 #[requires(trace_safe(trace, ctx))]
 #[ensures(ctx_safe(ctx))]
 #[ensures(trace_safe(trace, ctx))]
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count)))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count)))]
 pub fn trace_send(
     ctx: &mut VmCtx,
     fd: HostFd,

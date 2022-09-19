@@ -49,7 +49,7 @@ use RuntimeError::*;
 predicate! {
     pub fn iov_eq_read(ev: Effect, iov: &NativeIoVec) -> bool {
         match ev {
-            effect!(ReadN,addr,count) =>
+            effect!(ReadMem,addr,count) =>
                 addr == iov.iov_base &&
                 count == iov.iov_len,
             _ => false,
@@ -61,7 +61,7 @@ predicate! {
 predicate! {
     pub fn iov_eq_write(ev: Effect, iov: &NativeIoVec) -> bool {
         match ev {
-            effect!(WriteN,addr,count) =>
+            effect!(WriteMem,addr,count) =>
                 addr == iov.iov_base &&
                 count == iov.iov_len,
             _ => false,

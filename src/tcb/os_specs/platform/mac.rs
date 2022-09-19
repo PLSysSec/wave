@@ -20,7 +20,7 @@ use security_framework_sys::random::{kSecRandomDefault, SecRandomCopyBytes};
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
     syscall(pread, fd: usize, buf: &mut [u8], cnt: usize, offset: usize)
 }
@@ -29,7 +29,7 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     trace;
     requires((buf.len() >= cnt));
-    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
+    ensures((effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     syscall(pwrite, fd: usize, buf: &[u8], cnt: usize, offset: usize)
 }
 
@@ -138,7 +138,7 @@ syscall_spec_gen! {
 #[requires(buf.len() >= cnt)]
 #[trusted]
 #[ensures(old(raw_ptr(buf)) == raw_ptr(buf))]
-#[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
+#[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt))]
 pub fn os_getrandom(buf: &mut [u8], cnt: usize, flags: u32) -> isize {
     // no native syscall, use mac's secure random framework.
     // May also just read from /dev/random, but then its subject to File Descriptor exhaustion.

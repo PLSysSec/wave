@@ -77,8 +77,8 @@ use crate::predicate;
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(usize)]
 pub enum EffectType {
-    ReadN,
-    WriteN,
+    ReadMem,
+    WriteMem,
     Shutdown,
     FdAccess,
     PathAccessAt,

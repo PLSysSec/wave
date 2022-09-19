@@ -128,9 +128,9 @@ pub fn push_hostcall_result(name: &str, start: u64, end: u64) {
     HOSTCALL_RESULTS.with(|r| {
         let mut index = r.borrow_mut();
         // let vec = index.get_mut(&name.to_owned()).unwrap();
-        let vec = match index.get_mut(&name.to_owned()){
+        let vec = match index.get_mut(&name.to_owned()) {
             Some(v) => v,
-            None => panic!("Unknown hostcall: {}", name) ,
+            None => panic!("Unknown hostcall: {}", name),
         };
         let ticks = end - start;
         vec.push(ticks as f64 / 2.1); // convert to nanoseconds using 2.1 GHZ clock (elk)
@@ -141,9 +141,9 @@ pub fn push_syscall_result(name: &str, start: u64, end: u64) {
     // println!("name: {:?}", name);
     SYSCALL_RESULTS.with(|r| {
         let mut index = r.borrow_mut();
-        let vec = match index.get_mut(&name.to_owned()){
+        let vec = match index.get_mut(&name.to_owned()) {
             Some(v) => v,
-            None => panic!("Unknown syscall: {}", name) ,
+            None => panic!("Unknown syscall: {}", name),
         };
         let ticks = end - start;
         vec.push(ticks as f64 / 2.1); // convert to nanoseconds using 2.1 GHZ clock (elk)

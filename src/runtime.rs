@@ -242,7 +242,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, 2) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, 2) if addr == start as usize))]
     pub fn read_u16(&self, start: usize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
@@ -257,7 +257,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, 4) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, 4) if addr == start as usize))]
     pub fn read_u32(&self, start: usize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
@@ -278,7 +278,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, 8) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, 8) if addr == start as usize))]
     pub fn read_u64(&self, start: usize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
@@ -317,7 +317,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 2) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 2) if addr == start as usize))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
@@ -333,7 +333,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 4) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 4) if addr == start as usize))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
@@ -350,7 +350,7 @@ impl VmCtx {
     #[requires(trace_safe(trace, self))]
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, 8) if addr == start as usize))]
+    // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 8) if addr == start as usize))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);

@@ -52,7 +52,7 @@ impl VmCtx {
     // #[ensures(trace_safe(trace, self))]
     #[ensures(dst.len() == (n as usize) )]
     // #[ensures(old(raw_ptr(self.mem.as_slice())) == raw_ptr(self.mem.as_slice()))]
-    #[ensures(effects!(old(trace), trace, effect!(ReadN, addr, count) if 
+    #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, count) if 
         addr == raw_ptr(self.mem.as_slice()) + src as usize && 
         count == n as usize
     ))]
@@ -66,7 +66,7 @@ impl VmCtx {
             );
             dst.set_len(n as usize); // TODO: wrong, need to make sure copy_nonoverlapping actually copied it
         };
-        // do_effect!(effect!(ReadN, src, n));
+        // do_effect!(effect!(ReadMem, src, n));
     }
 
     /// Function for memcpy from sandbox to host
@@ -79,7 +79,7 @@ impl VmCtx {
     #[ensures(ctx_safe(self))]
     #[ensures(trace_safe(trace, self))]
     // #[ensures(old(raw_ptr(self.mem.as_slice())) == raw_ptr(self.mem.as_slice()))]
-    #[ensures(effects!(old(trace), trace, effect!(WriteN, addr, count) if 
+    #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, count) if 
     addr == raw_ptr(self.mem.as_slice()) + dst as usize && 
     count == n as usize
 ))]
