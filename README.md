@@ -9,7 +9,10 @@ properties are only valid for code executing strictly inside the Wasm sandbox. A
 maintain Wasm’s strong isolation properties while still allowing such programs to interact with the outside world (i.e., with the file system, the network, etc.). Our paper presents a solution to this problem, via WaVe, a verified secure runtime system that implements WASI. We mechanically verify that interactions with WaVe (including OS side effects) not only maintain Wasm’s memory safety guarantees, but also maintain access isolation for the host OS’s storage and network resources. Finally, in spite of completely removing the runtime from the trusted computing base, we show that WaVe offers performance competitive with existing industrial (yet unsafe) Wasm runtimes.
 
 ### Install dependencies
-TODO
+`apt-get install -y curl git unzip build-essential pkg-config libssl-dev cmake ninja-build clang`
+
+Additionally, ensure you have [https://rustup.rs/](Rustup) installed, and install additional Rust dependencies:    
+`cargo install --force cbindgen`
 
 ### To build and verify:  
 ```
