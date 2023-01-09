@@ -15,16 +15,14 @@ Additionally, ensure you have [https://rustup.rs/](Rustup) installed, and instal
 `cargo install --force cbindgen`
 
 ### To build and verify:  
+
 ```
-make bootstrap # Setup build the first time
-make build     # Build WaVe 
-make verify    # Verify correctness of WaVe
+make bootstrap # Setup build the first time. This will take 15-20 minutes.
+make build     # Build WaVe. This should take < 1 minute. 
+make verify    # Verify correctness of WaVe. This will take 30-60 minutes.
 ```
 
-### To rebuild the verifier after changing it's source code:  
-`make prusti`
-
-## To run an example using WaVe
+## To run an example application using WaVe
 ```
 cd examples/cat # enter example directory  
 make            # build  
@@ -35,9 +33,6 @@ You can examine the makefile to see the exact commands
 
 ## Related documentation
 Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md)  
-
-## Related Repos
-TODO
 
 ## Reproducing the evaluation
 TODO
