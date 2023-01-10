@@ -1,4 +1,4 @@
-use super::super::*;
+use super::*;
 use crate::tcb::misc::*;
 use libc;
 
@@ -47,6 +47,7 @@ impl FdFlags {
 impl Dirent {
     #[requires(in_idx < host_buf.len())]
     pub fn parse(host_buf: &Vec<u8>, in_idx: usize) -> RuntimeResult<Dirent> {
+        assert!(false);
         // Inode number
         let d_ino = u32::from_le_bytes([
             host_buf[in_idx + 0],

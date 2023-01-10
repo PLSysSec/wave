@@ -9,6 +9,7 @@ use libc::{__error, utimensat};
 use prusti_contracts::*;
 use syscall::syscall;
 use wave_macros::{external_calls, external_methods, with_ghost_var};
+use crate::syscall_spec_gen;
 
 use mach2::mach_time::{
     mach_absolute_time, mach_timebase_info, mach_timebase_info_data_t, mach_timebase_info_t,
