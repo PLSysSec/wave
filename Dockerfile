@@ -15,6 +15,7 @@ RUN cargo install --force cbindgen
 
 # add ssh private key so we can download private repos
 # TODO: remove once repos are public
+# TODO: once ssh key is stripped out, add prebuilt container to repo
 ARG SSH_PRIVATE_KEY
 RUN mkdir /root/.ssh/
 RUN echo "${SSH_PRIVATE_KEY}" > /root/.ssh/id_rsa
