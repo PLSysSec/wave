@@ -23,16 +23,12 @@ macro_rules! unwrap_result {
 }
 
 // include platform specific implementations
-#[cfg_attr(
-    all(target_os = "macos", target_arch = "aarch64"),
-    path = "platform/macos-aarch64.rs"
-)]
-#[cfg_attr(
-    all(target_os = "linux", target_arch = "x86_64"),
-    path = "platform/linux-x86_64.rs"
-)]
+#[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
+#[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
 mod platform;
 pub use platform::*;
+
+
 
 pub const MAX_SBOX_FDS: u32 = 8; // up to 16 or 32?
 pub const MAX_HOST_FDS: usize = 1024;
