@@ -38,11 +38,16 @@ fn example_cat() {
 //     // assert!(s == "This is the contents of the file!\n");
 // }
 
-// #[test]
-// fn example_clock() {
-//     let s = run_and_capture("examples/clock");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+#[test]
+fn example_clock() {
+    let s = run_and_capture("examples/clock");
+    let re = Regex::new(r"^time = [0-9]+$").unwrap();
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    assert!(re.is_match(s_split[0]));
+    assert!(s_split[1] == "result = 0 res_get.tv_sec = 0 res_get.tv_nsec = 1");
+    assert!(s_split[2] == "Done!");
+    // assert!(s == "This is the contents of the file!\n");
+}
 
 // #[test]
 // fn example_cp() {
@@ -50,11 +55,15 @@ fn example_cat() {
 //     // assert!(s == "This is the contents of the file!\n");
 // }
 
-// #[test]
-// fn example_cp_and_insert() {
-//     let s = run_and_capture("examples/cp_and_insert");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+#[test]
+fn example_cp_and_insert() {
+    let s = run_and_capture("examples/cp_and_insert");
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    assert!(s_split[0] == "position for lseek1 = 34");
+    assert!(s_split[1] == "position for lseek2 = 0");
+    assert!(s_split[2] == "results of pread = file");
+    assert!(s_split[3] == "Done!");
+}
 
 // TODO: clean up?
 #[test]
@@ -85,11 +94,13 @@ fn example_ls() {
     assert!(s_split[2] == "Done!");
 }
 
-// #[test]
-// fn example_mkdir() {
-//     let s = run_and_capture("examples/mkdir");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+// TODO: cleanup
+#[test]
+fn example_mkdir() {
+    let s = run_and_capture("examples/mkdir");
+    assert!(Path::new("examples/mkdir/test_dir").exists());
+    // assert!(s == "This is the contents of the file!\n");
+}
 
 #[test]
 fn example_permissions_regression() {
@@ -97,7 +108,6 @@ fn example_permissions_regression() {
     let s_split = s.split("\n").collect::<Vec<&str>>();
     assert!(s_split[0] == "Hello, World!");
     assert!(s_split[1] == "write returns 11");
-    // assert!(s == "This is the contents of the file!\n");
 }
 
 #[test]
@@ -119,13 +129,15 @@ fn example_raise() {
     // all we expect is that it doesn't crash
 }
 
-// #[test]
-// fn example_random() {
-//     let s = run_and_capture("examples/random");
-//     // let re = Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap();
-//     // assert!(re.is_match(s));
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+#[test]
+fn example_random() {
+    let s = run_and_capture("examples/random");
+    let re = Regex::new(r"^outbuf = [0-9a-fA-F]{8}$").unwrap();
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    assert!(re.is_match(s_split[0]));
+    assert!(s_split[1] == "Done!");
+    // assert!(s == "This is the contents of the file!\n");
+}
 
 // #[test]
 // fn example_rename() {
@@ -139,11 +151,13 @@ fn example_raise() {
 //     // assert!(s == "This is the contents of the file!\n");
 // }
 
-// #[test]
-// fn example_rmdir() {
-//     let s = run_and_capture("examples/rmdir");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+// TODO: set up
+#[test]
+fn example_rmdir() {
+    let s = run_and_capture("examples/rmdir");
+    assert!(!Path::new("examples/rmdir/remove_me").exists());
+    // assert!(s == "This is the contents of the file!\n");
+}
 
 #[test]
 fn example_setfl() {
