@@ -1,4 +1,5 @@
 use crate::tcb::misc::netlist_unmodified;
+#[cfg(feature = "verify")]
 use crate::tcb::path::path_safe;
 use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
 use crate::tcb::verifier::trace::{Effect, EffectType, Trace};
