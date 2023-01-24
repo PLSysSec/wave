@@ -62,14 +62,14 @@ macro_rules! map_effects {
     };
 }
 
-#[macro_export]
-macro_rules! do_effect {
-    ($trace:expr, $input:expr) => {
-        if cfg!(feature = "verify") {
-            $trace.push($input);
-        }
-    };
-}
+// #[macro_export]
+// macro_rules! do_effect {
+//     ($trace:expr, $input:expr) => {
+//         if cfg!(feature = "verify") {
+//             $trace.push($input);
+//         }
+//     };
+// }
 
 #[cfg(feature = "test")]
 use crate::predicate;

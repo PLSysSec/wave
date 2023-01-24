@@ -1,4 +1,4 @@
-use crate::do_effect;
+// use crate::do_effect;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
