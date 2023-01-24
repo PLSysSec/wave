@@ -1,5 +1,6 @@
 mod fuzz_trusted;
 mod unit_tests;
+mod integration_tests;
 
 //mod test_gen_trace;
 #[cfg(test)]
