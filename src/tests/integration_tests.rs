@@ -49,12 +49,14 @@ fn example_clock() {
     // assert!(s == "This is the contents of the file!\n");
 }
 
-// #[test]
-// fn example_cp() {
-//     let s = run_and_capture("examples/cp");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+#[test]
+fn example_cp() {
+    let s = run_and_capture("examples/cp");
+    assert!(Path::new("examples/cp/output/tmp.txt").exists());
+    // assert!(s == "This is the contents of the file!\n");
+}
 
+// TODO: check if output file exists
 #[test]
 fn example_cp_and_insert() {
     let s = run_and_capture("examples/cp_and_insert");
@@ -63,6 +65,7 @@ fn example_cp_and_insert() {
     assert!(s_split[1] == "position for lseek2 = 0");
     assert!(s_split[2] == "results of pread = file");
     assert!(s_split[3] == "Done!");
+    assert!(Path::new("examples/cp/output/tmp.txt").exists());
 }
 
 // TODO: clean up?
@@ -79,11 +82,14 @@ fn example_hello() {
     assert!(s == "Hello, World!\n");
 }
 
-// #[test]
-// fn example_link() {
-//     let s = run_and_capture("examples/link");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+// TODO: setup/teardown
+#[test]
+fn example_link() {
+    let s = run_and_capture("examples/link");
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    assert!(s_split[0] == "This is the contents of the file!");
+    assert!(s_split[1] == "Done!");
+}
 
 #[test]
 fn example_ls() {
