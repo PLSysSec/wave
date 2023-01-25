@@ -19,6 +19,7 @@ Additionally, ensure you have [https://rustup.rs/](Rustup) installed, and instal
 ```
 make bootstrap # Setup build the first time. This will take 15-20 minutes.
 make build     # Build WaVe. This should take < 1 minute. 
+cargo test     # Run all compliance tests. This should take < 1 minute
 make verify    # Verify correctness of WaVe. This will take 30-60 minutes.
 ```
 
