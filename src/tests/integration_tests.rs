@@ -139,17 +139,22 @@ fn example_random() {
     // assert!(s == "This is the contents of the file!\n");
 }
 
-// #[test]
-// fn example_rename() {
-//     let s = run_and_capture("examples/rename");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+// TODO: set up
+#[test]
+fn example_rename() {
+    let s = run_and_capture("examples/rename");
+    assert!(s == "Done!\n");
+    assert!(Path::new("examples/rename/B.txt").exists());
+    // assert!(s == "This is the contents of the file!\n");
+}
 
-// #[test]
-// fn example_renumber() {
-//     let s = run_and_capture("examples/renumber");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+#[test]
+fn example_renumber() {
+    let s = run_and_capture("examples/renumber");
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    assert!(s_split[0] == "This is the contents of the file!");
+    assert!(s_split[1] == "Done!");
+}
 
 // TODO: set up
 #[test]
@@ -173,22 +178,30 @@ fn example_setfl() {
 fn example_sleep() {
     let s = run_and_capture("examples/sleep");
     let s_split = s.split("\n").collect::<Vec<&str>>();
-    assert!(s_split[0] == "Please wait for 5 seconds...");
+    assert!(s_split[0] == "Please wait for 2 seconds...");
     assert!(s_split[1] == "Thank you for waiting!");
     // assert!(s == "This is the contents of the file!\n");
 }
 
-// #[test]
-// fn example_stat() {
-//     let s = run_and_capture("examples/stat");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+#[test]
+fn example_stat() {
+    let s = run_and_capture("examples/stat");
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    // Device containing file :  66306
+    let re = Regex::new(r"^Device containing file :  [0-9]*$").unwrap();
+    assert!(re.is_match(s_split[0]));
+    // assert!(s == "This is the contents of the file!\n");
+}
 
-// #[test]
-// fn example_symlink() {
-//     let s = run_and_capture("examples/symlink");
-//     // assert!(s == "This is the contents of the file!\n");
-// }
+// TODO: set up / tear down?
+#[test]
+fn example_symlink() {
+    let s = run_and_capture("examples/symlink");
+    let s_split = s.split("\n").collect::<Vec<&str>>();
+    assert!(s_split[0] == "Contents of symlink = ./data/tmp.txt");
+    assert!(s_split[1] == "Done!");
+    // assert!(s == "This is the contents of the file!\n");
+}
 
 #[test]
 fn example_sync() {
