@@ -96,7 +96,7 @@ fn example_ls() {
     let s = run_and_capture("examples/ls");
     let s_split = s.split("\n").collect::<Vec<&str>>();
     assert!(s_split[0] == "I'm doing an ls(.)!");
-    assert!(s_split[1] == "ls    ls.c    ls.wasm.h    ls.wasm.c    ..    .    Makefile    ");
+    assert!(s_split[1] == "ls    ls.c    ls.wasm.h    ls.wasm    ls.wasm.c    ..    .    Makefile    ");
     assert!(s_split[2] == "Done!");
 }
 

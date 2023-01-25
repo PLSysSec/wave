@@ -41,7 +41,7 @@ clean:
 %.wasm.c: %.wasm
 	$(WASM2C_BIN_ROOT)/wasm2c -o $@ $<
 
-$(TARGET): $(TARGET).wasm.c
+$(TARGET): $(TARGET).wasm.c $(TARGET).wasm
 	gcc -shared -fPIC -O3 -o $@ $< -I$(WASM2C_SRC_ROOT) $(WASM2C_SRC_ROOT)/wasm-rt-impl.c $(WASM2C_SRC_ROOT)/wasm-rt-os-unix.c $(WASM2C_SRC_ROOT)/wasm-rt-os-win.c $(WASM2C_SRC_ROOT)/wasm-rt-wasi.c ../../target/release/libwave.$(DYLIB_EXT) -I../../bindings
 
 .PHONY: run
