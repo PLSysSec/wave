@@ -41,3 +41,8 @@ examples/sleep/sleep
 examples/stat/stat
 examples/symlink/symlink
 examples/sync/sync
+examples/client/client
+examples/client/server/server
+examples/client_send_recv/client_send_recv
+examples/client_send_recv/server/server
+
