@@ -1,6 +1,6 @@
 # WaVe: a verifiably secure WebAssembly sandboxing runtime
 
-This repository contains all the code and data necessary for building WaVe and reproducing the results presented in our paper [WaVe: a verifiably secure WebAssembly sandboxing runtime](https://cseweb.ucsd.edu/~dstefan/pubs/johnson:2022:wave.pdf).  
+This repository contains all the code and data necessary for building WaVe and reproducing the results presented in our paper [WaVe: a verifiably secure WebAssembly sandboxing runtime](https://cseweb.ucsd.edu/~dstefan/pubs/johnson:2023:wave.pdf)).  
   
 ## Abstract
 The promise of software sandboxing is flexible, fast and portable isolation; capturing the benefits of hardware-based memory protection without requiring operating system involvement. This promise is reified in WebAssembly (Wasm), a popular portable bytecode whose compilers automatically insert
@@ -33,7 +33,7 @@ You can examine the makefile to see the exact commands
 
 
 ## Related documentation
-Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md)  
+Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md)
 
 ## Reproducing the evaluation
 TODO
