@@ -4,7 +4,7 @@ use crate::stats::timing::{push_syscall_result, start_timer, stop_timer};
 use crate::{
     rvec::{BSlice, RVec},
     syscall_spec_gen,
-    tcb::path::HostPath,
+    tcb::path::HostPathSafe,
     types::VmCtx,
 };
 // use crate::tcb::misc::flag_set;
@@ -64,8 +64,8 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     // trace;
     // ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW))));
-    sig(flux::sig(fn(ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe[!flag_set(flags, AT_SYMLINK_NOFOLLOW)], stat: &mut stat, flags: i32) -> isize requires PathAccessAt(dirfd, cx.homedir_host_fd)));
-    syscall_with_cx(newfstatat ALIAS fstatat, dirfd: usize, path: HostPath, stat: (&mut stat), flags: i32)
+    sig(flux::sig(fn(ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe(!flag_set(flags, AT_SYMLINK_NOFOLLOW)), stat: &mut stat, flags: i32) -> isize requires PathAccessAt(dirfd, cx.homedir_host_fd)));
+    syscall_with_cx(newfstatat ALIAS fstatat, dirfd: usize, path: HostPathSafe, stat: (&mut stat), flags: i32)
 }
 
 //https://man7.org/linux/man-pages/man2/utimensat.2.html
@@ -90,8 +90,8 @@ syscall_spec_gen! {
     // trace;
     // requires((specs.len() >= 2));
     // ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::AT_SYMLINK_NOFOLLOW))));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe[!flag_set(flags, AT_SYMLINK_NOFOLLOW)], specs: &RVec<timespec>{len : 2 <= len}, flags: c_int) -> isize requires PathAccessAt(dirfd, cx.homedir_host_fd)));
-    syscall_with_cx(utimensat, dirfd: usize, path: HostPath, specs: (&RVec<timespec>), flags: c_int)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe(!flag_set(flags, AT_SYMLINK_NOFOLLOW)), specs: &RVec<timespec>{len : 2 <= len}, flags: i32) -> isize requires PathAccessAt(dirfd, cx.homedir_host_fd)));
+    syscall_with_cx(utimensat, dirfd: usize, path: HostPathSafe, specs: (&RVec<timespec>), flags: i32)
 }
 
 //https://man7.org/linux/man-pages/man2/clock_gettime.2.html

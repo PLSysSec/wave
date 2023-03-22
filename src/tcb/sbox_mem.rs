@@ -1,12 +1,12 @@
 use std::ptr::copy_nonoverlapping;
 
 use crate::rvec::{BSlice, RVec};
-use crate::types::{NativeIoVec, SboxPtr, VmCtx, WasmIoVec};
+use crate::types::{NativeIoVec, NativeIoVecOk, SboxPtr, VmCtx, WasmIoVec};
 
 impl VmCtx {
     #[flux::trusted]
-    #[flux::sig(fn(self: &VmCtx[@cx], WasmIoVec) -> NativeIoVecOk[cx.base])]
-    pub fn translate_iov(&self, iov: WasmIoVec) -> NativeIoVec {
+    #[flux::sig(fn(self: &VmCtx[@cx], WasmIoVec) -> NativeIoVecOk(cx.base))]
+    pub fn translate_iov(&self, iov: WasmIoVec) -> NativeIoVecOk {
         // let swizzled_base = self.raw + iov.iov_base as usize;
         let swizzled_base =
             unsafe { self.mem.inner.as_ptr().offset(iov.iov_base as isize) as usize };

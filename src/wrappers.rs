@@ -2,7 +2,9 @@ use crate::iov::parse_iovs;
 use crate::os::*;
 use crate::poll::*;
 use crate::rvec::RVec;
-use crate::tcb::misc::{bitwise_or, flag_set, fresh_stat, push_dirent_name};
+use crate::tcb::misc::{
+    bitwise_or, flag_set, fresh_stat, push_dirent_name, unsize_arr_slice_4, unsize_arr_slice_8,
+};
 use crate::types::RuntimeError::*;
 use crate::types::*;
 use crate::unwrap_result;
@@ -1259,23 +1261,23 @@ pub fn wasi_fd_readdir(
             break;
         }
 
-        /* FLUX-TODO2: see https://github.com/liquid-rust/flux/issues/285  */        
+        /* FLUX-TODO2: see https://github.com/liquid-rust/flux/issues/285  */
         // Copy in next offset verbatim
         let out_next_bytes: [u8; 8] = out_next.to_le_bytes();
-        out_buf.extend_from_slice(&out_next_bytes);
+        out_buf.extend_from_slice(unsize_arr_slice_8(&out_next_bytes));
 
         // Copy in Inode verbatim
         let d_ino_bytes: [u8; 8] = dirent.ino.to_le_bytes();
-        out_buf.extend_from_slice(&d_ino_bytes);
+        out_buf.extend_from_slice(unsize_arr_slice_8(&d_ino_bytes));
 
         // Copy namlen
         let out_namlen_bytes: [u8; 4] = (dirent.out_namlen as u32).to_le_bytes();
-        out_buf.extend_from_slice(&out_namlen_bytes);
+        out_buf.extend_from_slice(unsize_arr_slice_4(&out_namlen_bytes));
 
         // Copy type
         let d_type = Filetype::from(dirent.typ as libc::mode_t);
         let out_type_bytes: [u8; 4] = (d_type.to_wasi() as u32).to_le_bytes();
-        out_buf.extend_from_slice(&out_type_bytes);
+        out_buf.extend_from_slice(unsize_arr_slice_4(&out_type_bytes));
 
         // Copy name
         push_dirent_name(

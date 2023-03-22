@@ -200,3 +200,15 @@ pub fn as_u16(e: RuntimeError) -> u16 {
 // pub fn netlist_unmodified(n: &Netlist) -> bool {
 //     unimplemented!();
 // }
+
+// FLUX-TODO2: see https://github.com/liquid-rust/flux/issues/285
+#[flux::trusted]
+pub fn unsize_arr_slice_8(arr: &[u8; 8]) -> &[u8] {
+    arr
+}
+
+// FLUX-TODO2: see https://github.com/liquid-rust/flux/issues/285
+#[flux::trusted]
+pub fn unsize_arr_slice_4(arr: &[u8; 4]) -> &[u8] {
+    arr
+}

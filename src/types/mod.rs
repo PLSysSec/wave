@@ -53,6 +53,7 @@ pub const AF_INET: i32 = libc::AF_INET;
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
+#[flux::alias(type SboxPtr[n: int] = u32[@n])]
 pub type SboxPtr = u32;
 pub type HostPtr = usize;
 
@@ -200,8 +201,8 @@ pub struct NativeIoVec {
     pub iov_len: usize,
 }
 
-#[flux::alias(type NativeIoVecOk(base) = NativeIoVec{v: v.iov_base + v.iov_len <= base + LINEAR_MEM_SIZE})]
-pub type _NativeIoVecOk = NativeIoVec;
+#[flux::alias(type NativeIoVecOk(base: int) = NativeIoVec{v: v.iov_base + v.iov_len <= base + LINEAR_MEM_SIZE})]
+pub type NativeIoVecOk = NativeIoVec;
 
 pub type NativeIoVecs = RVec<NativeIoVec>;
 // An `assert` function, whose precondition expects only `true`
@@ -220,8 +221,11 @@ macro_rules! unwrap_result {
     };
 }
 
-#[flux::alias(type SboxFdSafe() = SboxFd{v: v < MAX_SBOX_FDS})]
+#[flux::alias(type SboxFd[n: int] = u32[@n])]
 pub type SboxFd = u32;
+
+#[flux::alias(type SboxFdSafe = SboxFd{v: v < MAX_SBOX_FDS})]
+pub type SboxFdSafe = SboxFd;
 
 #[flux::refined_by(reserve_len: int, counter: int)]
 pub struct FdMap {

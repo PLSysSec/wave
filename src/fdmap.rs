@@ -80,7 +80,7 @@ impl FdMap {
     */
 
     #[flux::sig(fn (self: &strg FdMap[@fd]) -> Result<SboxFdSafe, RuntimeError> ensures self: FdMap)]
-    fn pop_fd(&mut self) -> Result<SboxFd, RuntimeError> {
+    fn pop_fd(&mut self) -> Result<SboxFdSafe, RuntimeError> {
         if self.reserve.len() > 0 {
             Ok(self.reserve.pop())
         } else {
@@ -92,14 +92,14 @@ impl FdMap {
         }
     }
 
-    #[flux::sig(fn (self: &strg FdMap[@dummy], k: HostFd) -> Result<SboxFdSafe, RuntimeError> ensures self: FdMap)]
+    #[flux::sig(fn (self: &strg FdMap[@dummy], k: HostFd) -> Result<SboxFd, RuntimeError> ensures self: FdMap)]
     pub fn create(&mut self, k: HostFd) -> Result<SboxFd, RuntimeError> {
         let s_fd = self.pop_fd()?;
         self.m[s_fd as usize] = Ok(k);
         Ok(s_fd)
     }
 
-    #[flux::sig(fn (self: &strg FdMap[@dummy], k: HostFd, proto: WasiProto) -> Result<SboxFdSafe, RuntimeError> ensures self: FdMap)]
+    #[flux::sig(fn (self: &strg FdMap[@dummy], k: HostFd, proto: WasiProto) -> Result<SboxFd, RuntimeError> ensures self: FdMap)]
     pub fn create_sock(&mut self, k: HostFd, proto: WasiProto) -> Result<SboxFd, RuntimeError> {
         let s_fd = self.pop_fd()?;
         self.m[s_fd as usize] = Ok(k);
@@ -108,8 +108,8 @@ impl FdMap {
     }
 
     // #[requires(k < MAX_SBOX_FDS)]
-    #[flux::sig(fn (self: &strg FdMap, k: SboxFd { k < MAX_SBOX_FDS}) ensures self: FdMap)] // FLUX-TODO2 open-mut-ref
-    pub fn delete(&mut self, k: SboxFd) {
+    #[flux::sig(fn (self: &strg FdMap, k: SboxFdSafe) ensures self: FdMap)] // FLUX-TODO2 open-mut-ref
+    pub fn delete(&mut self, k: SboxFdSafe) {
         if let Ok(oldfd) = self.m[k as usize] {
             self.reserve.push(k);
         }
@@ -118,8 +118,8 @@ impl FdMap {
 
     // #[requires(from < MAX_SBOX_FDS)]
     // #[requires(to < MAX_SBOX_FDS)]
-    #[flux::sig(fn (self: &mut FdMap[@dummy], from: SboxFd{ from < MAX_SBOX_FDS}, to: SboxFd{ to < MAX_SBOX_FDS}))]
-    pub fn shift(&mut self, from: SboxFd, to: SboxFd) {
+    #[flux::sig(fn (self: &mut FdMap[@dummy], from: SboxFdSafe, to: SboxFdSafe))]
+    pub fn shift(&mut self, from: SboxFdSafe, to: SboxFdSafe) {
         if let Ok(hostfd) = self.m[from as usize] {
             self.m[to as usize] = Ok(hostfd)
         }

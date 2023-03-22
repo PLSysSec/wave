@@ -30,16 +30,16 @@ pub struct FOwnedComponents {
     inner: OwnedComponents,
 }
 
-#[flux::alias(type HostPathOc(oc) = HostPath{ v: v.depth == oc.depth && v.is_relative == oc.is_relative
-                                              && v.non_symlink == (oc.size == oc.ns_prefix)
-                                              && v.non_symlink_prefixes == (oc.size - 1 <= oc.ns_prefix) })]
-pub type _HostPathOc = HostPath;
+// #[flux::alias(type HostPathOc(oc) = HostPath{ v: v.depth == oc.depth && v.is_relative == oc.is_relative
+//                                               && v.non_symlink == (oc.size == oc.ns_prefix)
+//                                               && v.non_symlink_prefixes == (oc.size - 1 <= oc.ns_prefix) })]
+// pub type HostPathOc = HostPath;
 
 #[flux::alias(type NoSymLinks = FOwnedComponents{v: v.size == v.ns_prefix})]
-pub type NoSymLinks_ = FOwnedComponents;
+pub type NoSymLinks = FOwnedComponents;
 
-#[flux::alias(type LastSymLink(b) = FOwnedComponents{v: v.size - 1 <= v.ns_prefix && (b => v.size == v.ns_prefix)})]
-pub type LastSymLink_ = FOwnedComponents;
+#[flux::alias(type LastSymLink(b: bool) = FOwnedComponents{v: v.size - 1 <= v.ns_prefix && (b => v.size == v.ns_prefix)})]
+pub type LastSymLink = FOwnedComponents;
 
 impl FOwnedComponents {
     #[flux::trusted]
@@ -70,7 +70,7 @@ impl FOwnedComponents {
     }
 
     #[flux::trusted]
-    #[flux::sig(fn (oc:FOwnedComponents) -> Option<HostPathOc[oc]>)]
+    #[flux::sig(fn (oc:FOwnedComponents) -> Option<HostPath{v: v.depth == oc.depth && v.is_relative == oc.is_relative && v.non_symlink == (oc.size == oc.ns_prefix) && v.non_symlink_prefixes == (oc.size - 1 <= oc.ns_prefix) }>)]
     pub fn unparse(self) -> Option<HostPath> {
         let inner = self.inner.unparse()?;
         Some(HostPath { inner })
@@ -157,7 +157,7 @@ fn read_linkat_h(dirfd: HostFd, out_path: &FOwnedComponents) -> Option<FOwnedCom
 #[flux::sig(fn (HostFd, &mut NoSymLinks, OwnedComponent, &mut isize) -> Option<FOwnedComponents>)]
 pub fn maybe_expand_component(
     dirfd: HostFd,
-    out_path: &mut FOwnedComponents,
+    out_path: &mut NoSymLinks,
     comp: OwnedComponent,
     num_symlinks: &mut isize,
 ) -> Option<FOwnedComponents> {
@@ -178,11 +178,11 @@ pub fn fresh_components() -> FOwnedComponents {
     }
 }
 
-#[flux::alias(type CountSafe(ptr) = usize{cnt: fits_in_lin_mem(ptr, cnt) && cnt < LINEAR_MEM_SIZE })]
-pub type _CountSafe = usize;
+#[flux::alias(type CountSafe(ptr: int) = usize{cnt: fits_in_lin_mem(ptr, cnt) && cnt < LINEAR_MEM_SIZE })]
+pub type CountSafe = usize;
 
-#[flux::alias(type HostPathSafe(b) = HostPath{v: v.depth >= 0 && v.is_relative && (b => v.non_symlink) && v.non_symlink_prefixes})]
-pub type _HostPathSafe = HostPath;
+#[flux::alias(type HostPathSafe(b: bool) = HostPath{v: v.depth >= 0 && v.is_relative && (b => v.non_symlink) && v.non_symlink_prefixes})]
+pub type HostPathSafe = HostPath;
 
 // FLUX-TODO2: (alias) gross, should allow using aliases to define aliases i.e. the below should be
 // HostPathFlags(flags) = HostPathSafe[!flag_set(flags, AT_SYMLINK_NOFOLLOW)]

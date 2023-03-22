@@ -11,12 +11,12 @@ fn to_pathbuf(v: RVec<u8>) -> PathBuf {
     PathBuf::from(OsString::from_vec(v.to_vec()))
 }
 
-#[flux::sig(fn (RVec<u8>, should_follow:bool, HostFd) -> Result<LastSymLink[should_follow], RuntimeError>)]
+#[flux::sig(fn(RVec<u8>, should_follow:bool, HostFd) -> Result<LastSymLink(should_follow), RuntimeError>)]
 fn expand_path(
     vec: RVec<u8>,
     should_follow: bool,
     dirfd: HostFd,
-) -> Result<FOwnedComponents, RuntimeError> {
+) -> Result<LastSymLink, RuntimeError> {
     let p = to_pathbuf(vec);
     let components = get_components(&p);
 
@@ -47,12 +47,12 @@ fn expand_path(
     Ok(out_path)
 }
 
-#[flux::sig(fn(RVec<u8>, should_follow:bool, HostFd) -> Result<HostPathSafe[should_follow], RuntimeError>)]
+#[flux::sig(fn(RVec<u8>, should_follow:bool, HostFd) -> Result<HostPathSafe(should_follow), RuntimeError>)]
 pub fn resolve_path(
     path: RVec<u8>,
     should_follow: bool,
     dirfd: HostFd,
-) -> Result<HostPath, RuntimeError> {
+) -> Result<HostPathSafe, RuntimeError> {
     // TODO: use ? when that works properly in Prusti
     let c = expand_path(path, should_follow, dirfd);
 
@@ -77,7 +77,7 @@ pub fn resolve_path(
 // maintains a queue of path components to process
 #[flux::sig(fn(out_path: &mut NoSymLinks, linkpath: FOwnedComponents, num_symlinks: &mut isize, HostFd))]
 fn expand_symlink(
-    out_path: &mut FOwnedComponents,
+    out_path: &mut NoSymLinks,
     linkpath_components: FOwnedComponents,
     num_symlinks: &mut isize,
     dirfd: HostFd,

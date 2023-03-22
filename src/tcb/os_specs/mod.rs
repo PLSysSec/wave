@@ -3,7 +3,7 @@
 use crate::{iov::*, rvec::RVec};
 use crate::{
     rvec::{BSlice, RVec},
-    types::{NativeIoVec, SockAddr, VmCtx},
+    types::{NativeIoVec, NativeIoVecOk, SockAddr, VmCtx},
 };
 use libc::{c_int, mode_t, stat, timespec};
 // use crate::tcb::misc::flag_set;
@@ -24,17 +24,17 @@ pub use platform::*;
 
 pub use paste::paste;
 
-use super::path::HostPath;
+use super::path::HostPathSafe;
 
 #[macro_export]
 macro_rules! arg_converter {
-    ($arg:ident: (&RVec<NativeIoVec>)) => {
+    ($arg:ident: (&RVec<NativeIoVecOk>)) => {
         $arg.inner.as_ptr()
     };
     ($arg:ident: (&NativeIoVecs)) => {
         $arg.iovs.as_ptr()
     };
-    ($arg:ident: HostPath) => {
+    ($arg:ident: HostPathSafe) => {
         $arg.inner.as_ptr()
     };
     ($arg:ident: (&SockAddr)) => {
@@ -221,8 +221,8 @@ macro_rules! syscall_spec_gen {
 syscall_spec_gen! {
     // trace;
     // ensures((effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, f) if fd == dirfd && p == old(path) && f == !flag_set(flags, libc::O_NOFOLLOW))));
-    sig(flux::sig(fn(ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe[!flag_set(flags, O_NOFOLLOW)], flags: i32, mode: i32) -> isize requires PathAccessAt(dirfd, cx.homedir_host_fd)));
-    syscall_with_cx(openat, dirfd: usize, path: HostPath, flags: i32, mode: i32)
+    sig(flux::sig(fn(ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe(!flag_set(flags, O_NOFOLLOW)), flags: i32, mode: i32) -> isize requires PathAccessAt(dirfd, cx.homedir_host_fd)));
+    syscall_with_cx(openat, dirfd: usize, path: HostPathSafe, flags: i32, mode: i32)
 }
 
 syscall_spec_gen! {
@@ -257,8 +257,8 @@ syscall_spec_gen! {
     //     }
     // }
     // ));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk[cx.base]>, iovcnt: usize) -> isize));
-    syscall_with_cx(readv, fd: usize, buf: (&RVec<NativeIoVec>), iovcnt: usize)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk(cx.base)>, iovcnt: usize) -> isize));
+    syscall_with_cx(readv, fd: usize, buf: (&RVec<NativeIoVecOk>), iovcnt: usize)
 }
 
 syscall_spec_gen! {
@@ -286,8 +286,8 @@ syscall_spec_gen! {
     //         }
     //     )
     // ));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk[cx.base]>, iovcnt: usize) -> isize));
-    syscall_with_cx(writev, fd: usize, buf: (&RVec<NativeIoVec>), iovcnt: usize)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk(cx.base)>, iovcnt: usize) -> isize));
+    syscall_with_cx(writev, fd: usize, buf: (&RVec<NativeIoVecOk>), iovcnt: usize)
 }
 
 syscall_spec_gen! {
@@ -308,8 +308,8 @@ syscall_spec_gen! {
     //     )
     // ));
 
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk[cx.base]>, iovcnt: usize, offset: usize) -> isize));
-    syscall_with_cx(preadv, fd: usize, buf: (&RVec<NativeIoVec>), iovcnt: usize, offset: usize)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk(cx.base)>, iovcnt: usize, offset: usize) -> isize));
+    syscall_with_cx(preadv, fd: usize, buf: (&RVec<NativeIoVecOk>), iovcnt: usize, offset: usize)
 }
 
 syscall_spec_gen! {
@@ -330,8 +330,8 @@ syscall_spec_gen! {
     //     )
     // ));
 
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk[cx.base]>, iovcnt: usize, offset: usize) -> isize));
-    syscall_with_cx(pwritev, fd: usize, buf: (&RVec<NativeIoVec>), iovcnt: usize, offset: usize)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], fd: usize, buf: &RVec<NativeIoVecOk(cx.base)>, iovcnt: usize, offset: usize) -> isize));
+    syscall_with_cx(pwritev, fd: usize, buf: (&RVec<NativeIoVecOk>), iovcnt: usize, offset: usize)
 }
 
 syscall_spec_gen! {
@@ -377,9 +377,9 @@ syscall_spec_gen! {
     //     path_effect!(PathAccessAt, fd1, old_p, f) if fd1 == old_fd && old_p == old(old_path) && f == flag_set(flags, libc::AT_SYMLINK_FOLLOW),
     //     path_effect!(PathAccessAt, fd2, new_p, f) if fd2 == new_fd && new_p == old(new_path) && f == flag_set(flags, libc::AT_SYMLINK_FOLLOW)
     // )));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], old_fd: usize, old_path: HostPathSafe[flag_set(flags, AT_SYMLINK_FOLLOW)], new_fd: usize, new_path: HostPathSafe[flag_set(flags, AT_SYMLINK_FOLLOW)], flags: i32) -> isize
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], old_fd: usize, old_path: HostPathSafe(flag_set(flags, AT_SYMLINK_FOLLOW)), new_fd: usize, new_path: HostPathSafe(flag_set(flags, AT_SYMLINK_FOLLOW)), flags: i32) -> isize
                   requires FdAccess() && PathAccessAt(old_fd, cx.homedir_host_fd) && PathAccessAt(new_fd, cx.homedir_host_fd)));
-    syscall_with_cx(linkat, old_fd: usize, old_path: HostPath, new_fd: usize, new_path: HostPath, flags: i32)
+    syscall_with_cx(linkat, old_fd: usize, old_path: HostPathSafe, new_fd: usize, new_path: HostPathSafe, flags: i32)
 }
 
 // https://man7.org/linux/man-pages/man2/mkdirat.2.html
@@ -387,8 +387,8 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     // trace;
     // ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path) )));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe[true], mode: mode_t) -> isize requires FdAccess() && PathAccessAt(dirfd, cx.homedir_host_fd)));
-    syscall_with_cx(mkdirat, dirfd: usize, path: HostPath, mode: mode_t)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe(true), mode: mode_t) -> isize requires FdAccess() && PathAccessAt(dirfd, cx.homedir_host_fd)));
+    syscall_with_cx(mkdirat, dirfd: usize, path: HostPathSafe, mode: mode_t)
 }
 
 // https://man7.org/linux/man-pages/man2/readlinkat.2.html
@@ -399,8 +399,8 @@ syscall_spec_gen! {
     // ensures((old(raw_ptr(buf)) == raw_ptr(buf)));
     // ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path), effect!(WriteMem, addr, count) if addr == old(raw_ptr(buf)) && count == cnt)));
     // FLUX-TODO: cannot pass in VmCtx due to BSlice ownership, hence no precond on dirfd: usize[cx.homedir_host_fd]
-    sig(flux::sig(fn (dirfd: usize, path: HostPathSafe[false], buf: BSlice, cnt: usize{buf.len >= cnt }) -> isize requires FdAccess() && WriteMem(buf.base, buf.addr, cnt)));
-    syscall(readlinkat, dirfd: usize, path: HostPath, buf: BSlice, cnt: usize)
+    sig(flux::sig(fn (dirfd: usize, path: HostPathSafe(false), buf: BSlice, cnt: usize{buf.len >= cnt }) -> isize requires FdAccess() && WriteMem(buf.base, buf.addr, cnt)));
+    syscall(readlinkat, dirfd: usize, path: HostPathSafe, buf: BSlice, cnt: usize)
 }
 
 // https://man7.org/linux/man-pages/man2/unlinkat.2.html
@@ -408,8 +408,8 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     // trace;
     // ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd, p, false) if fd == dirfd && p == old(path))));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe[false], flags: c_int) -> isize requires FdAccess() && PathAccessAt(dirfd, cx.homedir_host_fd)));
-    syscall_with_cx(unlinkat, dirfd: usize, path: HostPath, flags: c_int)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], dirfd: usize, path: HostPathSafe(false), flags: c_int) -> isize requires FdAccess() && PathAccessAt(dirfd, cx.homedir_host_fd)));
+    syscall_with_cx(unlinkat, dirfd: usize, path: HostPathSafe, flags: c_int)
 }
 
 //https://man7.org/linux/man-pages/man2/renameat.2.html
@@ -417,8 +417,8 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     // trace;
     // ensures((effects!(old(trace), trace, effect!(FdAccess), path_effect!(PathAccessAt, fd1, old_p, false) if fd1 == old_dir_fd && old_p == old(old_path), effect!(FdAccess), path_effect!(PathAccessAt, fd2, new_p, false) if fd2 == new_dir_fd && new_p == old(new_path))));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], old_dir_fd: usize, old_path: HostPathSafe[false], new_dir_fd: usize, new_path: HostPathSafe[false]) -> isize requires FdAccess() && PathAccessAt(old_dir_fd, cx.homedir_host_fd) && PathAccessAt(new_dir_fd, cx.homedir_host_fd)));
-    syscall_with_cx(renameat, old_dir_fd: usize, old_path: HostPath, new_dir_fd: usize, new_path: HostPath)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], old_dir_fd: usize, old_path: HostPathSafe(false), new_dir_fd: usize, new_path: HostPathSafe(false)) -> isize requires FdAccess() && PathAccessAt(old_dir_fd, cx.homedir_host_fd) && PathAccessAt(new_dir_fd, cx.homedir_host_fd)));
+    syscall_with_cx(renameat, old_dir_fd: usize, old_path: HostPathSafe, new_dir_fd: usize, new_path: HostPathSafe)
 }
 
 // https://man7.org/linux/man-pages/man2/symlinkat.2.html
@@ -428,8 +428,8 @@ syscall_spec_gen! {
 syscall_spec_gen! {
     // trace;
     // ensures((effects!(old(trace), trace, path_effect!(PathAccessAt, fd, p, true) if fd == dirfd && p == old(path2), effect!(FdAccess))));
-    sig(flux::sig(fn (ctx: &VmCtx[@cx], path1: HostPathSafe[true], dirfd: usize, path2: HostPathSafe[true]) -> isize requires FdAccess() && PathAccessAt(dirfd, cx.homedir_host_fd)));
-    syscall_with_cx(symlinkat, path1: HostPath, dirfd: usize, path2: HostPath)
+    sig(flux::sig(fn (ctx: &VmCtx[@cx], path1: HostPathSafe(true), dirfd: usize, path2: HostPathSafe(true)) -> isize requires FdAccess() && PathAccessAt(dirfd, cx.homedir_host_fd)));
+    syscall_with_cx(symlinkat, path1: HostPathSafe, dirfd: usize, path2: HostPathSafe)
 }
 
 //https://man7.org/linux/man-pages/man2/recvfrom.2.html

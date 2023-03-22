@@ -3,16 +3,16 @@ use crate::{
     rvec::RVec,
     tcb::{
         misc::{empty_netlist, get_homedir_fd, string_to_rvec_u8},
-        path::HostPath,
+        path::{HostPath, HostPathSafe},
     },
     types::*,
 };
 use RuntimeError::*;
 
-#[flux::alias(type FitsBool(buf, cnt) = bool[fits_in_lin_mem(buf, cnt)])]
-pub type _FitsBool = bool;
+#[flux::alias(type FitsBool(buf: int, cnt: int) = bool[fits_in_lin_mem(buf, cnt)])]
+pub type FitsBool = bool;
 
-#[flux::alias(type FitsUsize(buf) = usize{cnt : fits_in_lin_mem(buf, cnt)})]
+#[flux::alias(type FitsUsize(buf: int) = usize{cnt : fits_in_lin_mem(buf, cnt)})]
 pub type FitsUsize = usize;
 
 //#[ensures(safe(&result))]
@@ -76,8 +76,8 @@ impl VmCtx {
 
     /// Check whether buffer is entirely within sandbox
     // Can I eliminate this in favor of fits_in_lin_mem_usize
-    #[flux::sig(fn(&VmCtx, buf:u32, cnt:u32) -> FitsBool[buf, cnt])]
-    pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
+    #[flux::sig(fn(&VmCtx, buf: SboxPtr, cnt:u32) -> FitsBool(buf, cnt))]
+    pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> FitsBool {
         let total_size = (buf as usize) + (cnt as usize);
         if total_size >= self.memlen {
             return false;
@@ -85,8 +85,8 @@ impl VmCtx {
         self.in_lin_mem(buf) && self.in_lin_mem(cnt) && buf <= buf + cnt
     }
 
-    #[flux::sig(fn(&VmCtx, buf:usize, cnt:usize) -> FitsBool[buf, cnt])]
-    pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> bool {
+    #[flux::sig(fn(&VmCtx, buf:usize, cnt:usize) -> FitsBool(buf, cnt))]
+    pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> FitsBool {
         let total_size = buf + cnt;
         if total_size >= self.memlen {
             return false;
@@ -146,14 +146,14 @@ impl VmCtx {
         Ok(())
     }
 
-    #[flux::sig(fn(&VmCtx[@cx], SboxPtr, u32, should_follow:bool, HostFd) -> Result<HostPathSafe[should_follow], RuntimeError>)]
+    #[flux::sig(fn(&VmCtx[@cx], SboxPtr, u32, should_follow:bool, HostFd) -> Result<HostPathSafe(should_follow), RuntimeError>)]
     pub fn translate_path(
         &self,
         path: SboxPtr,
         path_len: u32,
         should_follow: bool,
         dirfd: HostFd,
-    ) -> Result<HostPath, RuntimeError> {
+    ) -> Result<HostPathSafe, RuntimeError> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
@@ -167,16 +167,16 @@ impl VmCtx {
         // self.homedir.as_bytes().to_vec()
     }
 
-    #[flux::sig(fn(&VmCtx, FitsUsize[2]) -> u16)]
-    pub fn read_u16(&self, start: usize) -> u16 {
+    #[flux::sig(fn(&VmCtx, FitsUsize(2)) -> u16)]
+    pub fn read_u16(&self, start: FitsUsize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
     }
 
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
-    #[flux::sig(fn(&VmCtx, FitsUsize[4]) -> u32)]
-    pub fn read_u32(&self, start: usize) -> u32 {
+    #[flux::sig(fn(&VmCtx, FitsUsize(4)) -> u32)]
+    pub fn read_u32(&self, start: FitsUsize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
             self.mem[start + 1],
@@ -189,8 +189,8 @@ impl VmCtx {
     /// read u64 from wasm linear memory
     // Not thrilled about this implementation, but it works
     // TODO: need to test different implementatiosn for this function
-    #[flux::sig(fn(&VmCtx, FitsUsize[8]) -> u64)]
-    pub fn read_u64(&self, start: usize) -> u64 {
+    #[flux::sig(fn(&VmCtx, FitsUsize(8)) -> u64)]
+    pub fn read_u64(&self, start: FitsUsize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
             self.mem[start + 1],
@@ -216,8 +216,8 @@ impl VmCtx {
     }
 
     // TODO @cx is redundant here but due to https://github.com/liquid-rust/flux/issues/158
-    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[1], v: u8))]
-    pub fn write_u8(&mut self, offset: usize, v: u8) {
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize(1), v: u8))]
+    pub fn write_u8(&mut self, offset: FitsUsize, v: u8) {
         self.mem[offset] = v;
     }
 
@@ -231,8 +231,8 @@ impl VmCtx {
     // #[ensures(ctx_safe(self))]
     // #[ensures(trace_safe(trace, self))]
     // // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 2) if addr == start as usize))]
-    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[2], v: u16))]
-    pub fn write_u16(&mut self, start: usize, v: u16) {
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize(2), v: u16))]
+    pub fn write_u16(&mut self, start: FitsUsize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
         self.write_u8(start + 1, bytes[1]);
@@ -248,8 +248,8 @@ impl VmCtx {
     // #[ensures(ctx_safe(self))]
     // #[ensures(trace_safe(trace, self))]
     // // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 4) if addr == start as usize))]
-    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[4], v: u32))]
-    pub fn write_u32(&mut self, start: usize, v: u32) {
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize(4), v: u32))]
+    pub fn write_u32(&mut self, start: FitsUsize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
         self.write_u8(start + 1, bytes[1]);
@@ -266,8 +266,8 @@ impl VmCtx {
     // #[ensures(ctx_safe(self))]
     // #[ensures(trace_safe(trace, self))]
     // // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 8) if addr == start as usize))]
-    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[8], v: u64))]
-    pub fn write_u64(&mut self, start: usize, v: u64) {
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize(8), v: u64))]
+    pub fn write_u64(&mut self, start: FitsUsize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
         self.write_u8(start + 1, bytes[1]);
@@ -280,8 +280,8 @@ impl VmCtx {
     }
 
     #[flux::qualifiers(MyQ1)]
-    #[flux::sig(fn(&VmCtx[@cx], &RVec<WasmIoVec>) -> RVec<NativeIoVecOk[cx.base]>)]
-    pub fn translate_iovs(&self, iovs: &RVec<WasmIoVec>) -> RVec<NativeIoVec> {
+    #[flux::sig(fn(&VmCtx[@cx], &RVec<WasmIoVec>) -> RVec<NativeIoVecOk(cx.base)>)]
+    pub fn translate_iovs(&self, iovs: &RVec<WasmIoVec>) -> RVec<NativeIoVecOk> {
         let mut idx = 0;
         let mut native_iovs = NativeIoVecs::new();
         let iovcnt = iovs.len();

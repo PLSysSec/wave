@@ -180,6 +180,7 @@ pub struct BSlice<'a> {
 }
 
 impl BSlice<'_> {
+    #[flux::trusted]
     pub fn from_raw<'a>(inner: &'a mut [u8]) -> BSlice<'a> {
         BSlice { inner }
     }

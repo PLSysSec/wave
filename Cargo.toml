@@ -39,3 +39,6 @@ security-framework-sys = "2.4.2"
 verify = ["wave-macros/enable"] # feature for when we're verifying
 time_syscalls = []
 time_hostcalls = []
+
+[dev-dependencies]
+flux-attrs-proc-macros = { git = "https://github.com/flux-rs/flux.git" }
