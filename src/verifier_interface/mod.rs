@@ -12,11 +12,11 @@ macro_rules! path_effect {
     ($trace:expr, $input:expr) => {};
 }
 
-// #[cfg(not(feature = "verify"))]
-// #[macro_export]
-// macro_rules! do_effect {
-//     ($trace:expr, $input:expr) => {};
-// }
+#[cfg(not(feature = "verify"))]
+#[macro_export]
+macro_rules! do_effect {
+    ($trace:expr, $input:expr) => {};
+}
 
 #[cfg(not(any(feature = "verify", test)))]
 #[macro_export]

@@ -1,31 +1,29 @@
-use crate::path_resolution::resolve_path;
-use crate::tcb::misc::{clone_vec_u8, empty_netlist, get_homedir_fd, string_to_vec_u8};
-#[cfg(feature = "verify")]
-use crate::tcb::path::path_safe;
-use crate::tcb::sbox_mem::{raw_ptr, valid_linmem};
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::external_specs::option::*;
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
-use crate::types::*;
-use crate::{effect, effects};
-use prusti_contracts::*;
-use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
-use std::os::unix::io::AsRawFd;
-use std::path::{Component, Path, PathBuf};
-use wave_macros::{external_calls, external_methods, with_ghost_var};
+use crate::{
+    path_resolution::resolve_path,
+    rvec::RVec,
+    tcb::{
+        misc::{empty_netlist, get_homedir_fd, string_to_rvec_u8},
+        path::HostPath,
+    },
+    types::*,
+};
 use RuntimeError::*;
 
-// Exit codes for wasi-libc: https://github.com/WebAssembly/wasi-libc/blob/659ff414560721b1660a19685110e484a081c3d4/libc-top-half/musl/include/sysexits.h
+#[flux::alias(type FitsBool(buf, cnt) = bool[fits_in_lin_mem(buf, cnt)])]
+pub type _FitsBool = bool;
+
+#[flux::alias(type FitsUsize(buf) = usize{cnt : fits_in_lin_mem(buf, cnt)})]
+pub type FitsUsize = usize;
 
 //#[ensures(safe(&result))]
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned, clone)]
-#[external_calls(open, forget, get_homedir_fd, from)]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(init_std_fds, unwrap, as_raw_fd, create, to_owned, clone)]
+// #[external_calls(open, forget, get_homedir_fd, from)]
 pub fn fresh_ctx(homedir: String) -> VmCtx {
     let memlen = LINEAR_MEM_SIZE;
-    let mem = vec![0; memlen];
+    // let mem = vec![0; memlen];
+    let mem = RVec::from_elem_n(0, memlen);
+
     let mut fdmap = FdMap::new();
     fdmap.init_std_fds();
     let homedir_host_fd = get_homedir_fd(&homedir) as usize;
@@ -40,13 +38,14 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
     // let log_path = "".to_owned();
     // let log_path = String::new();
 
-    let arg_buffer = Vec::new();
+    let arg_buffer = RVec::new();
     let argc = 0;
-    let env_buffer = Vec::new();
+    let env_buffer = RVec::new();
     let envc = 0;
 
     let netlist = empty_netlist();
     VmCtx {
+        ghost_raw: 100, //
         mem,
         memlen,
         fdmap,
@@ -65,69 +64,41 @@ pub fn fresh_ctx(homedir: String) -> VmCtx {
 impl VmCtx {
     /// Check whether sandbox pointer is actually inside the sandbox
     // TODO: can I eliminate this in favor os in_lin_mem_usize?
-    #[with_ghost_var(trace: &Trace)]
-    #[pure]
-    #[ensures((result == true) ==> (ptr as usize >= 0) && (ptr as usize) < self.memlen)]
+    #[flux::sig(fn(&VmCtx, ptr:SboxPtr) -> bool[0 <= ptr && ptr < LINEAR_MEM_SIZE])]
     pub fn in_lin_mem(&self, ptr: SboxPtr) -> bool {
         (ptr as usize >= 0) && (ptr as usize) < self.memlen
     }
 
-    #[with_ghost_var(trace: &Trace)]
-    #[pure]
-    #[ensures((result == true) ==> ptr >= 0 && ptr < self.memlen)]
+    #[flux::sig(fn(&VmCtx, ptr:usize) -> bool[0 <= ptr && ptr < LINEAR_MEM_SIZE])]
     pub fn in_lin_mem_usize(&self, ptr: usize) -> bool {
         ptr >= 0 && ptr < self.memlen
     }
 
     /// Check whether buffer is entirely within sandbox
     // Can I eliminate this in favor of fits_in_lin_mem_usize
-    #[pure]
-    #[with_ghost_var(trace: &Trace)]
-    #[ensures(result == true ==> 
-        (buf >= 0) && (cnt >= 0) && 
-        (buf as usize) + (cnt as usize) < self.memlen && 
-        (buf <= buf + cnt) //&& 
-        // (cnt as usize) < self.memlen
-    )]
+    #[flux::sig(fn(&VmCtx, buf:u32, cnt:u32) -> FitsBool[buf, cnt])]
     pub fn fits_in_lin_mem(&self, buf: SboxPtr, cnt: u32) -> bool {
         let total_size = (buf as usize) + (cnt as usize);
-        if total_size >= self.memlen || total_size >= LINEAR_MEM_SIZE {
+        if total_size >= self.memlen {
             return false;
         }
         self.in_lin_mem(buf) && self.in_lin_mem(cnt) && buf <= buf + cnt
     }
 
-    #[pure]
-    #[with_ghost_var(trace: &Trace)]
-    #[ensures(result == true ==> 
-        buf >= 0 && cnt >= 0 &&
-        buf + cnt < self.memlen && 
-        (buf <= buf + cnt) //&&
-        // buf < self.memlen && cnt < self.memlen
-        //cnt < self.memlen 
-        // buf + cnt < self.memlen
-    )]
+    #[flux::sig(fn(&VmCtx, buf:usize, cnt:usize) -> FitsBool[buf, cnt])]
     pub fn fits_in_lin_mem_usize(&self, buf: usize, cnt: usize) -> bool {
         let total_size = buf + cnt;
-        if total_size >= self.memlen || total_size >= LINEAR_MEM_SIZE {
+        if total_size >= self.memlen {
             return false;
         }
         self.in_lin_mem_usize(buf) && self.in_lin_mem_usize(cnt) && buf <= buf + cnt
     }
 
     /// Copy buffer from sandbox to host
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_methods(reserve_exact)]
-    #[requires(self.fits_in_lin_mem(src, n, trace))]
-    // #[requires( (n as usize) < self.memlen && n >= 0 && src >= 0)]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    #[ensures(result.len() == (n as usize) )]
-    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> Vec<u8> {
-        let mut host_buffer: Vec<u8> = Vec::new();
-        host_buffer.reserve_exact(n as usize);
+    #[flux::sig(fn(&VmCtx, src:SboxPtr, n:u32{0 <= n && src + n < LINEAR_MEM_SIZE}) -> RVec<u8>[n])]
+    pub fn copy_buf_from_sandbox(&self, src: SboxPtr, n: u32) -> RVec<u8> {
+        let mut host_buffer: RVec<u8> = RVec::from_elem_n(0, n as usize);
+        // FLUX-TODO2: capacity: host_buffer.reserve_exact(n as usize);
         // assert!(src >= 0);
         // assert!(((n as usize) < self.memlen) && ((n as usize) >= 0));
         self.memcpy_from_sandbox(&mut host_buffer, src, n);
@@ -135,19 +106,13 @@ impl VmCtx {
     }
 
     /// Copy buffer from from host to sandbox
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(Some)]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    #[ensures(self.memlen == old(self.memlen))]
+    #[flux::sig(fn(self: &mut VmCtx[@dummy], SboxPtr, &RVec<u8>, u32) -> Result<(), RuntimeError>)]
     pub fn copy_buf_to_sandbox(
         &mut self,
         dst: SboxPtr,
-        src: &Vec<u8>,
+        src: &RVec<u8>,
         n: u32,
-    ) -> RuntimeResult<()> {
+    ) -> Result<(), RuntimeError> {
         if src.len() < n as usize || !self.fits_in_lin_mem(dst, n) {
             return Err(Efault);
         }
@@ -156,60 +121,39 @@ impl VmCtx {
     }
 
     /// Copy arg buffer from from host to sandbox
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(Some, clone_vec_u8)]
-    #[requires(self.arg_buffer.len() == (n as usize) )]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> RuntimeResult<()> {
+    #[flux::sig(fn(&mut {VmCtx[@cx] : cx.arg_buf == n}, dst: SboxPtr, n:u32) -> Result<(), RuntimeError>)]
+    pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Result<(), RuntimeError> {
         if !self.fits_in_lin_mem(dst, n) {
             return Err(Efault);
         }
-        // let arg_buffer = self.arg_buffer.clone();
-        let arg_buffer = clone_vec_u8(&self.arg_buffer);
+        let arg_buffer = &self.arg_buffer.clone();
         self.memcpy_to_sandbox(dst, &arg_buffer, n);
         Ok(())
     }
 
     /// Copy arg buffer from from host to sandbox
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(Some, clone_vec_u8)]
-    #[requires(self.env_buffer.len() == (n as usize) )]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    pub fn copy_environ_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> RuntimeResult<()> {
+    #[flux::sig(fn(&mut {VmCtx[@cx] : cx.env_buf == n}, dst: SboxPtr, n:u32) -> Result<(), RuntimeError>)]
+    pub fn copy_environ_buffer_to_sandbox(
+        &mut self,
+        dst: SboxPtr,
+        n: u32,
+    ) -> Result<(), RuntimeError> {
         if !self.fits_in_lin_mem(dst, n) {
             return Err(Efault);
         }
-        // let env_buffer = self.env_buffer.clone();
-        let env_buffer = clone_vec_u8(&self.env_buffer);
+        let env_buffer = &self.env_buffer.clone();
         self.memcpy_to_sandbox(dst, &env_buffer, n);
         Ok(())
     }
 
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(resolve_path)]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(
-        match &result {
-            Ok(v) => path_safe(&v, should_follow),/*vec_is_relative(&v) && (vec_depth(&v) >= 0) && (should_follow ==> !vec_is_symlink(&v))*/
-            _ => true,
-        }
-    )]
+    #[flux::sig(fn(&VmCtx[@cx], SboxPtr, u32, should_follow:bool, HostFd) -> Result<HostPathSafe[should_follow], RuntimeError>)]
     pub fn translate_path(
         &self,
         path: SboxPtr,
         path_len: u32,
         should_follow: bool,
         dirfd: HostFd,
-    ) -> RuntimeResult<HostPath> {
+    ) -> Result<HostPath, RuntimeError> {
         if !self.fits_in_lin_mem(path, path_len) {
             return Err(Eoverflow);
         }
@@ -218,31 +162,12 @@ impl VmCtx {
         // self.resolve_path(host_buffer)
     }
 
-    pub fn get_homedir(&self) -> Vec<u8> {
-        string_to_vec_u8(&self.homedir)
+    pub fn get_homedir(&self) -> RVec<u8> {
+        string_to_rvec_u8(&self.homedir)
         // self.homedir.as_bytes().to_vec()
     }
 
-    // pub fn translate_homedir_fd() -> HostFd {
-    //     if v_fd != HOMEDIR_FD {
-    //         return Err(Enotcapable);
-    //     }
-    //     assert!(v_fd == HOMEDIR_FD);
-    //     let fd = ctx.homedir_host_fd;
-    // }
-
-    // TODO: replace read_x and write_x with faster raw ptr read/write
-
-    /// read u16 from wasm linear memory
-    // Not thrilled about this implementation, but it works
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(from_le_bytes)]
-    #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, 2) if addr == start as usize))]
+    #[flux::sig(fn(&VmCtx, FitsUsize[2]) -> u16)]
     pub fn read_u16(&self, start: usize) -> u16 {
         let bytes: [u8; 2] = [self.mem[start], self.mem[start + 1]];
         u16::from_le_bytes(bytes)
@@ -250,14 +175,7 @@ impl VmCtx {
 
     /// read u32 from wasm linear memory
     // Not thrilled about this implementation, but it works
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(from_le_bytes)]
-    #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, 4) if addr == start as usize))]
+    #[flux::sig(fn(&VmCtx, FitsUsize[4]) -> u32)]
     pub fn read_u32(&self, start: usize) -> u32 {
         let bytes: [u8; 4] = [
             self.mem[start],
@@ -271,14 +189,7 @@ impl VmCtx {
     /// read u64 from wasm linear memory
     // Not thrilled about this implementation, but it works
     // TODO: need to test different implementatiosn for this function
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(from_le_bytes)]
-    #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(ReadMem, addr, 8) if addr == start as usize))]
+    #[flux::sig(fn(&VmCtx, FitsUsize[8]) -> u64)]
     pub fn read_u64(&self, start: usize) -> u64 {
         let bytes: [u8; 8] = [
             self.mem[start],
@@ -294,30 +205,33 @@ impl VmCtx {
     }
 
     /// read (u32,u32) from wasm linear memory
-    #[with_ghost_var(trace: &mut Trace)]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
     pub fn read_u32_pair(&self, start: usize) -> RuntimeResult<(u32, u32)> {
         if !self.fits_in_lin_mem_usize(start, 8) {
             return Err(Eoverflow);
         }
         let x1 = self.read_u32(start);
         let x2 = self.read_u32(start + 4);
+        // Ok(Pair { fst: x1, snd: x2 })
         Ok((x1, x2))
+    }
+
+    // TODO @cx is redundant here but due to https://github.com/liquid-rust/flux/issues/158
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[1], v: u8))]
+    pub fn write_u8(&mut self, offset: usize, v: u8) {
+        self.mem[offset] = v;
     }
 
     /// write u16 to wasm linear memory
     // Not thrilled about this implementation, but it works
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_methods(to_le_bytes)]
-    #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 2) if addr == start as usize))]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_methods(to_le_bytes)]
+    // #[requires(self.fits_in_lin_mem_usize(start, 2, trace))]
+    // #[requires(ctx_safe(self))]
+    // #[requires(trace_safe(trace, self))]
+    // #[ensures(ctx_safe(self))]
+    // #[ensures(trace_safe(trace, self))]
+    // // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 2) if addr == start as usize))]
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[2], v: u16))]
     pub fn write_u16(&mut self, start: usize, v: u16) {
         let bytes: [u8; 2] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
@@ -326,14 +240,15 @@ impl VmCtx {
 
     /// write u32 to wasm linear memory
     // Not thrilled about this implementation, but it works
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_methods(to_le_bytes)]
-    #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 4) if addr == start as usize))]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_methods(to_le_bytes)]
+    // #[requires(self.fits_in_lin_mem_usize(start, 4, trace))]
+    // #[requires(ctx_safe(self))]
+    // #[requires(trace_safe(trace, self))]
+    // #[ensures(ctx_safe(self))]
+    // #[ensures(trace_safe(trace, self))]
+    // // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 4) if addr == start as usize))]
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[4], v: u32))]
     pub fn write_u32(&mut self, start: usize, v: u32) {
         let bytes: [u8; 4] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
@@ -343,14 +258,15 @@ impl VmCtx {
     }
 
     // TODO: replace with faster raw ptr memread/memwrite
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_methods(to_le_bytes)]
-    #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 8) if addr == start as usize))]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_methods(to_le_bytes)]
+    // #[requires(self.fits_in_lin_mem_usize(start, 8, trace))]
+    // #[requires(ctx_safe(self))]
+    // #[requires(trace_safe(trace, self))]
+    // #[ensures(ctx_safe(self))]
+    // #[ensures(trace_safe(trace, self))]
+    // // #[ensures(effects!(old(trace), trace, effect!(WriteMem, addr, 8) if addr == start as usize))]
+    #[flux::sig(fn (&mut VmCtx[@cx], FitsUsize[8], v: u64))]
     pub fn write_u64(&mut self, start: usize, v: u64) {
         let bytes: [u8; 8] = v.to_le_bytes();
         self.write_u8(start, bytes[0]);
@@ -363,49 +279,18 @@ impl VmCtx {
         self.write_u8(start + 7, bytes[7]);
     }
 
-    #[with_ghost_var(trace: &mut Trace)]
-    #[requires(ctx_safe(self))]
-    #[requires(trace_safe(trace, self))]
-    #[requires(iovs.len() >= 0)]
-    #[ensures(ctx_safe(self))]
-    #[ensures(trace_safe(trace, self))]
-    #[external_methods(push, lookup)]
-    #[ensures(
-        {
-        let mem_ptr = raw_ptr(self.mem.as_slice());
-        let mem_len = self.memlen;
-        iovs.len() == result.len() && 
-        forall(|idx: usize|  (idx >= 0 && idx < result.len()) ==> {
-            let wasm_iov = old(iovs.lookup(idx));
-            let iov = result.lookup(idx); 
-            iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) && 
-            iov.iov_len == (wasm_iov.iov_len as usize) 
-        })
-    }
-    )]
-    pub fn translate_iovs(&self, iovs: &WasmIoVecs) -> NativeIoVecs {
+    #[flux::qualifiers(MyQ1)]
+    #[flux::sig(fn(&VmCtx[@cx], &RVec<WasmIoVec>) -> RVec<NativeIoVecOk[cx.base]>)]
+    pub fn translate_iovs(&self, iovs: &RVec<WasmIoVec>) -> RVec<NativeIoVec> {
         let mut idx = 0;
         let mut native_iovs = NativeIoVecs::new();
         let iovcnt = iovs.len();
         while idx < iovcnt {
-            body_invariant!(idx < iovcnt);
-            body_invariant!(native_iovs.len() == idx);
-            body_invariant!(ctx_safe(self));
-            body_invariant!(trace_safe(trace, self));
-            body_invariant!(
-            forall(|idx: usize|  (idx >= 0 && idx < native_iovs.len()) ==> {
-            let wasm_iov = iovs.lookup(idx);
-            let iov = native_iovs.lookup(idx);
-            iov.iov_base == raw_ptr(self.mem.as_slice()) + (wasm_iov.iov_base as usize) &&
-            iov.iov_len == (wasm_iov.iov_len as usize)
-            }));
-
-            let iov = iovs.lookup(idx);
+            let iov = iovs[idx];
             let native_iov = self.translate_iov(iov);
             native_iovs.push(native_iov);
             idx += 1;
         }
-
         native_iovs
     }
 }

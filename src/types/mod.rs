@@ -1,88 +1,67 @@
-use crate::effects;
-use crate::tcb::misc::*;
-use crate::tcb::path::addr_matches_netlist_entry;
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
-use prusti_contracts::*;
 use std::convert::TryFrom;
-use std::ops::Sub;
-use wave_macros::{external_calls, external_methods, with_ghost_var};
 
-// manual implementation of the `?` operator because it is currently
-// broken in prusti
-#[macro_export]
-macro_rules! unwrap_result {
-    ($p:ident) => {
-        let $p = match $p {
-            Ok(oc) => oc,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-    };
-}
+use crate::{
+    rvec::RVec,
+    tcb::misc::{
+        as_u16, as_u32, bitwise_and, bitwise_and_i16, bitwise_and_u16, bitwise_and_u32,
+        bitwise_and_u64, bitwise_or, nth_bit_set, nth_bit_set_u32, with_nth_bit_set,
+    },
+};
 
 // include platform specific implementations
-#[cfg_attr(target_os = "linux", path = "platform/linux.rs")]
-#[cfg_attr(target_os = "macos", path = "platform/mac.rs")]
+#[cfg_attr(
+    all(target_os = "macos", target_arch = "aarch64"),
+    path = "platform/macos-aarch64.rs"
+)]
+#[cfg_attr(
+    all(target_os = "linux", target_arch = "x86_64"),
+    path = "platform/linux-x86_64.rs"
+)]
 mod platform;
+use libc::mode_t;
 pub use platform::*;
 
-
-
-pub const MAX_SBOX_FDS: u32 = 8; // up to 16 or 32?
-pub const MAX_HOST_FDS: usize = 1024;
-pub const PATH_MAX: usize = 4096;
-
-pub const PAGE_SIZE: usize = 4096;
+#[flux::constant]
 pub const LINEAR_MEM_SIZE: usize = 4294965096; //4GB
 
+#[flux::constant]
 pub const HOMEDIR_FD: SboxFd = 3; //4GB
 
-// Note: prusti does not like derive(Debug)
+#[flux::constant]
+pub const TWO_POWER_20: usize = 1024 * 1024;
+
+#[flux::constant]
+pub const PATH_MAX: usize = 4096;
+
+#[flux::constant]
+pub const MAX_SBOX_FDS: u32 = 8; // up to 16 or 32?
+
+// FLUX-TODO2: extern-const
+#[flux::constant]
+pub const AT_SYMLINK_NOFOLLOW: i32 = libc::AT_SYMLINK_NOFOLLOW;
+#[flux::constant]
+pub const AT_SYMLINK_FOLLOW: i32 = libc::AT_SYMLINK_FOLLOW;
+#[flux::constant]
+pub const O_NOFOLLOW: i32 = libc::O_NOFOLLOW;
+
+#[flux::constant]
+pub const SOCK_STREAM: i32 = libc::SOCK_STREAM;
+#[flux::constant]
+pub const SOCK_DGRAM: i32 = libc::SOCK_DGRAM;
+#[flux::constant]
+pub const AF_INET: i32 = libc::AF_INET;
+
+pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
 pub type SboxPtr = u32;
 pub type HostPtr = usize;
-pub type HostPath = [u8; PATH_MAX];
 
-// pub type HostFd = usize;
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-pub struct HostFd(usize);
-
-// Not using impl From, since Prusti has a hard time understanding
-// that those conversions are pure
-impl HostFd {
-    #[pure]
-    pub(crate) fn to_raw(&self) -> usize {
-        self.0
-    }
-
-    //#[pure]
-    pub(crate) fn from_raw(w: usize) -> HostFd {
-        HostFd(w)
-    }
+pub struct Pair<A, B> {
+    pub fst: A,
+    pub snd: B,
 }
 
-// impl From<HostFd> for usize {
-//     //#[pure]
-//     fn from(w: HostFd) -> usize {
-//         w.0
-//     }
-// }
-
-// impl From<usize> for HostFd {
-//     //#[pure]
-//     fn from(w: usize) -> HostFd {
-//         HostFd(w)
-//     }
-// }
-
-pub type SboxFd = u32;
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-#[repr(u16)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeError {
     Success = 0,
     Etoobig,
@@ -163,7 +142,164 @@ pub enum RuntimeError {
     Enotcapable,
 }
 
-pub type RuntimeResult<T> = Result<T, RuntimeError>;
+pub enum Alignment {
+    One,
+    Two,
+    Four,
+    Eight,
+}
+
+impl Alignment {
+    pub fn align_down_mask(&self) -> u32 {
+        match self {
+            Alignment::One => 0xFFFF_FFFF,
+            Alignment::Two => 0xFFFF_FFFE,
+            Alignment::Four => 0xFFFF_FFFC,
+            Alignment::Eight => 0xFFFF_FFF8,
+        }
+    }
+
+    pub fn remainder_mask(&self) -> u32 {
+        match self {
+            Alignment::One => 0x0,
+            Alignment::Two => 0x1,
+            Alignment::Four => 0x3,
+            Alignment::Eight => 0x7,
+        }
+    }
+}
+
+pub fn is_aligned(alignment: Alignment, value: u32) -> bool {
+    bitwise_and_u32(value, alignment.remainder_mask()) == 0
+}
+
+pub struct Dirent {
+    pub ino: u64,
+    pub reclen: u16,
+    pub name_start: usize,
+    pub out_namlen: usize,
+    pub typ: u8,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[flux::refined_by(iov_base: int)]
+pub struct WasmIoVec {
+    #[flux::field({ u32[@iov_base] : 0 <= iov_base})]
+    pub iov_base: u32,
+    #[flux::field(u32{ len : 0 <= len && iov_base <= iov_base + len && iov_base + len < LINEAR_MEM_SIZE })]
+    pub iov_len: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[flux::refined_by(iov_base: int, iov_len: int)]
+pub struct NativeIoVec {
+    #[flux::field(usize[@iov_base])]
+    pub iov_base: usize,
+    #[flux::field(usize[@iov_len])]
+    pub iov_len: usize,
+}
+
+#[flux::alias(type NativeIoVecOk(base) = NativeIoVec{v: v.iov_base + v.iov_len <= base + LINEAR_MEM_SIZE})]
+pub type _NativeIoVecOk = NativeIoVec;
+
+pub type NativeIoVecs = RVec<NativeIoVec>;
+// An `assert` function, whose precondition expects only `true`
+#[flux::sig(fn(bool[true]) -> ())]
+pub fn assert(_b: bool) {}
+
+#[macro_export]
+macro_rules! unwrap_result {
+    ($p:ident) => {
+        let $p = match $p {
+            Ok(oc) => oc,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+    };
+}
+
+#[flux::alias(type SboxFdSafe() = SboxFd{v: v < MAX_SBOX_FDS})]
+pub type SboxFd = u32;
+
+#[flux::refined_by(reserve_len: int, counter: int)]
+pub struct FdMap {
+    #[flux::field(RVec< Result<HostFd, RuntimeError> >[MAX_SBOX_FDS])]
+    pub m: RVec<Result<HostFd, RuntimeError>>,
+    #[flux::field(RVec< Result<WasiProto, RuntimeError> >[MAX_SBOX_FDS])]
+    pub sockinfo: RVec<Result<WasiProto, RuntimeError>>,
+    #[flux::field(RVec<SboxFd{v:v < MAX_SBOX_FDS}>[@reserve_len])]
+    pub reserve: RVec<SboxFd>,
+    #[flux::field(SboxFd[@counter])]
+    pub counter: SboxFd,
+}
+
+// Higher level protocols
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(C)]
+pub enum WasiProto {
+    Unknown,
+    Tcp,
+    Udp,
+}
+
+impl WasiProto {
+    // domain and type are enough to identify tcp and udp, the only protocols allowed
+    pub fn new(domain: i32, ty: i32, _family: i32) -> Self {
+        if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_STREAM {
+            WasiProto::Tcp
+        } else if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_DGRAM {
+            WasiProto::Udp
+        } else {
+            WasiProto::Unknown
+        }
+    }
+}
+
+#[flux::refined_by(arg_buf: int, env_buf: int, base: int, homedir_host_fd: int, net: int)]
+pub struct VmCtx {
+    #[flux::field(usize[@base])]
+    pub ghost_raw: usize,
+    #[flux::field(RVec<u8>[LINEAR_MEM_SIZE])]
+    pub mem: RVec<u8>,
+    #[flux::field(usize[LINEAR_MEM_SIZE])]
+    pub memlen: usize,
+    pub fdmap: FdMap,
+    pub homedir: String,
+    #[flux::field(HostFd[@homedir_host_fd])]
+    pub homedir_host_fd: HostFd,
+    #[flux::field({RVec<u8>[@arg_buf] : arg_buf < TWO_POWER_20 } )]
+    pub arg_buffer: RVec<u8>,
+    #[flux::field({ RVec<u8>[@env_buf] : env_buf < TWO_POWER_20 })]
+    pub env_buffer: RVec<u8>,
+    #[flux::field(usize{v: v < 1024})]
+    pub envc: usize,
+    #[flux::field(usize{v: v < 1024})]
+    pub argc: usize,
+    #[flux::field(Netlist[@net])]
+    pub netlist: Netlist,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[flux::refined_by(raw: int)]
+pub struct HostFd {
+    #[flux::field(usize[@raw])]
+    pub raw: usize,
+}
+
+impl HostFd {
+    #[flux::sig(fn(&HostFd[@h]) -> usize[h.raw])]
+    pub(crate) fn to_raw(&self) -> usize {
+        self.raw
+    }
+
+    #[allow(dead_code)]
+    #[flux::sig(fn(n:usize) -> HostFd[n])]
+    pub(crate) fn from_raw(w: usize) -> HostFd {
+        HostFd { raw: w }
+    }
+}
 
 // Wasi errors are not actually the same numbers as posix errors
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#errno
@@ -183,19 +319,20 @@ impl From<RuntimeError> for u16 {
 impl RuntimeError {
     /// Returns Ok(()) if the syscall return doesn't correspond to an Errno value.
     /// Returns Err(RuntimeError) if it does.
-    #[with_ghost_var(trace: &mut Trace)]
-    #[ensures(effects!(old(trace), trace))]
-    #[ensures(old(ret >= 0) ==> (match result {
-        Ok(r) => r == ret as usize,
-        _ => false,
-    }))]
-    pub fn from_syscall_ret(ret: isize) -> RuntimeResult<usize> {
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[ensures(effects!(old(trace), trace))]
+    // #[ensures(old(ret >= 0) ==> (match result {
+    //     Ok(r) => r == ret as usize,
+    //     _ => false,
+    // }))]
+    #[flux::sig(fn (ret:isize) -> Result<usize[ret], RuntimeError>)]
+    pub fn from_syscall_ret(ret: isize) -> Result<usize, RuntimeError> {
         // syscall returns between -1 and -4095 are errors, source:
         // https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h.html#369
         // I am treating all negative values on error - we don't support any hostcalls that return negative values on success
         // (e.g., mmap returning a sufficiently large pointer)
         if ret >= 0 {
-            return Ok(ret as usize);
+            return Ok(isize_as_usize(ret));
         }
 
         // We support no syscalls that return negative values, so something has gone wronge
@@ -298,61 +435,6 @@ impl RuntimeError {
     }
 }
 
-#[repr(transparent)]
-pub struct SyscallRet(usize);
-
-#[derive(PartialEq, Eq)]
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-pub struct FdMap {
-    pub m: Vec<RuntimeResult<HostFd>>,
-    pub sockinfo: Vec<RuntimeResult<WasiProto>>,
-    pub reserve: Vec<SboxFd>,
-    pub counter: SboxFd,
-}
-
-#[derive(PartialEq, Eq)]
-pub struct VmCtx {
-    pub mem: Vec<u8>,
-    pub memlen: usize,
-    pub fdmap: FdMap,
-    pub homedir: String,
-    pub homedir_host_fd: HostFd,
-    // pub errno: RuntimeError,
-    pub arg_buffer: Vec<u8>,
-    pub argc: usize,
-    pub env_buffer: Vec<u8>,
-    pub envc: usize,
-    // pub log_path: String,
-    pub netlist: Netlist,
-}
-
-// #[cfg_attr(not(feature = "verify"), derive(Debug))]
-// pub struct SandboxedPath(Vec<u8>);
-// impl From<SandboxedPath> for Vec<u8> {
-//     fn from(w: SandboxedPath) -> Vec<u8> {
-//         w.0
-//     }
-// }
-
-// impl From<Vec<u8>> for SandboxedPath {
-//     fn from(w: Vec<u8>) -> SandboxedPath {
-//         SandboxedPath(w)
-//     }
-// }
-
-// pub struct RelativePath(Vec<u8>);
-// impl From<RelativePath> for Vec<u8> {
-//     fn from(w: RelativePath) -> Vec<u8> {
-//         w.0
-//     }
-// }
-
-// impl From<Vec<u8>> for RelativePath {
-//     fn from(w: Vec<u8>) -> RelativePath {
-//         RelativePath(w)
-//     }
-// }
-
 pub enum Whence {
     Set,
     Cur,
@@ -412,7 +494,7 @@ impl TryFrom<u32> for ClockId {
     }
 }
 
-#[with_ghost_var(trace: &Trace)]
+// #[with_ghost_var(trace: &Trace)]
 pub fn fresh_libc_timespec() -> libc::timespec {
     libc::timespec {
         tv_sec: 0,
@@ -420,92 +502,13 @@ pub fn fresh_libc_timespec() -> libc::timespec {
     }
 }
 
-/// Wasi timestamp in nanoseconds
-#[repr(transparent)]
-#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-pub struct Timestamp(u64);
-
-impl Timestamp {
-    pub fn new(nsec: u64) -> Timestamp {
-        Timestamp(nsec)
-    }
-
-    pub fn max() -> Timestamp {
-        Timestamp(u64::MAX)
-    }
-
-    pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
-        let nanos = (sec * 1_000_000_000 + nsec) as u64;
-        Timestamp(nanos)
-    }
-
-    pub fn to_millis(&self) -> u64 {
-        self.0 / 1_000_000
-    }
-
-    /// This function converts a Wasi timestamp to a posix ns-timestamp
-    /// Specifically it encodes the logic around the UTIME_NOW and UTIME_OMIT
-    /// flag as described in https://man7.org/linux/man-pages/man2/utimensat.2.html
-    #[with_ghost_var(trace: &Trace)]
-    #[external_calls(from)]
-    pub fn ts_to_native(self, use_ts: bool, use_now: bool) -> libc::timespec {
-        if use_ts {
-            libc::timespec::from(self)
-        } else {
-            let nsec = if use_now {
-                libc::UTIME_NOW
-            } else {
-                libc::UTIME_OMIT
-            };
-            // when setting tv_nsec to a flag, tv_sec is ignored (see link above)
-            libc::timespec {
-                tv_sec: 0,
-                tv_nsec: nsec,
-            }
-        }
-    }
-
-    pub fn nsec(&self) -> u64 {
-        self.0
-    }
-
-    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
-        self.0.checked_sub(rhs.0).map(|res| Timestamp(res))
-    }
-}
-
-impl From<libc::timespec> for Timestamp {
-    fn from(spec: libc::timespec) -> Timestamp {
-        Timestamp::from_sec_nsec(spec.tv_sec as u64, spec.tv_nsec as u64)
-    }
-}
-
-impl From<Timestamp> for libc::timespec {
-    fn from(timestamp: Timestamp) -> Self {
-        // nanos must be in range 0 to 999999999
-        // see: https://man7.org/linux/man-pages/man2/nanosleep.2.html
-        let sec = timestamp.0 / 1000000000;
-        let nsec = timestamp.0 % 1000000000;
-        libc::timespec {
-            tv_sec: sec as i64,
-            tv_nsec: nsec as i64,
-        }
-    }
-}
-
-impl From<Timestamp> for u64 {
-    fn from(timestamp: Timestamp) -> u64 {
-        timestamp.0
-    }
-}
-
-impl Sub for Timestamp {
-    type Output = Timestamp;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Timestamp(self.0 - rhs.0)
-    }
+//       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
+#[derive(Debug)]
+pub struct FdStat {
+    pub fs_filetype: Filetype,
+    pub fs_flags: FdFlags,
+    pub fs_rights_base: Rights,
+    pub fs_rights_inheriting: Rights,
 }
 
 pub enum Advice {
@@ -517,7 +520,7 @@ pub enum Advice {
     NoReuse,
 }
 
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
+#[derive(Debug)]
 pub enum Filetype {
     Unknown,
     BlockDevice,
@@ -562,9 +565,7 @@ impl From<libc::mode_t> for Filetype {
 
 type Rights = u64;
 
-// internal representation is the wasi representation
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-#[repr(transparent)]
+#[derive(Debug)]
 pub struct FdFlags(u16);
 
 impl FdFlags {
@@ -579,16 +580,7 @@ impl From<libc::c_int> for FdFlags {
     }
 }
 
-//       See: https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fdstat
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-pub struct FdStat {
-    pub fs_filetype: Filetype,
-    pub fs_flags: FdFlags,
-    pub fs_rights_base: Rights,
-    pub fs_rights_inheriting: Rights,
-}
-
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
+#[derive(Debug)]
 pub struct FileStat {
     pub dev: u64,
     pub ino: u64,
@@ -615,34 +607,22 @@ impl From<libc::stat> for FileStat {
     }
 }
 
-impl Default for FileStat {
-    fn default() -> FileStat {
-        FileStat {
-            dev: 0,
-            ino: 0,
-            filetype: Filetype::Unknown,
-            nlink: 0,
-            size: 0,
-            atim: Timestamp::new(0),
-            mtim: Timestamp::new(0),
-            ctim: Timestamp::new(0),
-        }
-    }
+#[flux::refined_by(flags:int)]
+pub struct LookupFlags {
+    #[flux::field(u32[@flags])]
+    flags: u32,
 }
 
-pub struct LookupFlags(u32);
 impl LookupFlags {
     pub fn new(flags: u32) -> Self {
-        LookupFlags(flags)
+        LookupFlags { flags }
     }
 
-    // #[with_ghost_var(trace: &mut Trace)]
-    // #[external_calls(bitwise_or, nth_bit_set_u32)]
-    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::AT_SYMLINK_NOFOLLOW))]
-    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
+    // #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::AT_SYMLINK_NOFOLLOW))]
+    // #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_stat_posix(&self) -> i32 {
         let mut flags = 0;
-        if !nth_bit_set_u32(self.0, 0) {
+        if !nth_bit_set_u32(self.flags, 0) {
             flags = bitwise_or(flags, libc::AT_SYMLINK_NOFOLLOW);
         }
         flags
@@ -651,11 +631,11 @@ impl LookupFlags {
     // annoyingly, these flags are different between the two syscalls
     // #[with_ghost_var(trace: &mut Trace)]
     // #[external_calls(bitwise_or, nth_bit_set_u32)]
-    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::AT_SYMLINK_FOLLOW))]
-    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == 0)]
+    // #[ensures(nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::AT_SYMLINK_FOLLOW))]
+    // #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_linkat_posix(&self) -> i32 {
         let mut flags = 0;
-        if nth_bit_set_u32(self.0, 0) {
+        if nth_bit_set_u32(self.flags, 0) {
             flags = bitwise_or(flags, libc::AT_SYMLINK_FOLLOW);
         }
         flags
@@ -663,20 +643,20 @@ impl LookupFlags {
 
     // #[with_ghost_var(trace: &mut Trace)]
     // #[external_calls(bitwise_or, nth_bit_set_u32)]
-    #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::O_NOFOLLOW))]
-    #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
+    // #[ensures(!nth_bit_set_u32(self.0, 0) ==> result == bitwise_or(0, libc::O_NOFOLLOW))]
+    // #[ensures(nth_bit_set_u32(self.0, 0) ==> result == 0)]
     pub fn to_openat_posix(&self) -> i32 {
         let mut flags = 0;
-        if !nth_bit_set_u32(self.0, 0) {
+        if !nth_bit_set_u32(self.flags, 0) {
             flags = bitwise_or(flags, libc::O_NOFOLLOW);
         }
         flags
     }
 
-    #[pure]
-    #[ensures(result == nth_bit_set_u32(self.0, 0))]
+    // #[pure]
+    // #[ensures(result == nth_bit_set_u32(self.0, 0))]
     pub fn should_follow(&self) -> bool {
-        nth_bit_set_u32(self.0, 0)
+        nth_bit_set_u32(self.flags, 0)
     }
 }
 
@@ -714,6 +694,86 @@ impl OFlags {
     }
 }
 
+/// Wasi timestamp in nanoseconds
+#[repr(transparent)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+#[cfg_attr(not(feature = "verify"), derive(Debug))]
+pub struct Timestamp(u64);
+
+impl Timestamp {
+    pub fn new(nsec: u64) -> Timestamp {
+        Timestamp(nsec)
+    }
+
+    pub fn max() -> Timestamp {
+        Timestamp(u64::MAX)
+    }
+
+    pub fn from_sec_nsec(sec: u64, nsec: u64) -> Timestamp {
+        let nanos = (sec * 1_000_000_000 + nsec) as u64;
+        Timestamp(nanos)
+    }
+
+    pub fn to_millis(&self) -> u64 {
+        self.0 / 1_000_000
+    }
+
+    /// This function converts a Wasi timestamp to a posix ns-timestamp
+    /// Specifically it encodes the logic around the UTIME_NOW and UTIME_OMIT
+    /// flag as described in https://man7.org/linux/man-pages/man2/utimensat.2.html
+    // #[with_ghost_var(trace: &Trace)]
+    // #[external_calls(from)]
+    pub fn ts_to_native(self, use_ts: bool, use_now: bool) -> libc::timespec {
+        if use_ts {
+            libc::timespec::from(self)
+        } else {
+            let nsec = if use_now {
+                libc::UTIME_NOW
+            } else {
+                libc::UTIME_OMIT
+            };
+            // when setting tv_nsec to a flag, tv_sec is ignored (see link above)
+            libc::timespec {
+                tv_sec: 0,
+                tv_nsec: nsec,
+            }
+        }
+    }
+
+    pub fn nsec(&self) -> u64 {
+        self.0
+    }
+
+    #[flux::trusted] // FLUX-TODO2: closure
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(|res| Timestamp(res))
+    }
+}
+
+impl From<libc::timespec> for Timestamp {
+    fn from(spec: libc::timespec) -> Timestamp {
+        Timestamp::from_sec_nsec(spec.tv_sec as u64, spec.tv_nsec as u64)
+    }
+}
+
+impl From<Timestamp> for libc::timespec {
+    fn from(timestamp: Timestamp) -> Self {
+        // nanos must be in range 0 to 999999999
+        // see: https://man7.org/linux/man-pages/man2/nanosleep.2.html
+        let sec = timestamp.0 / 1000000000;
+        let nsec = timestamp.0 % 1000000000;
+        libc::timespec {
+            tv_sec: sec as i64,
+            tv_nsec: nsec as i64,
+        }
+    }
+}
+
+impl From<Timestamp> for u64 {
+    fn from(timestamp: Timestamp) -> u64 {
+        timestamp.0
+    }
+}
 pub struct FstFlags(u16);
 
 impl FstFlags {
@@ -828,12 +888,12 @@ impl Subscription {
     pub const FD_READ_TAG: u64 = 1;
     pub const FD_WRITE_TAG: u64 = 2;
 
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(try_from, is_aligned)]
-    #[requires(ctx_safe(ctx))]
-    #[requires(trace_safe(trace, ctx))]
-    #[ensures(ctx_safe(ctx))]
-    #[ensures(trace_safe(trace, ctx))]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_calls(try_from, is_aligned)]
+    // #[requires(ctx_safe(ctx))]
+    // #[requires(trace_safe(trace, ctx))]
+    // #[ensures(ctx_safe(ctx))]
+    // #[ensures(trace_safe(trace, ctx))]
     pub fn read(ctx: &VmCtx, ptr: u32) -> RuntimeResult<Subscription> {
         if !ctx.fits_in_lin_mem_usize(ptr as usize, Self::WASI_SIZE as usize) {
             return Err(RuntimeError::Eoverflow);
@@ -846,7 +906,6 @@ impl Subscription {
         // read the subscription struct fields
         let userdata = ctx.read_u64(ptr as usize);
         let tag = ctx.read_u64((ptr + 8) as usize);
-
         match tag {
             Self::CLOCK_TAG => {
                 let v_clock_id = ctx.read_u32((ptr + 16) as usize);
@@ -981,12 +1040,12 @@ pub struct Event {
 impl Event {
     pub const WASI_SIZE: u32 = 32;
 
-    #[with_ghost_var(trace: &mut Trace)]
-    #[external_calls(try_from, is_aligned)]
-    #[requires(ctx_safe(ctx))]
-    #[requires(trace_safe(trace, ctx))]
-    #[ensures(ctx_safe(ctx))]
-    #[ensures(trace_safe(trace, ctx))]
+    // #[with_ghost_var(trace: &mut Trace)]
+    // #[external_calls(try_from, is_aligned)]
+    // #[requires(ctx_safe(ctx))]
+    // #[requires(trace_safe(trace, ctx))]
+    // #[ensures(ctx_safe(ctx))]
+    // #[ensures(trace_safe(trace, ctx))]
     pub fn write(&self, ctx: &mut VmCtx, ptr: u32) -> RuntimeResult<()> {
         if !ctx.fits_in_lin_mem_usize(ptr as usize, Self::WASI_SIZE as usize) {
             return Err(RuntimeError::Eoverflow);
@@ -1081,147 +1140,80 @@ pub struct NetEndpoint {
     pub port: u32,
 }
 
-pub type Netlist = [NetEndpoint; 4];
-
-#[pure]
-pub fn addr_in_netlist(netlist: &Netlist, addr: u32, port: u32) -> bool {
-    if addr_matches_netlist_entry(&netlist, addr, port, 0) {
-        return true;
-    }
-    if addr_matches_netlist_entry(&netlist, addr, port, 1) {
-        return true;
-    }
-    if addr_matches_netlist_entry(&netlist, addr, port, 2) {
-        return true;
-    }
-    if addr_matches_netlist_entry(&netlist, addr, port, 3) {
-        return true;
-    }
-
-    false
+#[flux::opaque]
+#[flux::refined_by(netlist: int)]
+#[derive(Clone, Copy)]
+pub struct Netlist {
+    inner: [NetEndpoint; 4],
 }
 
-// Higher level protocols
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(feature = "verify"), derive(Debug))]
-#[repr(C)]
-pub enum WasiProto {
-    Unknown,
-    Tcp,
-    Udp,
-}
+impl Netlist {
+    #[flux::trusted]
+    pub fn new(inner: [NetEndpoint; 4]) -> Netlist {
+        Netlist { inner }
+    }
 
-impl WasiProto {
-    // domain and type are enough to identify tcp and udp, the only protocols allowed
-    pub fn new(domain: i32, ty: i32, _family: i32) -> Self {
-        if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_STREAM {
-            WasiProto::Tcp
-        } else if domain as i32 == libc::AF_INET && ty as i32 == libc::SOCK_DGRAM {
-            WasiProto::Udp
-        } else {
-            WasiProto::Unknown
+    #[flux::sig(fn (self: &Netlist[@net], addr: u32, port: u32) -> bool[addr_in_netlist(net, addr, port)])]
+    pub fn addr_in_netlist(&self, addr: u32, port: u32) -> bool {
+        if self.addr_matches_netlist_entry(addr, port, 0) {
+            return true;
         }
-    }
-}
-
-pub enum Alignment {
-    One,
-    Two,
-    Four,
-    Eight,
-}
-
-impl Alignment {
-    pub fn align_down_mask(&self) -> u32 {
-        match self {
-            Alignment::One => 0xFFFF_FFFF,
-            Alignment::Two => 0xFFFF_FFFE,
-            Alignment::Four => 0xFFFF_FFFC,
-            Alignment::Eight => 0xFFFF_FFF8,
+        if self.addr_matches_netlist_entry(addr, port, 1) {
+            return true;
         }
-    }
-
-    pub fn remainder_mask(&self) -> u32 {
-        match self {
-            Alignment::One => 0x0,
-            Alignment::Two => 0x1,
-            Alignment::Four => 0x3,
-            Alignment::Eight => 0x7,
+        if self.addr_matches_netlist_entry(addr, port, 2) {
+            return true;
         }
+        if self.addr_matches_netlist_entry(addr, port, 3) {
+            return true;
+        }
+        false
+    }
+
+    // #[requires(idx < 4)]
+    // #[pure]
+    #[flux::trusted]
+    #[flux::sig(fn (self: &Netlist[@net], addr: u32, port: u32, idx: usize{idx < 4}) -> bool[addr_matches_netlist_entry(net, addr, port, idx)])]
+    fn addr_matches_netlist_entry(&self, addr: u32, port: u32, idx: usize) -> bool {
+        addr == self.inner[idx].addr && port == self.inner[idx].port
     }
 }
 
-pub fn is_aligned(alignment: Alignment, value: u32) -> bool {
-    bitwise_and_u32(value, alignment.remainder_mask()) == 0
+//////////////////////////////////////////////////////////////////////////////
+// Various rust features that are not supported by flux
+//////////////////////////////////////////////////////////////////////////////
+
+#[flux::trusted]
+#[flux::sig(fn (n:isize{0 <= n}) -> usize[n])]
+pub fn isize_as_usize(n: isize) -> usize {
+    n as usize
 }
 
-pub struct Dirent {
-    pub ino: u64,
-    pub reclen: u16,
-    pub name_start: usize,
-    pub out_namlen: usize,
-    pub typ: u8,
+#[flux::trusted]
+#[flux::sig(fn (&RVec<T>) -> usize{v:0<=v})]
+pub fn raw_ptr<T>(_v: &RVec<T>) -> usize {
+    unimplemented!()
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct WasmIoVec {
-    pub iov_base: u32,
-    pub iov_len: u32,
+#[flux::trusted]
+#[flux::sig(fn (n:usize{n < LINEAR_MEM_SIZE}) -> u32[n])]
+pub fn usize_as_u32(n: usize) -> u32 {
+    n as u32
 }
 
-// Wrapper around Vec<NativeIoVecs> used to make proof cleaner
-pub struct WasmIoVecs {
-    pub iovs: Vec<WasmIoVec>,
+// FLUX-TODO2: index-without-wrapper: This is a workaround for the fact that we can't index types that we didn't define.
+
+#[flux::opaque]
+#[flux::refined_by(port: int, addr: int)]
+pub struct SockAddr {
+    pub inner: libc::sockaddr_in,
 }
 
-impl WasmIoVecs {
-    #[pure]
-    pub fn len(&self) -> usize {
-        self.iovs.len()
-    }
-
-    #[ensures(result.len() == 0)]
-    pub fn new() -> Self {
-        Self { iovs: Vec::new() }
-    }
-
-    // Have to dispatch to trusted function because Prusti won't let me
-    // inspect a vector inside a proof
-    #[pure]
-    #[requires(index < self.len())]
-    pub fn lookup(&self, index: usize) -> WasmIoVec {
-        wasm_iovs_checked_lookup(self, index)
-    }
+pub fn stat_mode(stat: libc::stat) -> mode_t {
+    stat.st_mode
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct NativeIoVec {
-    pub iov_base: usize,
-    pub iov_len: usize,
-}
-
-// Wrapper around Vec<NativeIoVecs> used to make proof cleaner
-pub struct NativeIoVecs {
-    pub iovs: Vec<NativeIoVec>,
-}
-
-impl NativeIoVecs {
-    #[pure]
-    pub fn len(&self) -> usize {
-        self.iovs.len()
-    }
-
-    #[ensures(result.len() == 0)]
-    pub fn new() -> Self {
-        Self { iovs: Vec::new() }
-    }
-
-    // Have to dispatch to trusted function because Prusti won't let me
-    // inspect a vector inside a proof
-    #[pure]
-    #[requires(index < self.len())]
-    pub fn lookup(&self, index: usize) -> NativeIoVec {
-        iovs_checked_lookup(self, index)
-    }
-}
+// #[flux::sig(fn (x:i32) -> i32[x])]
+// fn inc(x: i32) -> i32 {
+//     x + 1
+// }

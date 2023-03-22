@@ -5,16 +5,16 @@ use crate::tcb::os_specs::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use crate::{effect, effects};
-use prusti_contracts::*;
-use syscall::syscall;
-use wave_macros::with_ghost_var;
+// use crate::{effect, effects};
+// use prusti_contracts::*;
+// use syscall::syscall;
+// use wave_macros::with_ghost_var;
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 // #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_advise(
     ctx: &VmCtx,
@@ -28,12 +28,12 @@ pub fn trace_advise(
     RuntimeError::from_syscall_ret(r)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn trace_clock_get_time(
     ctx: &VmCtx,
     clock_id: libc::clockid_t,
@@ -43,12 +43,12 @@ pub fn trace_clock_get_time(
     RuntimeError::from_syscall_ret(r)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn trace_clock_get_res(
     ctx: &VmCtx,
     clock_id: libc::clockid_t,
@@ -58,12 +58,12 @@ pub fn trace_clock_get_res(
     RuntimeError::from_syscall_ret(r)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn trace_nanosleep(
     ctx: &VmCtx,
     req: &libc::timespec,
@@ -73,12 +73,12 @@ pub fn trace_nanosleep(
     RuntimeError::from_syscall_ret(r)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
     let r = os_fallocate(os_fd, 0, offset, len);

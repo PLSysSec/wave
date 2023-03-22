@@ -1,35 +1,36 @@
 // use crate::os::trace_fionread;
-use crate::os::trace_fionread;
 use crate::runtime::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::external_specs::result::*;
 #[cfg(feature = "verify")]
 use crate::tcb::verifier::*;
 use crate::types::*;
-use crate::wrappers::wasi_clock_time_get; // TODO: remove this circular reference
-use prusti_contracts::*;
+use crate::wrappers::wasi_clock_time_get;
+use crate::{os::trace_fionread, rvec::RVec}; // TODO: remove this circular reference
+                                             // use prusti_contracts::*;
 use std::convert::{TryFrom, TryInto};
-use wave_macros::{external_calls, external_methods, with_ghost_var};
+// use wave_macros::{external_calls, external_methods, with_ghost_var};
 use RuntimeError::*;
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[external_methods(push, checked_sub, try_into, subscription_clock_abstime)]
-#[external_calls(Some)]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[external_methods(push, checked_sub, try_into, subscription_clock_abstime)]
+// #[external_calls(Some)]
+#[flux::sig(fn (ctx: &VmCtx, sub_clock: SubscriptionClock, precision: u64, min_timeout: &mut Option<Timestamp>, timeouts: &strg RVec<(u64, Timestamp)>, userdata: u64) -> Result<(), RuntimeError> ensures timeouts: RVec<(u64, Timestamp)>)]
 pub fn poll_parse_clock(
     ctx: &VmCtx,
     sub_clock: SubscriptionClock,
     precision: u64,
     min_timeout: &mut Option<Timestamp>,
-    timeouts: &mut Vec<(u64, Timestamp)>,
+    timeouts: &mut RVec<(u64, Timestamp)>,
     userdata: u64,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     // if the subscription is a clock, check if it is the shortest timeout.
     // let clock = subscription_clock.id;
-    match sub_clock.id.try_into()? {
+    match TryFrom::try_from(sub_clock.id)? /* FLUX-TODO sub_clock.id.try_into()? */ {
         // TODO: what clock source does posix poll use for timeouts? Will a relative
         //       realtime be significantly different than monotonic?
         ClockId::Monotonic | ClockId::Realtime => {
@@ -42,7 +43,6 @@ pub fn poll_parse_clock(
             } else {
                 sub_clock.timeout
             };
-
             if let Some(m_timeout) = min_timeout {
                 if timeout < *m_timeout {
                     *min_timeout = Some(timeout);
@@ -61,19 +61,20 @@ pub fn poll_parse_clock(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[external_methods(push, to_posix)]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[external_methods(push, to_posix)]
+#[flux::sig(fn (ctx: &VmCtx, pollfds: &strg RVec<libc::pollfd>, fd_data: &strg RVec<(u64, SubscriptionFdType)>, userdata: u64, subscription_readwrite: SubscriptionFdReadWrite) -> Result<(), RuntimeError> ensures pollfds: RVec<libc::pollfd>, fd_data: RVec<(u64, SubscriptionFdType)>)]
 pub fn poll_parse_fds(
     ctx: &VmCtx,
-    pollfds: &mut Vec<libc::pollfd>,
-    fd_data: &mut Vec<(u64, SubscriptionFdType)>,
+    pollfds: &mut RVec<libc::pollfd>,
+    fd_data: &mut RVec<(u64, SubscriptionFdType)>,
     userdata: u64,
     subscription_readwrite: SubscriptionFdReadWrite,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(subscription_readwrite.v_fd)?;
     let os_fd: usize = fd.to_raw();
     // let event = match subscription_readwrite.typ {
@@ -92,26 +93,27 @@ pub fn poll_parse_fds(
     Ok(())
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 // #[external_calls(poll_handle_fds, poll_handle_clock)]
+#[flux::sig(fn (ctx: &VmCtx, in_ptr: u32, nsubscriptions: u32, precision: u64, min_timeout: &mut Option<Timestamp>, timeouts: &strg RVec<(u64, Timestamp)>, pollfds: &strg RVec<libc::pollfd>, fd_data: &strg RVec<(u64, SubscriptionFdType)>) -> Result<(), RuntimeError> ensures timeouts: RVec<(u64, Timestamp)>, pollfds: RVec<libc::pollfd>, fd_data: RVec<(u64, SubscriptionFdType)>)]
 pub fn parse_subscriptions(
     ctx: &VmCtx,
     in_ptr: u32,
     nsubscriptions: u32,
     precision: u64,
     min_timeout: &mut Option<Timestamp>,
-    timeouts: &mut Vec<(u64, Timestamp)>,
-    pollfds: &mut Vec<libc::pollfd>,
-    fd_data: &mut Vec<(u64, SubscriptionFdType)>,
-) -> RuntimeResult<()> {
+    timeouts: &mut RVec<(u64, Timestamp)>,
+    pollfds: &mut RVec<libc::pollfd>,
+    fd_data: &mut RVec<(u64, SubscriptionFdType)>,
+) -> Result<(), RuntimeError> {
     let mut i = 0;
     while i < nsubscriptions {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
 
         let sub_offset = i * Subscription::WASI_SIZE;
 
@@ -151,22 +153,22 @@ pub fn parse_subscriptions(
     Ok(())
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn writeback_timeouts(
     ctx: &mut VmCtx,
     out_ptr: u32,
-    timeouts: &Vec<(u64, Timestamp)>,
+    timeouts: &RVec<(u64, Timestamp)>,
     min_timeout: &Option<Timestamp>,
 ) -> RuntimeResult<u32> {
     let mut num_events_written = 0;
     let mut event_idx = 0;
     while event_idx < timeouts.len() {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
 
         let (userdata, timeout) = timeouts[event_idx];
         let event_offset = (num_events_written * Event::WASI_SIZE) as usize;
@@ -192,24 +194,24 @@ pub fn writeback_timeouts(
     return Ok(num_events_written);
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[external_calls(from_posix, from_poll_revents, Some)]
-#[external_methods(to_event_type)]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[external_calls(from_posix, from_poll_revents, Some)]
+// #[external_methods(to_event_type)]
 pub fn writeback_fds(
     ctx: &mut VmCtx,
     out_ptr: u32,
-    pollfds: &Vec<libc::pollfd>,
-    fd_data: &Vec<(u64, SubscriptionFdType)>,
+    pollfds: &RVec<libc::pollfd>,
+    fd_data: &RVec<(u64, SubscriptionFdType)>,
 ) -> RuntimeResult<u32> {
     let mut num_events_written = 0;
     let mut event_idx = 0;
     while event_idx < fd_data.len() {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
 
         let (userdata, sub_type) = fd_data[event_idx];
         // let typ = match sub_type {
@@ -218,7 +220,12 @@ pub fn writeback_fds(
         // };
         let typ = sub_type.to_event_type();
 
+        // FLUX-TODO2: UNSAFE? (begin)
+        if event_idx >= pollfds.len() {
+            return Err(Eoverflow);
+        }
         let pollfd = pollfds[event_idx];
+        // FLUX-TODO2: UNSAFE? (end)
 
         // if no event ocurred, continue
         if pollfd.revents == 0 {

@@ -1,3 +1,5 @@
+#![flux::ignore]
+
 use crate::stats::timing::{ResultsType, HOSTCALL_RESULTS, SYSCALL_RESULTS};
 use statistical::mean;
 use statistical::univariate::geometric_mean;

@@ -1,10 +1,10 @@
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
+// #[cfg(feature = "verify")]
+// use crate::tcb::verifier::*;
 use crate::types::*;
-use prusti_contracts::*;
-use wave_macros::with_ghost_var;
+// use prusti_contracts::*;
+// use wave_macros::with_ghost_var;
 
-#[with_ghost_var(trace: &mut Trace)]
+// #[with_ghost_var(trace: &mut Trace)]
 pub fn wasm2c_marshal<T>(res: RuntimeResult<T>) -> u32 {
     match res {
         Ok(r) => 0,
@@ -12,11 +12,11 @@ pub fn wasm2c_marshal<T>(res: RuntimeResult<T>) -> u32 {
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_u32(
     ctx: &mut VmCtx,
     addr: usize,
@@ -35,11 +35,11 @@ pub fn wasm2c_marshal_and_writeback_u32(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_prestat(
     ctx: &mut VmCtx,
     addr: usize,
@@ -59,11 +59,11 @@ pub fn wasm2c_marshal_and_writeback_prestat(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_u64(
     ctx: &mut VmCtx,
     addr: usize,
@@ -82,11 +82,11 @@ pub fn wasm2c_marshal_and_writeback_u64(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_timestamp(
     ctx: &mut VmCtx,
     addr: usize,
@@ -105,11 +105,11 @@ pub fn wasm2c_marshal_and_writeback_timestamp(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_fdstat(
     ctx: &mut VmCtx,
     addr: usize,
@@ -131,11 +131,11 @@ pub fn wasm2c_marshal_and_writeback_fdstat(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_filestat(
     ctx: &mut VmCtx,
     addr: usize,
@@ -161,11 +161,11 @@ pub fn wasm2c_marshal_and_writeback_filestat(
     }
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasm2c_marshal_and_writeback_u32_pair(
     ctx: &mut VmCtx,
     addr0: usize,

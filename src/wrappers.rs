@@ -1,22 +1,12 @@
-use crate::os::*;
-use crate::runtime::*;
-use crate::tcb::misc::{bitwise_or, first_null, flag_set, fresh_stat, push_dirent_name};
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::external_specs::result::*;
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
-// use crate::tcb::path::{arr_depth, arr_is_relative, arr_is_symlink};
-// use crate::poll::{parse_subscriptions, writeback_timeouts, writeback_fds};
 use crate::iov::parse_iovs;
+use crate::os::*;
 use crate::poll::*;
+use crate::rvec::RVec;
+use crate::tcb::misc::{bitwise_or, flag_set, fresh_stat, push_dirent_name};
+use crate::types::RuntimeError::*;
 use crate::types::*;
-use crate::{effect, effects, unwrap_result};
-use prusti_contracts::*;
-use std::convert::{TryFrom, TryInto};
-use std::mem;
-use std::str;
-use wave_macros::{external_calls, external_methods, with_ghost_var};
-use RuntimeError::*;
+use crate::unwrap_result;
+use std::convert::TryFrom;
 
 // TODO: support arbitrary *at calls
 // Currently they can only be based off our preopened dir
@@ -28,13 +18,14 @@ use RuntimeError::*;
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_open
 // Modifies: fdmap
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(create, to_posix, should_follow, to_openat_posix)]
-#[external_calls(from, bitwise_or, flag_set)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(create, to_posix, should_follow, to_openat_posix)]
+// #[external_calls(from, bitwise_or, flag_set)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &strg VmCtx[@cx], v_dir_fd: u32, dirflags: u32, pathname: u32, path_len: u32, oflags: u32, fdflags: i32) -> Result<u32, RuntimeError> ensures ctx: VmCtx)]
 pub fn wasi_path_open(
     ctx: &mut VmCtx,
     v_dir_fd: u32,
@@ -43,7 +34,7 @@ pub fn wasi_path_open(
     path_len: u32,
     oflags: u32,
     fdflags: i32,
-) -> RuntimeResult<u32> {
+) -> Result<u32, RuntimeError> {
     let dirflags = LookupFlags::new(dirflags);
     let oflags = OFlags::new(oflags);
     let fdflags = FdFlags::from(fdflags);
@@ -73,17 +64,19 @@ pub fn wasi_path_open(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_close
 // modifies: fdmap
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(delete)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
-    // can't replace with fd_to_native until we fix question mark operator
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(delete)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &strg VmCtx[@dummy], v_fd: u32) -> Result<u32, RuntimeError> ensures ctx: VmCtx)]
+pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> Result<u32, RuntimeError> {
+    // can't  replace with fd_to_native until we fix question mark operator
     if v_fd >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
+
     let fd = ctx.fdmap.m[v_fd as usize]?;
 
     ctx.fdmap.delete(v_fd);
@@ -109,46 +102,49 @@ pub fn wasi_fd_close(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 //     pub iov_len: u32,
 // }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_read(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
+#[flux::sig(fn (ctx: &mut VmCtx[@d], v_fd: u32, iovs: u32, iovcnt: u32) -> Result<u32, RuntimeError>)]
+pub fn wasi_fd_read(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+) -> Result<u32, RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
-    unwrap_result!(wasm_iovs);
-
+    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt)?;
     let result = trace_readv(ctx, fd, &wasm_iovs, iovcnt as usize)?;
     Ok(result as u32)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_write(ctx: &mut VmCtx, v_fd: u32, iovs: u32, iovcnt: u32) -> RuntimeResult<u32> {
-    let fd = ctx.fdmap.fd_to_native(v_fd)?;
-    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
-    unwrap_result!(wasm_iovs);
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(push)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 
+#[flux::sig(fn (ctx: &mut VmCtx[@d], v_fd: u32, iovs: u32, iovcnt: u32) -> Result<u32, RuntimeError>)]
+pub fn wasi_fd_write(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    iovs: u32,
+    iovcnt: u32,
+) -> Result<u32, RuntimeError> {
+    let fd = ctx.fdmap.fd_to_native(v_fd)?;
+    let wasm_iovs = parse_iovs(ctx, iovs, iovcnt)?;
     let result = trace_writev(ctx, fd, &wasm_iovs, iovcnt as usize)?;
     Ok(result as u32)
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_seek
-// modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-// #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> effects!(old(trace), trace, Effect::FdAccess))]
-// #[ensures(v_fd >= MAX_SBOX_FDS ==> effects!(old(trace), trace))]
+// // modifies: none
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(from_u32)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// // #[ensures(v_fd < MAX_SBOX_FDS && ctx.fdmap.contains(v_fd) ==> effects!(old(trace), trace, Effect::FdAccess))]
+// // #[ensures(v_fd >= MAX_SBOX_FDS ==> effects!(old(trace), trace))]
 pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> RuntimeResult<u64> {
     let whence = Whence::from_u32(v_whence).ok_or(Einval)?;
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
@@ -158,23 +154,24 @@ pub fn wasi_fd_seek(ctx: &VmCtx, v_fd: u32, v_filedelta: i64, v_whence: u32) -> 
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_tellwritev
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+
 pub fn wasi_fd_tell(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u64> {
     wasi_fd_seek(ctx, v_fd, 0, 1) // Whence::Cur
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_advise
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(try_from)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(try_from)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_advise(
     ctx: &VmCtx,
     v_fd: u32,
@@ -191,11 +188,11 @@ pub fn wasi_fd_advise(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_allocate
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -205,11 +202,11 @@ pub fn wasi_fd_allocate(ctx: &VmCtx, v_fd: u32, offset: u64, len: u64) -> Runtim
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_sync
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ret = trace_sync(ctx, fd)?;
@@ -218,11 +215,11 @@ pub fn wasi_fd_sync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<()> {
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_datasync
 // modifies: None
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ret = trace_datasync(ctx, fd)?;
@@ -231,12 +228,12 @@ pub fn wasi_fd_datasync(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<u32> {
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_fdstat_get
 //modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(fresh_stat, from_posix)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(fresh_stat, from_posix)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let mut stat = fresh_stat();
@@ -254,16 +251,20 @@ pub fn wasi_fd_fdstat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FdStat> {
     Ok(result)
 }
 
-// https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_fdstat_set_flags
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from)]
-#[external_methods(to_posix)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// [with_ghost_var(trace: &mut Trace)]
+// #[external_calls(from)]
+// #[external_methods(to_posix)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 // can only adjust Fdflags using set_flags, not O_flags or any other flags
-pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> RuntimeResult<()> {
+#[flux::sig(fn(ctx: &mut VmCtx[@dummy], v_fd: u32, v_flags: u32) -> Result<(), RuntimeError>)]
+pub fn wasi_fd_fdstat_set_flags(
+    ctx: &mut VmCtx,
+    v_fd: u32,
+    v_flags: u32,
+) -> Result<(), RuntimeError> {
     let flags = FdFlags::from(v_flags as i32);
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
@@ -274,12 +275,12 @@ pub fn wasi_fd_fdstat_set_flags(ctx: &mut VmCtx, v_fd: u32, v_flags: u32) -> Run
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_filestat_get
 // modifies: None
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(fresh_stat)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(fresh_stat)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let mut stat = fresh_stat();
@@ -292,11 +293,11 @@ pub fn wasi_fd_filestat_get(ctx: &VmCtx, v_fd: u32) -> RuntimeResult<FileStat> {
 // Note: WASI API says that size should be u64.
 // but ftruncate, which filestat_set_size is supposed to call used i64
 // I'm keeping this as i64 since this does not cause any truncation
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeResult<()> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ret = trace_ftruncate(ctx, fd, size)?;
@@ -304,28 +305,29 @@ pub fn wasi_fd_filestat_set_size(ctx: &VmCtx, v_fd: u32, size: i64) -> RuntimeRe
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_filestat_set_times
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from)]
-#[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
-#[external_methods(reserve_exact, push)] // Vec methods
-#[external_calls(try_from)] // FstFlags methods
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(from)]
+// #[external_methods(atim_now, atim, mtim, mtim_now, nsec)] // clock methods
+// #[external_methods(reserve_exact, push)] // Vec methods
+// #[external_calls(try_from)] // FstFlags methods
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn(ctx: &mut VmCtx[@dummy], v_fd: u32, v_atim: u64, v_mtim: u64, v_fst_flags: u32) -> Result<(), RuntimeError>)]
 pub fn wasi_fd_filestat_set_times(
     ctx: &mut VmCtx,
     v_fd: u32,
     v_atim: u64,
     v_mtim: u64,
     v_fst_flags: u32,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     let atim = Timestamp::new(v_atim);
     let mtim = Timestamp::new(v_mtim);
     let fst_flags = FstFlags::try_from(v_fst_flags as u16)?;
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let mut specs: Vec<libc::timespec> = Vec::new();
+    let mut specs: RVec<libc::timespec> = RVec::new();
     let atim_spec = atim.ts_to_native(fst_flags.atim(), fst_flags.atim_now());
     let mtim_spec = mtim.ts_to_native(fst_flags.mtim(), fst_flags.mtim_now());
     specs.push(atim_spec);
@@ -335,19 +337,20 @@ pub fn wasi_fd_filestat_set_times(
     Ok(())
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(push)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], v_fd: u32, iovs: u32, iovcnt: u32, offset: u64) -> Result<u32, RuntimeError>)]
 pub fn wasi_fd_pread(
     ctx: &mut VmCtx,
     v_fd: u32,
     iovs: u32,
     iovcnt: u32,
     offset: u64,
-) -> RuntimeResult<u32> {
+) -> Result<u32, RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
     unwrap_result!(wasm_iovs);
@@ -359,12 +362,12 @@ pub fn wasi_fd_pread(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#prestat_dirname
 // modifies: mem
 // If v_fd refers to a preopened directory (fd == 3), write the name to path
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(get_homedir)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(get_homedir)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_prestat_dirname(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -388,31 +391,33 @@ pub fn wasi_prestat_dirname(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_prestat_get
 /// Must return ebadf if the file doesn't exist:
 /// https://github.com/WebAssembly/wasi-libc/blob/ad5133410f66b93a2381db5b542aad5e0964db96/libc-bottom-half/sources/preopens.c#L212
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> RuntimeResult<u32> {
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn(ctx: &mut VmCtx[@dummy], v_fd: u32) -> Result<u32, RuntimeError>)]
+pub fn wasi_fd_prestat_get(ctx: &mut VmCtx, v_fd: u32) -> Result<u32, RuntimeError> {
     if v_fd == HOMEDIR_FD {
         return Ok(ctx.homedir.len() as u32);
     }
     Err(Ebadf)
 }
 
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(push)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], v_fd: u32, iovs: u32, iovcnt: u32, offset: u64) -> Result<u32, RuntimeError>)]
 pub fn wasi_fd_pwrite(
     ctx: &mut VmCtx,
     v_fd: u32,
     iovs: u32,
     iovcnt: u32,
     offset: u64,
-) -> RuntimeResult<u32> {
+) -> Result<u32, RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let wasm_iovs = parse_iovs(ctx, iovs, iovcnt);
     unwrap_result!(wasm_iovs);
@@ -423,18 +428,20 @@ pub fn wasi_fd_pwrite(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_create_directory
 // modifies: None
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(push)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+
+#[flux::sig(fn(ctx: &mut VmCtx[@dummy], v_fd: u32, pathname: u32, path_len: u32) -> Result<(), RuntimeError>)]
 pub fn wasi_path_create_directory(
     ctx: &mut VmCtx,
     v_fd: u32,
     pathname: u32,
     path_len: u32,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     if v_fd != HOMEDIR_FD {
@@ -454,13 +461,13 @@ pub fn wasi_path_create_directory(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_get
 // modifies: None
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(push, to_posix, should_follow, to_stat_posix)]
-#[external_calls(fresh_stat, flag_set)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(push, to_posix, should_follow, to_stat_posix)]
+// #[external_calls(fresh_stat, flag_set)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_filestat_get(
     ctx: &VmCtx,
     v_fd: u32,
@@ -498,14 +505,14 @@ pub fn wasi_path_filestat_get(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_filestat_set_times
 // modifies: None
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
-#[external_methods(reserve_exact, push, should_follow, to_stat_posix)]
-#[external_calls(try_from, flag_set)] // FstFlags methods
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(atim_now, atim, mtim, mtim_now, nsec)]
+// #[external_methods(reserve_exact, push, should_follow, to_stat_posix)]
+// #[external_calls(try_from, flag_set)] // FstFlags methods
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_filestat_set_times(
     ctx: &VmCtx,
     v_fd: u32,
@@ -537,7 +544,7 @@ pub fn wasi_path_filestat_set_times(
     let host_pathname = ctx.translate_path(pathname, path_len, should_follow, fd);
     unwrap_result!(host_pathname);
 
-    let mut specs: Vec<libc::timespec> = Vec::new();
+    let mut specs: RVec<libc::timespec> = RVec::new();
     let atim_spec = atim.ts_to_native(fst_flags.atim(), fst_flags.atim_now());
     let mtim_spec = mtim.ts_to_native(fst_flags.mtim(), fst_flags.mtim_now());
     specs.push(atim_spec);
@@ -559,13 +566,13 @@ pub fn wasi_path_filestat_set_times(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_link
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(to_linkat_posix, should_follow)]
-#[external_calls(flag_set)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(to_linkat_posix, should_follow)]
+// #[external_calls(flag_set)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_link(
     ctx: &VmCtx,
     v_old_fd: u32,
@@ -623,12 +630,13 @@ pub fn wasi_path_link(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_readlink
 // modifies: mem
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(reserve_exact, push)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(reserve_exact, push)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@cx], v_fd: u32, pathname: u32, path_len: u32, ptr: u32, len: u32) -> Result<u32, RuntimeError>)]
 pub fn wasi_path_readlink(
     ctx: &mut VmCtx,
     v_fd: u32,
@@ -636,7 +644,7 @@ pub fn wasi_path_readlink(
     path_len: u32,
     ptr: u32,
     len: u32,
-) -> RuntimeResult<u32> {
+) -> Result<u32, RuntimeError> {
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
@@ -660,17 +668,18 @@ pub fn wasi_path_readlink(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_remove_directory
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@cx], v_fd: u32, pathname: u32, path_len: u32) -> Result<(), RuntimeError>)]
 pub fn wasi_path_remove_directory(
     ctx: &mut VmCtx,
     v_fd: u32,
     pathname: u32,
     path_len: u32,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
@@ -695,11 +704,11 @@ pub fn wasi_path_remove_directory(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_rename
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_rename(
     ctx: &VmCtx,
     v_old_fd: u32,
@@ -733,11 +742,11 @@ pub fn wasi_path_rename(
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_symlink
 //modifies: none
 // TODO: we should not actually translate path2 I believe
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_path_symlink(
     ctx: &VmCtx,
     old_pathname: u32,
@@ -764,17 +773,18 @@ pub fn wasi_path_symlink(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#path_unlink_file
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], v_fd: u32, pathname: u32, path_len: u32) -> Result<(), RuntimeError>)]
 pub fn wasi_path_unlink_file(
     ctx: &mut VmCtx,
     v_fd: u32,
     pathname: u32,
     path_len: u32,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     // let fd = ctx.fdmap.fd_to_native(v_fd)?;
     if v_fd != HOMEDIR_FD {
         return Err(Enotcapable);
@@ -792,12 +802,12 @@ pub fn wasi_path_unlink_file(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_res_get
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32, try_from)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(from_u32, try_from)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp> {
     let id = ClockId::try_from(clock_id)?;
     let mut spec = fresh_libc_timespec();
@@ -808,12 +818,12 @@ pub fn wasi_clock_res_get(ctx: &VmCtx, clock_id: u32) -> RuntimeResult<Timestamp
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#clock_time_get
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(from_u32, try_from)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(from_u32, try_from)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_clock_time_get(
     ctx: &VmCtx,
     clock_id: u32,
@@ -827,47 +837,48 @@ pub fn wasi_clock_time_get(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_exit
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_proc_exit(ctx: &VmCtx, rval: u32) -> RuntimeResult<()> {
     Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#proc_raise
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_proc_raise(ctx: &VmCtx, signal: u32) -> RuntimeResult<()> {
     Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sched_yield
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_sched_yield(ctx: &VmCtx) -> RuntimeResult<()> {
     Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#random_get
 // modifies: memory
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(reserve_exact)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()> {
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(reserve_exact)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], ptr: u32, len: u32) -> Result<(), RuntimeError>)]
+pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> Result<(), RuntimeError> {
     if !ctx.fits_in_lin_mem(ptr, len) {
         return Err(Efault);
     }
@@ -877,14 +888,15 @@ pub fn wasi_random_get(ctx: &mut VmCtx, ptr: u32, len: u32) -> RuntimeResult<()>
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_renumber
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(shift)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
-pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResult<()> {
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(shift)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], v_from: u32, v_to: u32) -> Result<(), RuntimeError>)]
+pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> Result<(), RuntimeError> {
     if v_from >= MAX_SBOX_FDS || v_to >= MAX_SBOX_FDS {
         return Err(Ebadf);
     }
@@ -893,23 +905,24 @@ pub fn wasi_fd_renumber(ctx: &mut VmCtx, v_from: u32, v_to: u32) -> RuntimeResul
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#args_get
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 // #[ensures(effects!(old(trace), trace))]
-pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult<()> {
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], argv: u32, argv_buf: u32) -> Result<(), RuntimeError>)]
+pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> Result<(), RuntimeError> {
     // 1. copy argv_buffer
-    let argv_buf_len = ctx.arg_buffer.len() as u32;
+    let argv_buf_len = usize_as_u32(ctx.arg_buffer.len()); // FLUX-TODO2 as-u32;
     ctx.copy_arg_buffer_to_sandbox(argv_buf, argv_buf_len)?;
     // 2. copy in argv
     let mut idx: usize = 0;
     let mut start: u32 = 0;
     let mut cursor: usize = 0;
     while idx < ctx.arg_buffer.len() {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
         // We have found an argument either when we find a trailing space, or if we started an arg
         // and ran out of space
         if !ctx.fits_in_lin_mem_usize((argv as usize) + cursor, 8) {
@@ -942,23 +955,24 @@ pub fn wasi_args_get(ctx: &mut VmCtx, argv: u32, argv_buf: u32) -> RuntimeResult
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_get
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-// #[ensures(effects!(old(trace), trace))]
-pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResult<()> {
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// // #[ensures(effects!(old(trace), trace))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], env: u32, env_buf: u32) -> Result<(), RuntimeError>)]
+pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> Result<(), RuntimeError> {
     // 1. copy argv_buffer
-    let env_buf_len = ctx.env_buffer.len() as u32;
+    let env_buf_len = usize_as_u32(ctx.env_buffer.len()); // FLUX-TODO2: as-u32;
     ctx.copy_environ_buffer_to_sandbox(env_buf, env_buf_len)?;
     // 2. copy in argv
     let mut idx: usize = 0;
     let mut start: u32 = 0;
     let mut cursor: usize = 0;
     while idx < ctx.env_buffer.len() {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
         if !ctx.fits_in_lin_mem_usize((env as usize) + cursor, 8) {
             return Err(Eoverflow);
         }
@@ -988,51 +1002,52 @@ pub fn wasi_environ_get(ctx: &mut VmCtx, env: u32, env_buf: u32) -> RuntimeResul
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#arg_sizes_get
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_args_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.argc as u32, ctx.arg_buffer.len() as u32))
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_sizes_get
 // modifies: none
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn wasi_environ_sizes_get(ctx: &VmCtx) -> RuntimeResult<(u32, u32)> {
     Ok((ctx.envc as u32, ctx.env_buffer.len() as u32))
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_recv
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(reserve_exact)]
-#[external_calls(reserve_exact, try_from)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(reserve_exact)]
+// #[external_calls(reserve_exact, try_from)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], v_fd: u32, ri_data: u32, ri_data_count: u32, ri_flags: u32) -> Result<(u32, u32), RuntimeError>)]
 pub fn wasi_sock_recv(
     ctx: &mut VmCtx,
     v_fd: u32,
     ri_data: u32,
     ri_data_count: u32,
     ri_flags: u32,
-) -> RuntimeResult<(u32, u32)> {
+) -> Result<(u32, u32), RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let ri_flags = RiFlags::try_from(ri_flags)?;
 
     let mut num: u32 = 0;
     let mut i = 0;
     while i < ri_data_count {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
 
         let start = (ri_data + i * 8) as usize;
 
@@ -1054,25 +1069,26 @@ pub fn wasi_sock_recv(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_send
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@cx], v_fd: u32, si_data: u32, si_data_count: u32, si_flags: u32) -> Result<u32, RuntimeError>)]
 pub fn wasi_sock_send(
     ctx: &mut VmCtx,
     v_fd: u32,
     si_data: u32,
     si_data_count: u32,
     si_flags: u32,
-) -> RuntimeResult<u32> {
+) -> Result<u32, RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
     let mut num: u32 = 0;
     let mut i = 0;
     while i < si_data_count {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
 
         let start = (si_data + i * 8) as usize;
 
@@ -1092,39 +1108,40 @@ pub fn wasi_sock_send(
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#sock_shutdown
 // ensures: valid(v_fd) => trace = old(shutdown :: trace)
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(try_into)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(try_into)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 
-pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> RuntimeResult<()> {
+#[flux::sig(fn (ctx: &VmCtx[@cx], v_fd: u32, v_how: u32) -> Result<(), RuntimeError>)]
+pub fn wasi_sock_shutdown(ctx: &VmCtx, v_fd: u32, v_how: u32) -> Result<(), RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
     let how = SdFlags::new(v_how);
-    let posix_how = how.try_into()?;
+    let posix_how = TryFrom::try_from(how)?; // how.try_into()?;
 
     let res = trace_shutdown(ctx, fd, posix_how)?;
     Ok(())
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#poll_oneoff
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(
-    subscription_clock_abstime,
-    try_into,
-    checked_sub,
-    ok_or_else,
-    push,
-    map_err,
-    map,
-    unwrap_or
-)]
-#[external_calls(from_posix, from_poll_revents, Some)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(
+//     subscription_clock_abstime,
+//     try_into,
+//     checked_sub,
+//     ok_or_else,
+//     push,
+//     map_err,
+//     map,
+//     unwrap_or
+// )]
+// #[external_calls(from_posix, from_poll_revents, Some)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 pub fn wasi_poll_oneoff(
     ctx: &mut VmCtx,
     in_ptr: u32,
@@ -1132,13 +1149,13 @@ pub fn wasi_poll_oneoff(
     nsubscriptions: u32,
 ) -> RuntimeResult<u32> {
     // list of clock subscription (userdata, timeout) pairs
-    let mut timeouts = Vec::new();
+    let mut timeouts = RVec::new();
 
     // Parallel vectors for fd subscriptions.
     // (userdata, typ) pairs are stored in fd_data, while the pollfds themselves are stored
     // in pollfds.
-    let mut fd_data = Vec::new();
-    let mut pollfds = Vec::new();
+    let mut fd_data = RVec::new();
+    let mut pollfds = RVec::new();
 
     // minimum timeout we found, for setting the poll syscall timeout
     let mut min_timeout = None;
@@ -1158,13 +1175,25 @@ pub fn wasi_poll_oneoff(
     //               immediatly return. Instead, we use nanosleep on the min timeout.
     let res = if pollfds.len() == 0 {
         let mut rem = fresh_libc_timespec();
-        let timespec: libc::timespec = min_timeout.map(|t| t.into()).ok_or(Einval)?;
+        // FLUX-TODO2: closure: min_timeout.map(|t| t.into()).ok_or(Einval)?;
+        let timespec: libc::timespec = match min_timeout {
+            Some(t) => t.into(),
+            None => return Err(Einval),
+        };
         trace_nanosleep(ctx, &timespec, &mut rem)?
     } else {
-        let poll_timeout: i32 = min_timeout
+        let poll_timeout: i32 = /* FLUX-TODO (closure) min_timeout
             .map(|t| t.to_millis().try_into().map_err(|e| Eoverflow))
-            .unwrap_or(Ok(-1))?;
-        trace_poll(ctx, pollfds.as_mut(), poll_timeout)?
+            .unwrap_or(Ok(-1))?; */
+            match min_timeout {
+                Some(t) => match TryFrom::try_from(t.to_millis()) {
+                    Ok(t) => t,
+                    Err(_) => return Err(Eoverflow),
+                },
+                None => -1,
+            };
+
+        trace_poll(ctx, &mut pollfds, poll_timeout)?
     };
 
     if res == 0 {
@@ -1177,27 +1206,29 @@ pub fn wasi_poll_oneoff(
 }
 
 // https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#fd_readdir
-#[with_ghost_var(trace: &mut Trace)]
-#[external_methods(extend_from_slice, reserve_exact)]
-#[external_methods(to_le_bytes, to_wasi)]
-#[external_calls(from_le_bytes, from, first_null, push_dirent_name, parse)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_methods(extend_from_slice, reserve_exact)]
+// #[external_methods(to_le_bytes, to_wasi)]
+// #[external_calls(from_le_bytes, from, first_null, push_dirent_name, parse)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
 // TODO: I'm not confident this works for multiple consecutive readdir calls to the same dir
 // Correct behavior: truncate final entry
+#[flux::sig(fn (ctx: &strg VmCtx[@dummy], v_fd: SboxFd, buf: SboxFd, buf_len: usize, cookie: u64) -> Result<u32, RuntimeError> ensures ctx: VmCtx)]
 pub fn wasi_fd_readdir(
     ctx: &mut VmCtx,
     v_fd: SboxFd,
     buf: SboxFd,
     buf_len: usize,
     cookie: u64,
-) -> RuntimeResult<u32> {
+) -> Result<u32, RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(v_fd)?;
 
-    let mut host_buf: Vec<u8> = Vec::new();
-    host_buf.reserve_exact(buf_len as usize);
+    // FLUX let mut host_buf: Vec<u8> = Vec::new();
+    // FLUX host_buf.reserve_exact(buf_len as usize);
+    let mut host_buf: RVec<u8> = RVec::from_elem_n(0, buf_len);
 
     let res = trace_getdents64(ctx, fd, &mut host_buf, buf_len)?;
 
@@ -1206,13 +1237,12 @@ pub fn wasi_fd_readdir(
     let mut in_idx = 0;
     let mut out_idx = 0;
 
-    let mut out_buf: Vec<u8> = Vec::new();
+    let mut out_buf: RVec<u8> = RVec::new();
 
     while in_idx < host_buf.len() && out_idx < buf_len {
-        body_invariant!(ctx_safe(ctx));
-        body_invariant!(trace_safe(trace, ctx));
-        body_invariant!(in_idx < host_buf.len());
-
+        // body_invariant!(ctx_safe(ctx));
+        // body_invariant!(trace_safe(trace, ctx));
+        // body_invariant!(in_idx < host_buf.len());
         let dirent = Dirent::parse(&host_buf, in_idx)?;
 
         // if we haven't hit the cookie entry, skip
@@ -1229,6 +1259,7 @@ pub fn wasi_fd_readdir(
             break;
         }
 
+        /* FLUX-TODO2: see https://github.com/liquid-rust/flux/issues/285  */        
         // Copy in next offset verbatim
         let out_next_bytes: [u8; 8] = out_next.to_le_bytes();
         out_buf.extend_from_slice(&out_next_bytes);
@@ -1258,20 +1289,28 @@ pub fn wasi_fd_readdir(
         out_idx += (24 + dirent.out_namlen) as usize
     }
 
-    ctx.copy_buf_to_sandbox(buf, &out_buf, out_buf.len() as u32)?;
+    // FLUX-TODO2 thread 'rustc' panicked at 'expected owned at Some(src/wrappers.rs:1295:5: 1295:65 (#0))', flux-refineck/src/type_env/paths_tree.rs:739:36
+    let len = out_buf.len() as u32;
+    ctx.copy_buf_to_sandbox(buf, &out_buf, len)?;
 
     Ok(out_buf.len() as u32)
 }
 
 // No spec for this one since we added it
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(sock_domain_to_posix, sock_type_to_posix)]
-#[external_methods(create_sock)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> RuntimeResult<u32> {
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(sock_domain_to_posix, sock_type_to_posix)]
+// #[external_methods(create_sock)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &strg VmCtx[@dummy], domain: u32, ty: u32, protocol: u32) -> Result<u32, RuntimeError> ensures ctx: VmCtx)]
+pub fn wasi_socket(
+    ctx: &mut VmCtx,
+    domain: u32,
+    ty: u32,
+    protocol: u32,
+) -> Result<u32, RuntimeError> {
     // We only allow TCP and UDP, which can both be identified using protocol=0 when
     // domain.ty are (AF_INET,SOCK_STREAM) or (AF_INET,SOCK_DGRAM) respectively
     if protocol != 0 {
@@ -1298,19 +1337,20 @@ pub fn wasi_socket(ctx: &mut VmCtx, domain: u32, ty: u32, protocol: u32) -> Runt
 }
 
 // No spec for this one since we added it
-#[with_ghost_var(trace: &mut Trace)]
-#[external_calls(sock_domain_to_posix, from, addr_in_netlist)]
-//#[external_calls(addr_in_netlist)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_calls(sock_domain_to_posix, from, addr_in_netlist)]
+// //#[external_calls(addr_in_netlist)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+#[flux::sig(fn (ctx: &mut VmCtx[@dummy], sockfd: u32, addr: u32, addrlen: u32) -> Result<(), RuntimeError>)]
 pub fn wasi_sock_connect(
     ctx: &mut VmCtx,
     sockfd: u32,
     addr: u32,
     addrlen: u32,
-) -> RuntimeResult<()> {
+) -> Result<(), RuntimeError> {
     let fd = ctx.fdmap.fd_to_native(sockfd)?;
 
     if addrlen != 16 {
@@ -1331,25 +1371,32 @@ pub fn wasi_sock_connect(
     let sin_addr_in = ctx.read_u32(addr as usize + 4);
     let sin_family = sock_domain_to_posix(sin_family as u32)? as libc::sa_family_t;
     // We can directly use sockaddr_in since we already know all socks are inet
-    let sin_addr = libc::in_addr {
-        s_addr: sin_addr_in,
-    };
-    let saddr = libc::sockaddr_in {
-        // i'll be lazy, should refactor to os-specific code...
-        #[cfg(target_os = "macos")]
-        sin_len: 0,
-        sin_family,
-        sin_port,
-        sin_addr,
-        sin_zero: [0; 8],
-    };
+    // FLUX let sin_addr = libc::in_addr {
+    // FLUX     s_addr: sin_addr_in,
+    // FLUX };
+    // FLUX let saddr = libc::sockaddr_in {
+    // FLUX     // i'll be lazy, should refactor to os-specific code...
+    // FLUX     #[cfg(target_os = "macos")]
+    // FLUX     sin_len: 0,
+    // FLUX     sin_family,
+    // FLUX     sin_port,
+    // FLUX     sin_addr,
+    // FLUX     sin_zero: [0; 8],
+    // FLUX };
+    let saddr = SockAddr::new(sin_family, sin_port, sin_addr_in);
 
-    let protocol = ctx.fdmap.sockinfo[fd.to_raw()]?;
+    // ASK-EVAN
+    let fd_raw = fd.to_raw();
+    if fd_raw >= MAX_SBOX_FDS as usize {
+        return Err(Enotcapable);
+    }
+
+    let protocol = ctx.fdmap.sockinfo[fd_raw]?;
     if matches!(protocol, WasiProto::Unknown) {
         return Err(Enotcapable);
     }
 
-    if !addr_in_netlist(&ctx.netlist, sin_addr_in, sin_port as u32) {
+    if !ctx.netlist.addr_in_netlist(sin_addr_in, sin_port as u32) {
         return Err(Enotcapable);
     }
 

@@ -1,3 +1,4 @@
+use crate::rvec::RVec;
 use crate::tcb::ffi::*;
 use crate::types::*;
 use crate::wrappers::*;
@@ -30,8 +31,9 @@ use crate::stats::stats::output_syscall_perf_results;
 
 trace::init_depth_var!();
 
+#[flux::trusted]
 pub fn create_ctx(
-    memptr: *mut u8,
+    memptr: *mut u8, // FLUX-TODO2: have to mark "trusted" because of the pointer
     homedir: &str,
     mut arg_buffer: Vec<u8>,
     argc: usize,
@@ -67,19 +69,26 @@ pub fn create_ctx(
     }
 
     let mem = ffi_load_vec(memptr, memlen);
+    let ghost_raw = to_raw(&mem);
 
     VmCtx {
-        mem,
+        mem: RVec::from_vec(mem),
+        ghost_raw,
         memlen,
         fdmap,
         homedir: homedir.to_owned(),
         homedir_host_fd: HostFd::from_raw(homedir_host_fd),
-        arg_buffer,
+        arg_buffer: RVec::from_vec(arg_buffer),
         argc,
-        env_buffer,
+        env_buffer: RVec::from_vec(env_buffer),
         envc,
         netlist,
     }
+}
+
+#[flux::trusted]
+fn to_raw(mem: &Vec<u8>) -> usize {
+    mem.as_ptr() as usize
 }
 
 /// Used for FFI. (wasm2c frontend)
@@ -87,6 +96,7 @@ pub fn create_ctx(
 /// TODO: depulicate with fresh_ctx()
 /// TODO: clean up this function, make some helpers, etc
 /// scary
+#[flux::trusted]
 fn ctx_from_memptr(
     memptr: *mut u8,
     memsize: isize,
@@ -131,6 +141,7 @@ pub extern "C" fn wave_init(
 }
 
 #[no_mangle]
+#[flux::trusted]
 pub extern "C" fn wave_cleanup(ctx: *const *mut VmCtx) {
     output_hostcall_perf_results();
     output_syscall_perf_results();

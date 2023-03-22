@@ -1,11 +1,12 @@
-use crate::tcb::ffi::*;
+#![flux::ignore] // C-FFI and ptr shenanigans
 use crate::types::*;
 use crate::wasm2c_frontend::*;
-use crate::wrappers::*;
-use crate::writeback::*;
-use std::panic;
-use trace::trace;
-use RuntimeError::*;
+// use crate::wrappers::*;
+// use crate::writeback::*;
+// use std::panic;
+// use trace::trace;
+// use RuntimeError::*;
+// use crate::tcb::ffi::*;
 
 trace::init_depth_var!();
 
@@ -16,20 +17,22 @@ pub fn redirect_stdout(ctx: &mut VmCtx, new_stdout: i32) -> () {
     ctx.fdmap.m[1] = Ok(HostFd::from_raw(new_stdout as usize))
 }
 
-pub fn add_arg(ctx: &mut VmCtx, arg: String) -> () {
+// #[flux::sig(fn(ctx: &strg VmCtx[@dummy], arg: String) ensures ctx: VmCtx)]
+pub fn add_arg(ctx: &mut VmCtx, arg: String) {
     if ctx.argc != 0 {
         ctx.arg_buffer.push(0);
     }
     ctx.argc += 1;
-    ctx.arg_buffer.extend(arg.into_bytes());
+    ctx.arg_buffer.inner.extend(arg.into_bytes());
 }
 
-pub fn add_env_var(ctx: &mut VmCtx, env_var: String) -> () {
+// #[flux::sig(fn(ctx: &strg VmCtx[@dummy], env_var: String) ensures ctx: VmCtx)]
+pub fn add_env_var(ctx: &mut VmCtx, env_var: String) {
     if ctx.envc != 0 {
         ctx.env_buffer.push(0);
     }
     ctx.envc += 1;
-    ctx.env_buffer.extend(env_var.into_bytes());
+    ctx.env_buffer.inner.extend(env_var.into_bytes());
 }
 
 #[no_mangle]

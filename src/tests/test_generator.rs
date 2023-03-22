@@ -2,12 +2,13 @@ use crate::os;
 use crate::runtime::fresh_ctx;
 use crate::tcb::os_specs::os_read;
 use crate::tcb::os_specs::*;
-use crate::tcb::verifier::*;
+// use crate::tcb::verifier::*;
 use crate::tests::init;
 use crate::types::{SboxPtr, VmCtx, LINEAR_MEM_SIZE};
 use quickcheck::{QuickCheck, TestResult};
 use quickcheck_macros;
 
+// FLUX-TODO: this uses `os_pread` with an arbitrary slice?
 #[quickcheck_macros::quickcheck]
 fn check_os_pread(fd: usize, mut vec_buf: Vec<u8>, cnt: usize, offset: usize) -> TestResult {
     init();
@@ -15,7 +16,7 @@ fn check_os_pread(fd: usize, mut vec_buf: Vec<u8>, cnt: usize, offset: usize) ->
     if !(buf.len() >= cnt) {
         return TestResult::discard();
     }
-    let result = os_pread(fd, buf, cnt, offset);
+    let result = os_pread(fd, crate::rvec::BSlice::from_raw(buf), cnt, offset);
     if !(!(result >= 0) || (buf.len() >= result as usize)) {
         return TestResult::failed();
     }
@@ -27,6 +28,7 @@ fn check_os_pread(fd: usize, mut vec_buf: Vec<u8>, cnt: usize, offset: usize) ->
     }
     TestResult::passed()
 }
+
 //#[quickcheck_macros::quickcheck]
 //fn check_os_pwrite(fd: usize, vec_buf: Vec<u8>, cnt: usize, offset: usize) -> TestResult {
 //    init();

@@ -1,25 +1,27 @@
 //! Contains call implementations that are specific to MacOs
 //! See src/tcb/os_specs for the raw system calls.
 
+use libc::{clockid_t, timespec};
+
 use crate::tcb::misc::{bitwise_or_u32, fresh_rusage};
 use crate::tcb::os_specs::*;
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
+// #[cfg(feature = "verify")]
+// use crate::tcb::verifier::*;
 use crate::types::*;
-use crate::{effect, effects};
-use prusti_contracts::*;
-use syscall::syscall;
-use wave_macros::{external_call, with_ghost_var};
+// use crate::{effect, effects};
+// use prusti_contracts::*;
+// use syscall::syscall;
+// use wave_macros::{external_call, with_ghost_var};
 
 use mach2::mach_time::mach_timebase_info_data_t;
 
 // Call does not exist on Mac. Do nothing...
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn trace_advise(
     ctx: &VmCtx,
     fd: HostFd,
@@ -31,13 +33,13 @@ pub fn trace_advise(
 }
 
 //// FROM: https://lists.apple.com/archives/darwin-dev/2007/Dec/msg00040.html
-#[with_ghost_var(trace: &mut Trace)]
-#[external_call(bitwise_or_u32)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_call(bitwise_or_u32)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace, effect!(FdAccess)))]
 pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> RuntimeResult<usize> {
     let os_fd: usize = fd.to_raw();
     let fstore = libc::fstore_t {
@@ -55,18 +57,19 @@ pub fn trace_allocate(ctx: &VmCtx, fd: HostFd, offset: i64, len: i64) -> Runtime
 }
 
 // Inspired from https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
-#[with_ghost_var(trace: &mut Trace)]
-#[external_call(fresh_rusage)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[external_call(fresh_rusage)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
+#[flux::sig(fn (ctx: &VmCtx, clock_id: clockid_t, spec: &mut timespec) -> Result<usize, RuntimeError>)]
 pub fn trace_clock_get_time(
     ctx: &VmCtx,
-    clock_id: libc::clockid_t,
-    spec: &mut libc::timespec,
-) -> RuntimeResult<usize> {
+    clock_id: clockid_t,
+    spec: &mut timespec,
+) -> Result<usize, RuntimeError> {
     // TODO: redo this??
     //       look at https://opensource.apple.com/source/Libc/Libc-320.1.3/i386/mach/mach_absolute_time.c.auto.html
     let r = match clock_id {
@@ -143,17 +146,18 @@ pub fn trace_clock_get_time(
 }
 
 ////From: https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
+#[flux::sig(fn (ctx: &VmCtx, clock_id: clockid_t, spec: &mut timespec) -> Result<usize, RuntimeError>)]
 pub fn trace_clock_get_res(
     ctx: &VmCtx,
-    clock_id: libc::clockid_t,
-    spec: &mut libc::timespec,
-) -> RuntimeResult<usize> {
+    clock_id: clockid_t,
+    spec: &mut timespec,
+) -> Result<usize, RuntimeError> {
     match clock_id {
         libc::CLOCK_REALTIME
         | libc::CLOCK_MONOTONIC
@@ -168,12 +172,12 @@ pub fn trace_clock_get_res(
 }
 
 // based on https://opensource.apple.com/source/Libc/Libc-1158.50.2/gen/nanosleep.c.auto.html
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-#[ensures(effects!(old(trace), trace))]
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// #[ensures(effects!(old(trace), trace))]
 pub fn trace_nanosleep(
     ctx: &VmCtx,
     req: &libc::timespec,

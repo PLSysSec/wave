@@ -1,43 +1,31 @@
+use crate::rvec::RVec;
 use crate::tcb::path::*;
-#[cfg(feature = "verify")]
-use crate::tcb::verifier::*;
 use crate::types::*;
-use owned_components::{readlinkat, OwnedComponent, OwnedComponents};
-use prusti_contracts::*;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStringExt;
-use std::path::{Component, Path, PathBuf};
+use std::path::PathBuf;
 
 const MAXSYMLINKS: isize = 10;
 
-// #[pure]
-// #[ensures()]
-fn to_pathbuf(v: Vec<u8>) -> PathBuf {
-    PathBuf::from(OsString::from_vec(v.clone()))
+fn to_pathbuf(v: RVec<u8>) -> PathBuf {
+    PathBuf::from(OsString::from_vec(v.to_vec()))
 }
 
-// #[ensures(!is_symlink(out_path))]
-#[ensures(
-    match &result {
-        Ok(v) => forall(|i: usize| (i < v.len() - 1) ==> !is_symlink(v.prefix(i)) ) && 
-            (!should_follow || (should_follow && !is_symlink(&v))),
-        _ => true,
-    }
-)]
-fn expand_path(vec: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResult<OwnedComponents> {
+#[flux::sig(fn (RVec<u8>, should_follow:bool, HostFd) -> Result<LastSymLink[should_follow], RuntimeError>)]
+fn expand_path(
+    vec: RVec<u8>,
+    should_follow: bool,
+    dirfd: HostFd,
+) -> Result<FOwnedComponents, RuntimeError> {
     let p = to_pathbuf(vec);
     let components = get_components(&p);
 
     let mut out_path = fresh_components();
     let mut num_symlinks = 0;
-    let mut idx = 0;
 
+    let mut idx = 0;
     while idx < components.len() {
-        body_invariant!(!is_symlink(&out_path));
-        // out_path should never contain symlinks
-        body_invariant!(forall(|i: usize| i < out_path.len() ==> !is_symlink(out_path.prefix(i)) ) );
-        let comp = components[idx];
-        let c = OwnedComponent::from_borrowed(&comp);
+        let c = components[idx].clone();
         // if this is the last element, and we are NO_FOLLOW, then don't expand
         if !should_follow && idx + 1 == components.len() {
             out_path.push(c);
@@ -59,13 +47,12 @@ fn expand_path(vec: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResul
     Ok(out_path)
 }
 
-#[ensures(
-    match &result {
-        Ok(v) => path_safe(&v, should_follow),
-        _ => true,
-    }
-)]
-pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> RuntimeResult<HostPath> {
+#[flux::sig(fn(RVec<u8>, should_follow:bool, HostFd) -> Result<HostPathSafe[should_follow], RuntimeError>)]
+pub fn resolve_path(
+    path: RVec<u8>,
+    should_follow: bool,
+    dirfd: HostFd,
+) -> Result<HostPath, RuntimeError> {
     // TODO: use ? when that works properly in Prusti
     let c = expand_path(path, should_follow, dirfd);
 
@@ -80,7 +67,7 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> Runtim
         return Err(RuntimeError::Enotcapable);
     }
 
-    match OwnedComponents::unparse(c) {
+    match FOwnedComponents::unparse(c) {
         Some(result_arr) => Ok(result_arr),
         _ => Err(RuntimeError::Enametoolong),
     }
@@ -88,21 +75,16 @@ pub fn resolve_path(path: Vec<u8>, should_follow: bool, dirfd: HostFd) -> Runtim
 
 // Recursively expands a symlink (without explicit recursion)
 // maintains a queue of path components to process
-#[requires(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
-#[requires(!is_symlink(out_path) )]
-#[ensures(!is_symlink(out_path))]
-#[ensures(forall(|i: usize| (i < out_path.len()) ==> !is_symlink(out_path.prefix(i)) ))]
+#[flux::sig(fn(out_path: &mut NoSymLinks, linkpath: FOwnedComponents, num_symlinks: &mut isize, HostFd))]
 fn expand_symlink(
-    out_path: &mut OwnedComponents,
-    linkpath_components: OwnedComponents,
+    out_path: &mut FOwnedComponents,
+    linkpath_components: FOwnedComponents,
     num_symlinks: &mut isize,
     dirfd: HostFd,
 ) {
     let mut idx = 0;
     while idx < linkpath_components.len() {
-        body_invariant!(!is_symlink(out_path));
         // out_path should never contain symlinks
-        body_invariant!(forall(|i: usize| i < out_path.len() ==> !is_symlink(out_path.prefix(i))));
         if *num_symlinks >= MAXSYMLINKS {
             return;
         }

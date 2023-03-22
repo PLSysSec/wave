@@ -23,6 +23,7 @@ fn run_and_capture(example_path: &str) -> String {
 #[test]
 fn example_cat() {
     let s = run_and_capture("examples/cat");
+    println!("example_cat: {s:?}");
     assert!(s == "This is the contents of the file!\n");
 }
 
