@@ -35,7 +35,7 @@ impl FdMap {
 
     // #[requires (self.counter == 0)] //should only be called on empty fdmap
 
-    #[flux::sig(fn (self: &strg { FdMap[@fm] : fm.counter == 0}) -> Result<(), RuntimeError> ensures self: FdMap)]
+    #[flux::sig(fn (self: &strg { FdMap[@fm] | fm.counter == 0}) -> Result<(), RuntimeError> ensures self: FdMap)]
     pub fn init_std_fds(&mut self) -> Result<(), RuntimeError> {
         let stdin_fd = stdin().as_raw_fd();
         let stdout_fd = stdout().as_raw_fd();
@@ -60,7 +60,7 @@ impl FdMap {
     // #[with_ghost_var(trace: &Trace)]
     // #[external_calls(vec_checked_lookup)]
     // #[ensures(result.is_ok() ==> old(v_fd) < MAX_SBOX_FDS)]
-    #[flux::sig(fn (&FdMap, v_fd: SboxFd) -> Result<{HostFd : v_fd < MAX_SBOX_FDS}, RuntimeError>)]
+    #[flux::sig(fn (&FdMap, v_fd: SboxFd) -> Result<{HostFd | v_fd < MAX_SBOX_FDS}, RuntimeError>)]
     pub fn fd_to_native(&self, v_fd: SboxFd) -> Result<HostFd, RuntimeError> {
         if v_fd >= MAX_SBOX_FDS {
             return Err(Ebadf);

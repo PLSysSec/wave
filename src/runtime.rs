@@ -121,7 +121,7 @@ impl VmCtx {
     }
 
     /// Copy arg buffer from from host to sandbox
-    #[flux::sig(fn(&mut {VmCtx[@cx] : cx.arg_buf == n}, dst: SboxPtr, n:u32) -> Result<(), RuntimeError>)]
+    #[flux::sig(fn(&mut {VmCtx[@cx] | cx.arg_buf == n}, dst: SboxPtr, n:u32) -> Result<(), RuntimeError>)]
     pub fn copy_arg_buffer_to_sandbox(&mut self, dst: SboxPtr, n: u32) -> Result<(), RuntimeError> {
         if !self.fits_in_lin_mem(dst, n) {
             return Err(Efault);
@@ -132,7 +132,7 @@ impl VmCtx {
     }
 
     /// Copy arg buffer from from host to sandbox
-    #[flux::sig(fn(&mut {VmCtx[@cx] : cx.env_buf == n}, dst: SboxPtr, n:u32) -> Result<(), RuntimeError>)]
+    #[flux::sig(fn(&mut {VmCtx[@cx] | cx.env_buf == n}, dst: SboxPtr, n:u32) -> Result<(), RuntimeError>)]
     pub fn copy_environ_buffer_to_sandbox(
         &mut self,
         dst: SboxPtr,

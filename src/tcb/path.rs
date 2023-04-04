@@ -104,7 +104,7 @@ pub enum WasiProto {
 
 // If the first component is not the rootdir or a prefix (like Windows C://) its relative
 #[flux::trusted]
-#[flux::sig(fn(&{FOwnedComponents[@oc] : oc.size > 0}) -> bool[oc.is_relative])]
+#[flux::sig(fn(&{FOwnedComponents[@oc] | oc.size > 0}) -> bool[oc.is_relative])]
 pub fn is_relative(c: &FOwnedComponents) -> bool {
     let start = c.inner.lookup(0);
     !(matches!(start, OwnedComponent::RootDir))
@@ -142,7 +142,7 @@ pub fn min_depth(components: &FOwnedComponents) -> isize {
 }
 
 #[flux::trusted]
-#[flux::sig(fn (HostFd, &FOwnedComponents[@oc]) -> Option<{FOwnedComponents: oc.ns_prefix == oc.size}>)]
+#[flux::sig(fn (HostFd, &FOwnedComponents[@oc]) -> Option<{FOwnedComponents | oc.ns_prefix == oc.size}>)]
 fn read_linkat_h(dirfd: HostFd, out_path: &FOwnedComponents) -> Option<FOwnedComponents> {
     let inner = readlinkat(dirfd.to_raw(), &out_path.inner.as_pathbuf())
         .ok()

@@ -1,9 +1,9 @@
 use std::path::{Component, Path, PathBuf};
 // use std::ffi::{OsStr, OsString};
-use std::os::unix::ffi::{OsStringExt, OsStrExt};
-use std::io::{Error, ErrorKind};
-use std::io;
 use std::ffi::{CStr, CString, OsStr, OsString};
+use std::io;
+use std::io::{Error, ErrorKind};
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 //use libc;
 
 // Represents an Owned version of a Component<'a>
@@ -54,38 +54,40 @@ impl OwnedComponent {
 #[cfg_attr(not(feature = "verify"), derive(Debug))]
 #[derive(Clone, PartialEq, Eq)]
 pub struct OwnedComponents {
-    pub inner: Vec<OwnedComponent>
+    pub inner: Vec<OwnedComponent>,
 }
 
 impl OwnedComponents {
     pub fn new() -> Self {
-        Self {
-            inner: Vec::new()
-        }
+        Self { inner: Vec::new() }
     }
     // 1 copy:
     pub fn as_pathbuf(&self) -> PathBuf {
-        // let s: OsString = self.inner.iter().map(|oc| oc.as_os_string()).collect(); 
+        // let s: OsString = self.inner.iter().map(|oc| oc.as_os_string()).collect();
         self.inner.iter().map(|oc| oc.as_os_string()).collect()
     }
 
     // 1 copy
     pub fn parse(p: PathBuf) -> Self {
-        let inner: Vec<OwnedComponent> = p.components().map(|c| 
-            OwnedComponent::from_borrowed(&c)).collect();
-        Self{ inner }
+        let inner: Vec<OwnedComponent> = p
+            .components()
+            .map(|c| OwnedComponent::from_borrowed(&c))
+            .collect();
+        Self { inner }
     }
 
     // Currently requires two copies
     pub fn unparse(self) -> Option<[u8; 4096]> {
-        // let s: PathBuf = self.inner.iter().map(|oc| oc.as_os_string()).collect(); 
+        // let s: PathBuf = self.inner.iter().map(|oc| oc.as_os_string()).collect();
         let s = self.as_pathbuf().into_os_string();
         // let s = s.into_os_string();
         if s.len() >= 4096 {
             return None;
         }
         let mut out = [0; 4096];
-        for (dst, src) in out.iter_mut().zip(s.as_bytes()) { *dst = *src }
+        for (dst, src) in out.iter_mut().zip(s.as_bytes()) {
+            *dst = *src
+        }
         // out.copy_from_slice(s.as_bytes());
         Some(out)
     }
@@ -111,7 +113,6 @@ impl OwnedComponents {
     }
 }
 
-
 fn cstr(path: &Path) -> io::Result<CString> {
     Ok(CString::new(path.as_os_str().as_bytes())?)
 }
@@ -124,9 +125,13 @@ pub fn readlinkat(fd: usize, p: &Path) -> io::Result<PathBuf> {
 
     let mut buf = Vec::with_capacity(4096);
 
-    let buf_read = unsafe { libc::readlinkat(fd as i32, p, buf.as_mut_ptr() as *mut _, buf.capacity()) };
+    let buf_read =
+        unsafe { libc::readlinkat(fd as i32, p, buf.as_mut_ptr() as *mut _, buf.capacity()) };
     if buf_read == -1 {
-        return Err(Error::new(ErrorKind::Other, "path translation readlink failure!"));
+        return Err(Error::new(
+            ErrorKind::Other,
+            "path translation readlink failure!",
+        ));
     }
     let buf_read = buf_read as usize;
 
@@ -138,7 +143,4 @@ pub fn readlinkat(fd: usize, p: &Path) -> io::Result<PathBuf> {
         buf.shrink_to_fit();
     }
     return Ok(PathBuf::from(OsString::from_vec(buf)));
-    
-
 }
-

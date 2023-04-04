@@ -185,7 +185,7 @@ pub struct Dirent {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[flux::refined_by(iov_base: int)]
 pub struct WasmIoVec {
-    #[flux::field({ u32[@iov_base] : 0 <= iov_base})]
+    #[flux::field({ u32[@iov_base] | 0 <= iov_base})]
     pub iov_base: u32,
     #[flux::field(u32{ len : 0 <= len && iov_base <= iov_base + len && iov_base + len < LINEAR_MEM_SIZE })]
     pub iov_len: u32,
@@ -273,9 +273,9 @@ pub struct VmCtx {
     pub homedir: String,
     #[flux::field(HostFd[@homedir_host_fd])]
     pub homedir_host_fd: HostFd,
-    #[flux::field({RVec<u8>[@arg_buf] : arg_buf < TWO_POWER_20 } )]
+    #[flux::field({RVec<u8>[@arg_buf] | arg_buf < TWO_POWER_20 } )]
     pub arg_buffer: RVec<u8>,
-    #[flux::field({ RVec<u8>[@env_buf] : env_buf < TWO_POWER_20 })]
+    #[flux::field({ RVec<u8>[@env_buf] | env_buf < TWO_POWER_20 })]
     pub env_buffer: RVec<u8>,
     #[flux::field(usize{v: v < 1024})]
     pub envc: usize,
