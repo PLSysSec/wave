@@ -1,4 +1,5 @@
-#![flux::ignore] // C-FFI and ptr shenanigans
+// C-FFI and ptr shenanigans
+#![flux::ignore]
 use crate::types::*;
 use crate::wasm2c_frontend::*;
 // use crate::wrappers::*;

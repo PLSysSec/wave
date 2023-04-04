@@ -257,29 +257,27 @@ pub fn trace_pwritev(
     RuntimeError::from_syscall_ret(r)
 }
 
-/* FLUX-TODO:begin
-#[with_ghost_var(trace: &mut Trace)]
-#[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
-#[requires(ctx_safe(ctx))]
-#[requires(trace_safe(trace, ctx))]
-#[requires(cnt < ctx.memlen)]
-#[ensures(ctx_safe(ctx))]
-#[ensures(trace_safe(trace, ctx))]
-// pwrite writes `cnt` bytes to the sandbox
-// #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count)))]
-pub fn trace_pwrite(
-    ctx: &mut VmCtx,
-    fd: HostFd,
-    ptr: SboxPtr,
-    cnt: usize,
-    offset: usize,
-) -> RuntimeResult<usize> {
-    let slice = ctx.slice_mem_mut(ptr, cnt as u32);
-    let os_fd: usize = fd.to_raw();
-    let r = os_pwrite(os_fd, slice, cnt, offset);
-    RuntimeError::from_syscall_ret(r)
-}
-FLUX-TODO:end */
+// #[with_ghost_var(trace: &mut Trace)]
+// #[requires(ctx.fits_in_lin_mem(ptr, cnt as u32, trace))]
+// #[requires(ctx_safe(ctx))]
+// #[requires(trace_safe(trace, ctx))]
+// #[requires(cnt < ctx.memlen)]
+// #[ensures(ctx_safe(ctx))]
+// #[ensures(trace_safe(trace, ctx))]
+// // pwrite writes `cnt` bytes to the sandbox
+// // #[ensures(effects!(old(trace), trace, effect!(FdAccess), effect!(ReadMem, addr, count)))]
+// pub fn trace_pwrite(
+//     ctx: &mut VmCtx,
+//     fd: HostFd,
+//     ptr: SboxPtr,
+//     cnt: usize,
+//     offset: usize,
+// ) -> RuntimeResult<usize> {
+//     let slice = ctx.slice_mem_mut(ptr, cnt as u32);
+//     let os_fd: usize = fd.to_raw();
+//     let r = os_pwrite(os_fd, slice, cnt, offset);
+//     RuntimeError::from_syscall_ret(r)
+// }
 
 // #[with_ghost_var(trace: &mut Trace)]
 // #[requires(ctx_safe(ctx))]

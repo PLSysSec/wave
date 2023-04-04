@@ -1,4 +1,5 @@
-#![flux::ignore] // ignore checking this module (and all its contents)
+// ignore checking this module (and all its contents)
+#![flux::ignore]
 use core::arch::x86_64::{__cpuid_count, __rdtscp, _rdtsc};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -108,20 +109,20 @@ thread_local! {
 
 #[inline]
 pub fn start_timer() -> u64 {
-      unsafe {
-          __cpuid_count(0, 0);
-          _rdtsc() as u64
-      } 
+    unsafe {
+        __cpuid_count(0, 0);
+        _rdtsc() as u64
+    }
 }
 
 #[inline]
 pub fn stop_timer() -> u64 {
-      unsafe {
-          let mut junk: u32 = 0;
-          let ans: u64 = __rdtscp(&mut junk);
-                            __cpuid_count(0, 0);
-          ans
-      }
+    unsafe {
+        let mut junk: u32 = 0;
+        let ans: u64 = __rdtscp(&mut junk);
+        __cpuid_count(0, 0);
+        ans
+    }
 }
 
 pub fn push_hostcall_result(name: &str, start: u64, end: u64) {

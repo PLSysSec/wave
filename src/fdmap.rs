@@ -51,13 +51,11 @@ impl FdMap {
         Err(Emfile) // File descriptor failure
     }
 
-    /*
-    #[pure]
-    #[requires (index < MAX_SBOX_FDS )]
-    pub fn lookup(&self, index: SboxFd) -> RuntimeResult<HostFd> {
-        vec_checked_lookup(&self.m, index)
-    }
-    */
+    // #[pure]
+    // #[requires (index < MAX_SBOX_FDS )]
+    // pub fn lookup(&self, index: SboxFd) -> RuntimeResult<HostFd> {
+    //     vec_checked_lookup(&self.m, index)
+    // }
 
     // #[with_ghost_var(trace: &Trace)]
     // #[external_calls(vec_checked_lookup)]
@@ -70,14 +68,12 @@ impl FdMap {
         self.m[v_fd as usize]
     }
 
-    /*
-    #[pure]
-    #[requires(index < MAX_SBOX_FDS)]
-    #[ensures(result == true ==> self.lookup(index).is_ok())]
-    pub fn contains(&self, index: SboxFd) -> bool {
-        matches!(self.lookup(index), Ok(_))
-    }
-    */
+    // #[pure]
+    // #[requires(index < MAX_SBOX_FDS)]
+    // #[ensures(result == true ==> self.lookup(index).is_ok())]
+    // pub fn contains(&self, index: SboxFd) -> bool {
+    //     matches!(self.lookup(index), Ok(_))
+    // }
 
     #[flux::sig(fn (self: &strg FdMap[@fd]) -> Result<SboxFdSafe, RuntimeError> ensures self: FdMap)]
     fn pop_fd(&mut self) -> Result<SboxFdSafe, RuntimeError> {
@@ -108,7 +104,8 @@ impl FdMap {
     }
 
     // #[requires(k < MAX_SBOX_FDS)]
-    #[flux::sig(fn (self: &strg FdMap, k: SboxFdSafe) ensures self: FdMap)] // FLUX-TODO2 open-mut-ref
+    // FLUX-TODO2 open-mut-ref
+    #[flux::sig(fn (self: &strg FdMap, k: SboxFdSafe) ensures self: FdMap)]
     pub fn delete(&mut self, k: SboxFdSafe) {
         if let Ok(oldfd) = self.m[k as usize] {
             self.reserve.push(k);

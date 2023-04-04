@@ -748,7 +748,8 @@ impl Timestamp {
         self.0
     }
 
-    #[flux::trusted] // FLUX-TODO2: closure
+    // FLUX-TODO2: closure
+    #[flux::trusted]
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(|res| Timestamp(res))
     }

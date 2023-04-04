@@ -3,7 +3,7 @@ use crate::{
     rvec::RVec,
     tcb::{
         misc::{empty_netlist, get_homedir_fd, string_to_rvec_u8},
-        path::{HostPath, HostPathSafe},
+        path::HostPathSafe,
     },
     types::*,
 };

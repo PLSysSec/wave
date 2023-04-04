@@ -114,7 +114,8 @@ syscall_spec_gen! {
 // #[external_methods(into)]
 // #[trusted]
 // #[ensures(effects!(old(trace), trace))]
-#[flux::sig(fn (timeval: &strg timeval[@dummy]) -> isize ensures timeval: timeval)] // FLUX-TODO: ensures timeval business is GROSS!
+// FLUX-TODO: ensures timeval business is GROSS!
+#[flux::sig(fn (timeval: &strg timeval[@dummy]) -> isize ensures timeval: timeval)]
 pub fn os_getboottime(timeval: &mut timeval) -> isize {
     let __start_ts = start_timer();
     // boot time is available through sysctl
@@ -209,8 +210,9 @@ pub fn os_absolute_time() -> u64 {
 // #[external_calls(mach_timebase_info)]
 // #[trusted]
 // #[ensures(effects!(old(trace), trace))]
+// FLUX-TODO: (ASK-NICO) ensures info business is GROSS!
 #[flux::trusted]
-#[flux::sig(fn (info: &strg mach_timebase_info) -> isize ensures info: mach_timebase_info )] // FLUX-TODO: (ASK-NICO) ensures info business is GROSS!
+#[flux::sig(fn (info: &strg mach_timebase_info) -> isize ensures info: mach_timebase_info )]
 pub fn os_timebase_info(info: &mut mach_timebase_info) -> isize {
     // TODO: handle return value
     let result = unsafe { mach_timebase_info(info as mach_timebase_info_t) as isize };
