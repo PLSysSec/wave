@@ -35,5 +35,3 @@ You can examine the makefile to see the exact commands
 ## Related documentation
 Interface for WASI calls: [WASI API](https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md)
 
-## Reproducing the evaluation
-TODO
