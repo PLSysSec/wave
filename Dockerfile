@@ -13,15 +13,6 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cargo install --force cbindgen
 
-# add ssh private key so we can download private repos
-# TODO: remove once repos are public
-# TODO: once ssh key is stripped out, add prebuilt container to repo
-ARG SSH_PRIVATE_KEY
-RUN mkdir /root/.ssh/
-RUN echo "${SSH_PRIVATE_KEY}" > /root/.ssh/id_rsa
-RUN chmod 0600 /root/.ssh/id_rsa
-RUN ssh-keyscan github.com > /root/.ssh/known_hosts
-
 # WaVe
 RUN git clone git@github.com:PLSysSec/wave.git
 WORKDIR /wave
