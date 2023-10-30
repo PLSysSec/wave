@@ -22,6 +22,7 @@ pub mod tcb;
 mod tests;
 pub mod types;
 pub mod verifier_interface;
+#[allow(unreachable_code)]
 #[cfg(not(feature = "verify"))] // TODO: verify this final ffi layer
 pub mod wasm2c_frontend;
 mod writeback;
