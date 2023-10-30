@@ -106,7 +106,7 @@ impl OwnedComponents {
         self.inner.len()
     }
 
-    pub fn prefix(&self, end: usize) -> &OwnedComponents {
+    pub fn prefix(&self, end: _usize) -> &OwnedComponents {
         unimplemented!()
     }
 }
