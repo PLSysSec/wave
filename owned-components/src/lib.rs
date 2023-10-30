@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use std::os::unix::ffi::{OsStringExt, OsStrExt};
 use std::io::{Error, ErrorKind};
 use std::io;
-use std::ffi::{CStr, CString, OsStr, OsString};
+use std::ffi::{CString, OsStr, OsString};
 //use libc;
 
 // Represents an Owned version of a Component<'a>
@@ -106,7 +106,7 @@ impl OwnedComponents {
         self.inner.len()
     }
 
-    pub fn prefix(&self, end: _usize) -> &OwnedComponents {
+    pub fn prefix(&self, _end: usize) -> &OwnedComponents {
         unimplemented!()
     }
 }
